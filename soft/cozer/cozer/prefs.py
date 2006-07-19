@@ -22,7 +22,7 @@ import sys,string,math,pprint,os,types,time,atexit
 import Queue,threading
 
 #XXX: find a way to establish this path automatically
-gsview_exe = r"c:\Program Files\Ghostgum\gsview\gsview32.exe"
+gsview_exe = r'"c:\Program Files\Ghostgum\gsview\gsview32.exe"'
 
 _log_queue = Queue.Queue(0)
 if not os.path.isdir('log'):
