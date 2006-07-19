@@ -90,6 +90,7 @@ class ParticipantDataTable(DataTable,MyDebug):
                           wxGRID_VALUE_STRING,
                           ]
         self.popup = [0,0,1,self.classes,0]
+        return
 
     def ResetDataTypes(self):
         self.Debug('ResetDataTypes')

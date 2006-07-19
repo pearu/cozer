@@ -313,7 +313,7 @@ class DataMenu(wxMenu,MyDebug):
         #id = self.EnableEditObj.GetId()
         #if id>=0:
         #self.parent.SetEnableEdit(self.IsChecked(id))
-        if os.name == 'nt':
+        if 0 and os.name == 'nt':
             self.parent.SetEnableEdit(not evt.Checked())
         else:
             self.parent.SetEnableEdit(evt.Checked())
