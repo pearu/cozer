@@ -243,7 +243,7 @@ def analyze(heat,record,scoringsystem = []):
     
     requiredlapscoef = 0.70           # U.I.M. 2000 311.02.1
     restartrequiredlapscoef = 0.35    # U.I.M. 2000 311.02.7
-    requiredlaps4pointscoef = 0.75     # U.I.M. 2000 318.02_1
+    requiredlaps4pointscoef = 0.75     # U.I.M. 2000 318.02_1, must cross the lane
     minrequiredlaps = requiredlapscoef * len(course)
     minrestartrequiredlaps = restartrequiredlapscoef * len(course)
     leaderlaps = preres[0][7][2] - preres[0][7][1]
