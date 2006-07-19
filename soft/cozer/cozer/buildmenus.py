@@ -175,7 +175,7 @@ TODO:
                     n = 'On%s'%(mthname+name)
                     if hasattr(topparent,n):
                         mth = getattr(topparent,n)
-                        if os.name=='nt':
+                        if 1 or os.name=='nt':
                             EVT_MENU(topparent,ID,mth)
                         else:
                             EVT_MENU(parent,ID,mth)

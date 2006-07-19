@@ -40,9 +40,9 @@ time keeping, and printing various reports and letters.
 <p><b>Pearu Peterson</b> <a href="mailto:pearu.peterson@gmail.com">&lt;pearu.peterson@gmail.com&gt;</a>) Copyright (c) 2000,2001,2006.
 
 <center>
-<p><wxp class="wxButton">
+<p><wxp class="Button">
     <param name="label" value="Okay">
-    <param name="id"    value="wxID_OK">
+    <param name="id"    value="ID_OK">
 </wxp></p>
 </center>
 </body>
@@ -54,3 +54,4 @@ time keeping, and printing various reports and letters.
         self.html = wxHtmlWindow(self, -1, size=wxSize(440, 440))
         self.html.SetPage(self.about)
         self.CentreOnParent(wxBOTH)
+        return
