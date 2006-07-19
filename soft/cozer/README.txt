@@ -1,6 +1,6 @@
 
                          COZER - COmpetition organiZER
-                                    2.4
+                                    2.6
 
 Copyright 2000,2001,2006 Pearu Peterson all rights reserved,
 Pearu Peterson <pearu.peterson@gmail.com>          
@@ -36,7 +36,7 @@ REQUIREMENTS
      Python 2.1 (other versions may work as well) <http://www.python.org>
      Python 2.3, 2.4
 
-     wxPython <http://www.wxpython.org>
+     wxPython <http://www.wxpython.org>, use with ANSI string backend
 
      latex, xdvi, dvips, gv          (on Unix)
 
@@ -83,4 +83,4 @@ Pearu Peterson
 
 CHANGES
 =======
-v2.4 - added unicode support, may break Python 2.1 support (19 July 2006)
+v2.6 - added unicode support, may break Python 2.1 support (19 July 2006)

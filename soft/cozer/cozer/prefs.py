@@ -22,10 +22,13 @@ import sys,string,math,pprint,os,types,time,atexit
 import Queue,threading
 
 #XXX: find a way to establish this path automatically
-gsview_exe = "c:\Ghostgum\gsview\gsview32.exe"
+gsview_exe = r"c:\Program Files\Ghostgum\gsview\gsview32.exe"
 
 _log_queue = Queue.Queue(0)
-_log_file = open(time.strftime('cozer_%y%b%d_%H%M%S.log',time.localtime()),'w')
+if not os.path.isdir('log'):
+    os.mkdir('log')
+_log_file = open(time.strftime(os.path.join('log','%y%b%d_%H%M%S.log'),
+                               time.localtime()),'w')
 atexit.register(_log_file.close)
 
 def put_log(mess):
