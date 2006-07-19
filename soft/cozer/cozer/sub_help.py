@@ -37,7 +37,7 @@ COZER supports registration of participants, setting up racing programs,
 time keeping, and printing various reports and letters.
 
 <p>The author of this program is
-<p><b>Pearu Peterson</b> <a href="mailto:pearu.peterson@gmail.com">&lt;pearu.peterson@gmail.com&gt;</a>) Copyright (c) 2000,2001,2006.
+<p><b>Pearu Peterson</b> (<a href="mailto:pearu.peterson@gmail.com">&lt;pearu.peterson@gmail.com&gt;</a>) Copyright (c) 2000,2001,2006.
 
 <center>
 <p><wxp class="Button">
