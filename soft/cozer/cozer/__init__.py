@@ -498,9 +498,9 @@ class MyApp(wxApp):
             Message('Copying %s to %s'%(tmpl,fn))
             shutil.copyfile(tmpl,fn)
         if os.path.isfile(fn):
-            frame = MainFrame(debug=10,fn=fn)
+            frame = MainFrame(debug=0,fn=fn)
         else:
-            frame = MainFrame(debug=10)
+            frame = MainFrame(debug=0)
         frame.Show(TRUE)
         self.SetTopWindow(frame)
         wxYield()

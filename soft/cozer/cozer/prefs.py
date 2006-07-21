@@ -69,8 +69,8 @@ sys.stdout = MyStdIO(sys.stdout)
 
 show = pprint.pprint
 
-debuglevel = 1 # 1
-debugdetaillevel = 10
+debuglevel = 0 # 1
+debugdetaillevel = 0
 
 top_parent = None
 
