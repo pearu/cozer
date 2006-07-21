@@ -19,7 +19,7 @@ from wxPython.wx import *
 import re,os
 
 _isMenuBar=re.compile(r'.*?_wxMenuBar_?')
-_isMenu=re.compile(r'.*?_wxMenu\b_?')
+_isMenu=re.compile(r'.*?_wxMenu(_|\b)')
 _isFrame=re.compile(r'.*?_wxFrame_?')
 _isToolBar=re.compile(r'.*?_wxToolBar_?')
 
