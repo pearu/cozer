@@ -41,6 +41,8 @@ Childrens must define:
 
     def IsEmptyCell(self, row, col):
         self.Debug1('IsEmptyCell')
+        if col+1>=len(self.data[row]):
+            return True
         return not self.data[row][col+1]
 
     def GetValue(self, row, col):
@@ -103,6 +105,7 @@ class DataGrid(wxGrid,MyDebug):
 
         self.SetEnableEdit(not self.data)
         self.SetDefaultCellBackgroundColour({1:edit_bg,0:disableedit_bg}[self.table.enableedit])
+        self.SetGridLineColour(grid_ln)
         self.SetRowLabelSize(20)
         self.SetColLabelSize(20)
         self.SetMargins(0,0)
@@ -244,7 +247,8 @@ class DataGrid(wxGrid,MyDebug):
         self.Debug('SetEnableEdit:bool=%s'%(repr(bool)))
         self.table.enableedit=not not bool
         self.SetDefaultCellBackgroundColour({1:edit_bg,0:disableedit_bg}[self.table.enableedit])
-
+        self.SetGridLineColour(grid_ln)
+        return
 
 _datatablelabelm1menu = [
     ('New',{'menu':'New',

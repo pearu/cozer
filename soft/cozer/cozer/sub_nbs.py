@@ -334,11 +334,11 @@ class Timer(wxPanel,MyDebug):
             i = i + 1
             for k in r.keys(): fl = fl or r[k]
             if fl:
-                mess = wx.wxMessageDialog(self,
-                                          "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost!"%(cl,h),
-                                          "Overwrite race record?",
-                                          style=wx.wxYES_NO|wx.wxCENTRE|wx.wxICON_QUESTION|wx.wxNO_DEFAULT)
-                if not mess.ShowModal() == wx.wxID_YES:
+                mess = wxMessageDialog(self,
+                                       "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost!"%(cl,h),
+                                       "Overwrite race record?",
+                                       style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
+                if not mess.ShowModal() == wxID_YES:
                     skip.append(i)
                     continue
             self.timerwin.info[i]['starttime'] = t
@@ -499,11 +499,11 @@ class EditRecord(wxPanel,MyDebug):
             self.Info('Select Class/Heat first.')
             return
         cls,heat = self.recs[sel]
-        mess = wx.wxMessageDialog(self,
+        mess = wxMessageDialog(self,
                                   "Are you sure that you want to delete race record of class %s heat %s"%(cls,heat),
                                   "Delete race record?",
-                                  style=wx.wxYES_NO|wx.wxCENTRE|wx.wxICON_QUESTION|wx.wxNO_DEFAULT)
-        if mess.ShowModal() == wx.wxID_YES:
+                               style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
+        if mess.ShowModal() == wxID_YES:
             del self.record[cls][heat]
             self.Entering()
 

@@ -167,6 +167,8 @@ def analyze(heat,record,scoringsystem = []):
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
                     if n: notes[k].append(n)
+            elif m[0]==4: # penalty lap
+                pass
             elif m[0]==10:
                 didntstart = 1
                 n = string.strip(m[2]) 
@@ -183,6 +185,20 @@ def analyze(heat,record,scoringsystem = []):
                     if n and n not in notes[k]:
                         notes[k].append(n)
             elif m[0]==12:
+                disqualification = 1
+                n = string.strip(m[2]) 
+                k = invreccodemap[m[0]]
+                if not notes.has_key(k): notes[k] = []
+                if n and n not in notes[k]:
+                    notes[k].append(n)
+            elif m[0]==13: # yellow card
+                n = string.strip(m[2]) 
+                if n:
+                    k = invreccodemap[m[0]]
+                    if not notes.has_key(k): notes[k] = []
+                    if n not in notes[k]:
+                        notes[k].append(n)
+            elif m[0]==14: # red card
                 disqualification = 1
                 n = string.strip(m[2]) 
                 k = invreccodemap[m[0]]
@@ -210,6 +226,9 @@ def analyze(heat,record,scoringsystem = []):
                 if not notes.has_key(k): notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
+            else:
+                print 'analyzer.analyze: unused code',m[0]
+                
         if laps:
             avgspeed = round(3.6*distcovered/float(t),roundopt)
         if penlapsleft:

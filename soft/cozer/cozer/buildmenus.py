@@ -19,7 +19,7 @@ from wxPython.wx import *
 import re,os
 
 _isMenuBar=re.compile(r'.*?_wxMenuBar_?')
-_isMenu=re.compile(r'.*?_wxMenu_?')
+_isMenu=re.compile(r'.*?_wxMenu\b_?')
 _isFrame=re.compile(r'.*?_wxFrame_?')
 _isToolBar=re.compile(r'.*?_wxToolBar_?')
 
@@ -43,7 +43,10 @@ _bitmap_types={
     'any':wxBITMAP_TYPE_ANY,
     }
 
-def buildmenus(parent,patterns,topparent=None,mthname='',nosep=0,verbose=1):
+def buildmenus(parent,patterns,topparent=None,mthname='',
+               nosep=0,
+               verbose=1,
+               popup=0):
     """
     buildmenus()  --- builds menus and toolbars using the following rules:
             if parent is wxFrame, a MenuBar and ToolBar will be created
@@ -68,7 +71,8 @@ def buildmenus(parent,patterns,topparent=None,mthname='',nosep=0,verbose=1):
             toggle --- the tool item is toggleable and initialized to toggle.
     nosep --- Internal.
     verbose --- Be verbose.
-    
+    popup --- Is dynamically created pop up menu.
+
     buildmenus creates additional objects/methods <name>Obj()/
     <name>[Enable,Toggle,GetState]() to the
     topparent for getting parents and id's of the menu/tool items.
@@ -147,6 +151,7 @@ TODO:
                                 print 'buildmenus: added method %s.%s'%(topparent.__class__,n)
             if rules.has_key('submenu'):
                 buildmenus(parent,rules['submenu'],topparent,mthname+name,1,verbose=verbose)
+                #buildmenus(parent,rules['submenu'],parent,mthname+name,1,verbose=verbose)
     elif isMenu(parent_this):
         for pat in patterns:
             if not pat:
@@ -166,7 +171,7 @@ TODO:
                 if rules.has_key('submenu'):
                     menu = wxMenu()
                     parent.AppendMenu(ID,rules['menu'],menu,help)
-                    ret2 = buildmenus(menu,rules['submenu'],topparent,mthname+name,verbose=verbose)
+                    ret2 = buildmenus(menu,rules['submenu'],topparent,mthname+name,verbose=verbose,popup=popup)
                     ret[1]=ret[1] or ret2[1]
                 else:
                     parent.Append(ID,rules['menu'],help,checkable)
@@ -175,10 +180,13 @@ TODO:
                     n = 'On%s'%(mthname+name)
                     if hasattr(topparent,n):
                         mth = getattr(topparent,n)
-                        if 1 or os.name=='nt':
+                        if os.name=='nt':
                             EVT_MENU(topparent,ID,mth)
                         else:
-                            EVT_MENU(parent,ID,mth)
+                            if popup:
+                                EVT_MENU(parent,ID,mth)
+                            else:
+                                EVT_MENU(topparent,ID,mth)
                     else:
                         if verbose:
                             print 'buildmenus: %s needs method %s'%(topparent.__class__,n)

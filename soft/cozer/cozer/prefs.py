@@ -70,13 +70,15 @@ sys.stdout = MyStdIO(sys.stdout)
 show = pprint.pprint
 
 debuglevel = 1 # 1
-debugdetaillevel = 0
+debugdetaillevel = 10
 
 top_parent = None
 
 edit_bg = wxColour(200,200,150)
 warning_bg = wxColour(150,200,150)
 disableedit_bg = wxColour(250,200,150)
+wxYELLOW = wxColour(250,250,100)
+grid_ln = wxColour(0,0,0)
 
 roundopt = 2
 
@@ -93,11 +95,13 @@ mycolors = {'finish':wxColour(255,0,255),
             'lapmark_disable':wxColour(127,127,0),
             'penlap_mark':wxColour(255,255,0),
             'disq_mark':wxRED,
+            'redcard_mark':wxRED,
+            'yellowcard_mark':wxYELLOW,
             'interruption_mark':wxBLACK,
             }
 
-reccodemap = {'LL':3,'PL':4,'DS':10,'IR':11,'DQ':12,'NT':20,
-              'Q':30,'NQ':31}
+reccodemap = {'LL':3,'PL':4,'DS':10,'IR':11,'DQ':12,'YC':13,'RC':14,
+              'NT':20,'Q':30,'NQ':31}
 invreccodemap = {}
 for k in reccodemap.keys():
     invreccodemap[reccodemap[k]] = k
@@ -109,21 +113,27 @@ reccodemenulabel = {'LL':'Lost a lap',
                     'NT':'Note',
                     'Q':'Qualified',
                     'NQ':'Not qualified',
+                    'YC':'Yellow Card',
+                    'RC':'Red Card',
                     }
 reccodelatexlabel = {'LL':r'\Lostalap',
-                    'PL':r'\Penaltylap',
-                    'DS':r'\Didntstart',
-                    'IR':r'\Interruption',
-                    'DQ':r'\Disqualif',
-                    'NT':r'\Note',
-                    'Q':'r\Qualified',
-                    'NQ':r'\Notqualified',
+                     'PL':r'\Penaltylap',
+                     'DS':r'\Didntstart',
+                     'IR':r'\Interruption',
+                     'DQ':r'\Disqualif',
+                     'YC':r'\YellowCard',
+                     'RC':r'\RedCard',
+                     'NT':r'\Note',
+                     'Q':'r\Qualified',
+                     'NQ':r'\Notqualified',
                     }
 reccodecolours = {'LL':wxColour(255,255,0),
                   'PL':wxColour(255,255,127),
                   'DS':wxColour(192,192,192),
                   'IR':wxBLACK,
                   'DQ':wxRED,
+                  'RC':wxRED,
+                  'YC':wxYELLOW,
                   'NT':wxColour(159,159,95),
                   'Q':wxColour(0,255,0),
                   'NQ':wxColour(255,0,255),

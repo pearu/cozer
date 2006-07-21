@@ -546,7 +546,7 @@ class RecordEditor(wxPanel,MyDebug):
 
     def OnRightButtonEvent(self,evt):
         global _tmpREmenuflag
-        self.Debug('OnRightButtonEvent')
+        self.Debug('OnRightButtonEvent')        
         if evt.RightDown():
             xp,yp=evt.GetPositionTuple()
             if abs(yp - self.yline)<5:
@@ -560,6 +560,8 @@ class RecordEditor(wxPanel,MyDebug):
                     insertmark(self.rec,reccodemap[r[1]],ct,r[2])
                     self.Prepare4Paint()
                     self.OnPaint(None)
+                else:
+                    print i
                 self.Debug(self.rec)
 
 _recordeditormenu = [
@@ -577,7 +579,7 @@ class RecordEditorMenu(wxMenu,MyDebug):
         wxMenu.__init__(self,"")
         self.parent = parent
         self.ct = ct
-        _tmpREmenuflag[0] = -1
+        _tmpREmenuflag[0] = -2
         rulesmenu = []
         if parent.parent.topparent.eventdata.has_key('rules'):
             menul = {}
@@ -598,7 +600,7 @@ self.On%s = tmpfun
             for k in menul.keys():
                 rulesmenu.append((k,{'menu':reccodemenulabel[k],'submenu':menul[k]}))
 
-        buildmenus(self,rulesmenu+_recordeditormenu,self,verbose = debug)
+        buildmenus(self,rulesmenu+_recordeditormenu,self,verbose = debug,popup=1)
 
     def OnInsert(self,evt):
         self.Debug('OnInsert')
