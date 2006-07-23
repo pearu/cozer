@@ -398,6 +398,24 @@ def runpsview(fp,dopts = {}):
         com = 'gv %s %s.ps'%(opts,fp)
     run_thread(com)
 
+def rundvipdfm(fp,dopts = {},outfn='-o'):
+    if not fp: return
+    opts = ''
+    if dopts.has_key('dvipdfm'): opts = dopts['dvipdfm']
+    wd = os.path.dirname(fp)
+    fn = os.path.basename(fp)
+    com = 'dvipdfm %s %s %s.pdf %s'%(opts,outfn,fn,fn)
+    run_command(com,wd)
+
+def runpdfview(fp,dopts = {}):
+    if not fp: return
+    wd = os.path.dirname(fp)
+    fn = os.path.basename(fp)
+    opts = ''
+    if dopts.has_key('acroread'): opts = dopts['acroread']
+    com = 'acroread %s %s.pdf'%(opts,fp)
+    run_thread(com)
+
 def Warning(*mess):
     sys.stderr.write('WARNING:%s\n'%(string.join(map(str,list(mess)),' ')))
     wxBell()

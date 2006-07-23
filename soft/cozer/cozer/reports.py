@@ -450,7 +450,8 @@ def participants(clses,heat_map,eventdata):
     f.write(denormalize_str(txt))
     f.close()
     return fn,{'latex':'--interaction nonstopmode',
-               'gv':'-portrait -media a4',
+               'gv':'--media=a4',
+               'dvipdfm':'-p a4',
                'dvips':'-q'}
 def res2latex(res,notes):
     l = len(notes)
@@ -559,8 +560,10 @@ def intermediate(clses,heat_map,eventdata):
     f.close()
 
     return fp,{'latex':'--interaction nonstopmode',
-               'gv':'-portrait -media a4',
+               'gv':'--media=a4',
+               'dvipdfm':'-p a4',
                'dvips':'-q'}
+
 def fullfinal(clses,heat_map,eventdata):
     Debug('fullfinial')
     record = eventdata['record']
@@ -649,8 +652,9 @@ def fullfinal(clses,heat_map,eventdata):
     f.close()
     return fn,{'latex':'--interaction nonstopmode',
                'dvips':'-q -t landscape -t a4',
+               'dvipdfm':'-l -p a4',
                'xdvi':'-paper a4r',
-               'gv':'-media a4 -seascape',
+               'gv':'--media=a4 --swap',
                }
 
 def shortfinal(clses,heat_map,eventdata):
@@ -728,7 +732,8 @@ def shortfinal(clses,heat_map,eventdata):
     return fn,{'latex':'--interaction nonstopmode',
                'dvips':'-q',
                'xdvi':'',
-               'gv':'-media a4 -portrait'}
+               'dvipdfm':'-p a4',
+               'gv':'--media=a4'}
 
 
 
@@ -780,7 +785,8 @@ def checklist(clses,heat_map,eventdata):
     f.write(denormalize_str(replace(check_doc_latextmpl,rd)))
     f.close()
     return fn,{'latex':'--interaction nonstopmode',
-               'gv':'-media a4 -seascape',
+               'gv':'--media=a4 --swap',
+               'dvipdfm':'-p a4 -l',
                'xdvi':'-paper a4r',
                'dvips':'-q -t landscape -t a4',}
 
@@ -804,7 +810,8 @@ def infoletter(clses,heat_map,eventdata):
     return fn,{'latex':'--interaction nonstopmode',
                'dvips':'-q',
                'xdvi':'',
-               'gv':'-media a4 -portrait'}
+               'dvipdfm':'-p a4',
+               'gv':'--media=a4'}
 
 def registrationletter(clses,heat_map,eventdata):
     Debug('registrationletter')
@@ -826,7 +833,8 @@ def registrationletter(clses,heat_map,eventdata):
     return fn,{'latex':'--interaction nonstopmode',
                'dvips':'-q',
                'xdvi':'',
-               'gv':'-media a4 -portrait'}
+               'dvipdfm':'-p a4',
+               'gv':'--media=a4'}
 
 def lapsprotocol(clses,heat_map,eventdata):
     Debug('lapsprotocol')
@@ -936,7 +944,8 @@ def lapsprotocol(clses,heat_map,eventdata):
     f.write(denormalize_str(replace(laps_doc_latextmpl,rd)))
     f.close()
     return fp,{'latex':'--interaction nonstopmode',
-               'gv':'-portrait -media a4',
+               'gv':'--media=a4',
+               'dvipdfm':'-p a4',
                'dvips':'-q'}
 
 report_map={'Participants':participants,

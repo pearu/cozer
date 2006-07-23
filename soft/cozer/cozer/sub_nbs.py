@@ -553,6 +553,10 @@ class Reports(wxPanel,MyDebug):
         EVT_BUTTON(self.optwin,psviewbut.GetId(),self.PSPreview)
         hsizer.Add(psviewbut)
 
+        pdfviewbut = wxButton(self.optwin,wxNewId(),'PDFPreview')
+        EVT_BUTTON(self.optwin,pdfviewbut.GetId(),self.PDFPreview)
+        hsizer.Add(pdfviewbut)
+
         printbut = wxButton(self.optwin,wxNewId(),'Print')
         EVT_BUTTON(self.optwin,printbut.GetId(),self.Print)
         hsizer.Add(printbut)
@@ -577,11 +581,18 @@ class Reports(wxPanel,MyDebug):
         rundviview(fn,opts)
 
     def PSPreview(self,evt):
-        self.Debug('Preview')
+        self.Debug('PSPreview')
         fn,opts = self.GenerateReport()
         runlatex(fn,opts)
         rundvips(fn,opts)
         runpsview(fn,opts)
+
+    def PDFPreview(self,evt):
+        self.Debug('PDFPreview')
+        fn,opts = self.GenerateReport()
+        runlatex(fn,opts)
+        rundvipdfm(fn,opts)
+        runpdfview(fn,opts)
 
     def Print(self,evt):
         self.Debug('Print')
