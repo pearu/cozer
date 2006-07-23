@@ -654,6 +654,7 @@ def fullfinal(clses,heat_map,eventdata):
                'dvips':'-q -t landscape -t a4',
                'dvipdfm':'-l -p a4',
                'xdvi':'-paper a4r',
+               'yap':'',
                'gv':'--media=a4 --swap',
                }
 
