@@ -23,7 +23,7 @@ import Queue,threading
 
 #XXX: find a way to establish this path automatically
 gsview_exe = r'"c:\Program Files\Ghostgum\gsview\gsview32.exe"'
-acrord_exe = r'AcroRd32'
+acrord_exe = r'"c:\Program Files\Adobe\Acrobat 7.0\Reader\AcroRd32.exe"'
 
 _log_queue = Queue.Queue(0)
 if not os.path.isdir('log'):
