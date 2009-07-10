@@ -84,7 +84,6 @@ parts_class_latextmpl = r"""\multicolumn4{l}{\textbf{#class#}}\\"""
 parts_part_latextmpl = r""" &#name# & #country# & \textbf{#id#}\\"""
 
 
-
 inter_doc_latextmpl = r"""
 \documentclass[12pt,a4paper]{article}
 \input #language#_cozer
@@ -138,6 +137,26 @@ inter_table1_latextmpl = r"""
 """
 inter_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} & #result# & #points#"""
 
+inter_tt_table1_latextmpl = r"""
+\nobreak
+\ifdim\pagetotal>0.75\textheight\clearpage\fi
+\subsection*{\large \Class{} #class# \Heat{} #heat#}
+\mbox{}\hfill\mbox{\small \Starttime: #starttime#}
+\setlongtables
+\begin{longtable}[l]{c|l|l|c|c}
+\Place & \Name & \From & \No & \LapTime \\\hline
+#table1#
+\\\hline
+\multicolumn5{p{1cm}}{
+\begin{minipage}{.9\textwidth}
+#notes#
+\end{minipage}
+}
+\end{longtable}
+
+"""
+inter_tt_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} & #result#"""
+
 inter_table_latextmpl = r"""
 \nobreak
 \ifdim\pagetotal>0.75\textheight\clearpage\fi
@@ -157,8 +176,8 @@ inter_table_latextmpl = r"""
 \end{longtable}
 
 """
-inter_part_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} & #result# & #points# & #bestresult# & #sumpoints#"""
 
+inter_part_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} & #result# & #points# & #bestresult# & #sumpoints#"""
 
 full_doc_latextmpl = r"""
 \documentclass[11pt,a4paper]{article}
@@ -453,11 +472,16 @@ def participants(clses,heat_map,eventdata):
                'gv':'--media=a4',
                'dvipdfm':'-p a4',
                'dvips':'-q'}
-def res2latex(res,notes):
+def res2latex(res,notes, istimetrial=False, isqualification=False):
     l = len(notes)
     r=''
     laps,penlapsleft,lapsleft = res['lapinfo']
-    if res['points']>=0:
+    if istimetrial:
+        if res['laptime']:
+            r = '%.3f' % (res['laptime'])
+    elif isqualification:
+        r = ''
+    elif res['points']>=0:
         if lapsleft:
             r='%s%.1f/%.1f/%s\\Lp'%(r,res['avgspeed'],res['maxlapspeed'],laps)
         else:
@@ -470,6 +494,8 @@ def res2latex(res,notes):
             r='%s %s'%(r,c)
             continue
         l = l + 1
+        if c=='DS' and 'HIDE' in res['notes'][c]:
+            return None
         r='%s %s${}^{%s}$'%(r,c,l)
         notes.append('${}^{%s}$---$%s$'%(l,string.join(res['notes'][c],',')))
     return r
@@ -518,6 +544,8 @@ def intermediate(clses,heat_map,eventdata):
     for cl in clses:
         if not heat_map[cl]: continue
         curheat = heat_map[cl][-1]
+        istimetrial = curheat.endswith('t')
+        isqualification = curheat.endswith('q')
         rks = analyzer.getresorder(res[cl][curheat])
         saveorder(eventdata,cl,rks)
         d = {'separatorsfor':{'table1':'\\\\\n','table':'\\\\\n',
@@ -534,7 +562,9 @@ def intermediate(clses,heat_map,eventdata):
         for id in rks:
             r = res[cl][curheat][id]
             sr = sumres[cl][id]
-            lr=res2latex(r,d['notes'])
+            lr=res2latex(r,d['notes'], istimetrial, isqualification)
+            if lr is None:
+                continue
             p = parts[cl,'%s'%id]
             dp = {'place':'-','id':'%s'%id,'result':lr,'points':'-',
                   'name':'%s %s'%(p[0],p[1]),'from':p[2],
@@ -545,7 +575,10 @@ def intermediate(clses,heat_map,eventdata):
             if sr['place']>0:
                 dp['bestresult'] = '%.1f/%.1f'%(sr['avgspeed'],sr['maxlapspeed'])
                 dp['sumpoints'] = '%s'%sr['points']
-            d['table1'].append(replace(inter_part1_latextmpl,dp))
+            if istimetrial:
+                d['table1'].append(replace(inter_tt_part1_latextmpl,dp))
+            else:
+                d['table1'].append(replace(inter_part1_latextmpl,dp))
             d['table'].append(replace(inter_part_latextmpl,dp))
             if r['notes']:
                 for k in r['notes'].keys():
@@ -555,7 +588,10 @@ def intermediate(clses,heat_map,eventdata):
         if len(heat_map[cl])>1:
             rd['tables'].append(replace(inter_table_latextmpl,d))
         else:
-            rd['tables'].append(replace(inter_table1_latextmpl,d))
+            if istimetrial:
+                rd['tables'].append(replace(inter_tt_table1_latextmpl,d))
+            else:
+                rd['tables'].append(replace(inter_table1_latextmpl,d))
     f.write(denormalize_str(replace(inter_doc_latextmpl,rd)))
     f.close()
 

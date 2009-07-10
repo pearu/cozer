@@ -70,8 +70,8 @@ class MyStdIO:
         _log_file.flush()
         put_log(mess)
 
-#sys.stderr = MyStdIO(sys.stderr)
-#sys.stdout = MyStdIO(sys.stdout)
+sys.stderr = MyStdIO(sys.stderr)
+sys.stdout = MyStdIO(sys.stdout)
 
 show = pprint.pprint
 
@@ -130,7 +130,7 @@ reccodelatexlabel = {'LL':r'\Lostalap',
                      'YC':r'\YellowCard',
                      'RC':r'\RedCard',
                      'NT':r'\Note',
-                     'Q':'r\Qualified',
+                     'Q':r'\Qualified',
                      'NQ':r'\Notqualified',
                     }
 reccodecolours = {'LL':wx.Colour(255,255,0),

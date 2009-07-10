@@ -395,7 +395,7 @@ class Timer(wx.Panel,MyDebug):
                     rpat,sheats=self.topparent.CrackRacePattern(l[2],cl)
                     break
 
-            if h[-1] in ['r','q','t']: li = eval(h[:-1])-1
+            if h[-1] in ['r','q','t','R']: li = eval(h[:-1])-1
             else: li = eval(h)-1
             record[cl][h][0]['course'] = rpat[li]
             record[cl][h][0]['sheats'] = sheats

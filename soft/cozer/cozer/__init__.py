@@ -424,7 +424,7 @@ eventdata - a dictionary with keys:
         elif istclass(cl):
             return reduce(lambda x,h:x+[`h`,`h`+'t'],range(1,1+len(rpat)),[])
         else:
-            return reduce(lambda x,h:x+[`h`,`h`+'r'],range(1,1+len(rpat)),[])
+            return reduce(lambda x,h:x+[`h`,`h`+'r', `h`+'R'],range(1,1+len(rpat)),[])
         
     def GetHeats(self,raceid):
         self.Debug('GetHeats')
@@ -446,7 +446,8 @@ eventdata - a dictionary with keys:
                     tims[l[1]]=[]
                 else:
                     allowedheats[l[1]]=map(lambda x:`x`,range(1,1+nofh[l[1]]))+\
-                                    map(lambda x:`x`+'r',range(1,1+nofh[l[1]]))
+                                    map(lambda x:`x`+'r',range(1,1+nofh[l[1]]))+\
+                                    map(lambda x:`x`+'R',range(1,1+nofh[l[1]]))
                     restarts[l[1]]=[]
                 tmp[l[1]]=0
         
@@ -455,11 +456,11 @@ eventdata - a dictionary with keys:
                 if not d[1]: continue
                 if nofh.has_key(d[1]):
                     if d[2] in allowedheats[d[1]]:
-                        if d[2][-1] not in ['r','q','t']:
+                        if d[2][-1] not in ['r','q','t','R']:
                             tmp[d[1]]=tmp[d[1]]+1
                             if not `tmp[d[1]]`==d[2]:
                                 self.Warning('Expected heat %s but got %s (class=%s).'%(`tmp[d[1]]`,`d[2]`,`d[1]`))
-                        elif d[2][-1]=='r':
+                        elif d[2][-1] in ['r','R']:
                             restarts[d[1]].append(d[2])
                         elif d[2][-1]=='q':
                             tmp[d[1]]=tmp[d[1]]+1
@@ -485,12 +486,14 @@ eventdata - a dictionary with keys:
                 if ret[k][-1] in tims[k]: del ret[k][-1]
             else:
                 if 1<=tmp[k]<nofh[k]:
-                    ret[k]=[`tmp[k]+1`,`tmp[k]`+'r']
+                    ret[k]=[`tmp[k]+1`,`tmp[k]`+'r',`tmp[k]`+'R']
                 elif tmp[k]==0:
                     ret[k]=[`1`]
                 else:
                     ret[k]=[`tmp[k]`+'r']
-                if ret[k][-1] in restarts[k]: del ret[k][-1]
+                if ret[k][-1] in restarts[k]:
+                    # TODO: fix 2nd restart case
+                    del ret[k][-1]
         return ret
 
 

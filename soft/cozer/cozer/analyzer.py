@@ -101,6 +101,7 @@ def analyze(heat,record,scoringsystem = []):
     racetime = info['racetime']
 
     isrestarted = (heat and heat[-1]=='r')
+    isrestarted2 = (heat and heat[-1]=='R')
     isqualification = (heat and heat[-1]=='q')
     istimetrial = (heat and heat[-1]=='t')
     preres = []
@@ -169,14 +170,14 @@ def analyze(heat,record,scoringsystem = []):
                     if n: notes[k].append(n)
             elif m[0]==4: # penalty lap
                 pass
-            elif m[0]==10:
+            elif m[0]==10: # DS
                 didntstart = 1
                 n = string.strip(m[2]) 
                 k = invreccodemap[m[0]]
                 if not notes.has_key(k): notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0]==11:
+            elif m[0]==11: # IR
                 if m[1] <= racetime:
                     interruption = 1
                     n = string.strip(m[2])
@@ -184,7 +185,7 @@ def analyze(heat,record,scoringsystem = []):
                     if not notes.has_key(k): notes[k] = []
                     if n and n not in notes[k]:
                         notes[k].append(n)
-            elif m[0]==12:
+            elif m[0]==12: # DQ
                 disqualification = 1
                 n = string.strip(m[2]) 
                 k = invreccodemap[m[0]]
@@ -212,14 +213,14 @@ def analyze(heat,record,scoringsystem = []):
                     if not notes.has_key(k): notes[k] = []
                     if n not in notes[k]:
                         notes[k].append(n)
-            elif m[0]==30:
+            elif m[0]==30: # Q
                 qualification = 1
                 n = string.strip(m[2]) 
                 k = invreccodemap[m[0]]
                 if not notes.has_key(k): notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0]==31:
+            elif m[0]==31: # Q
                 qualification = 2
                 n = string.strip(m[2]) 
                 k = invreccodemap[m[0]]
@@ -228,13 +229,17 @@ def analyze(heat,record,scoringsystem = []):
                     notes[k].append(n)
             else:
                 print 'analyzer.analyze: unused code',m[0]
-                
-        if laps:
-            avgspeed = round(3.6*distcovered/float(t),roundopt)
-        if penlapsleft:
-            penlapavgspeed = round(3.6*(distcovered-penlapsleft*course[li])/float(t),roundopt)
-        else:
+        if istimetrial:
+            if laps>1:
+                avgspeed = round(3.6*course[-1]/float(lapstime[-1] - lapstime[-2]),roundopt)
             penlapavgspeed = avgspeed
+        else:
+            if laps:
+                avgspeed = round(3.6*distcovered/float(t),roundopt)
+            if penlapsleft:
+                penlapavgspeed = round(3.6*(distcovered-penlapsleft*course[li])/float(t),roundopt)
+            else:
+                penlapavgspeed = avgspeed
         lapsleft = lapsrequired - laps + penlaps
         code = 10*didntstart+interruption+100*disqualification
         if lapsleft and (not pastafterstoppage) and (code==0):
@@ -260,9 +265,9 @@ def analyze(heat,record,scoringsystem = []):
                        id,notes))
     preres.sort()
     
-    requiredlapscoef = 0.70           # U.I.M. 2000 311.02.1
-    restartrequiredlapscoef = 0.35    # U.I.M. 2000 311.02.7
-    requiredlaps4pointscoef = 0.75     # U.I.M. 2000 318.02_1, must cross the lane
+    requiredlapscoef = 0.70           # U.I.M. 2000,2009 311.02.1
+    restartrequiredlapscoef = 0.35    # U.I.M. 2000.2009 311.02.7_1
+    requiredlaps4pointscoef = 0.75     # U.I.M. 2009 318.02_1, must cross the lane
     minrequiredlaps = requiredlapscoef * len(course)
     minrestartrequiredlaps = restartrequiredlapscoef * len(course)
     leaderlaps = preres[0][7][2] - preres[0][7][1]
@@ -271,14 +276,14 @@ def analyze(heat,record,scoringsystem = []):
         leadertime = preres[0][6][-1]
     minlaps4points = max(1,requiredlaps4pointscoef*leaderlaps)
     
-    if 1:
+    if 0:
         minrequiredlaps,minrestartrequiredlaps,minlaps4points=int(minrequiredlaps),int(minrestartrequiredlaps),int(minlaps4points)
-    else: # Exception in EC2001
+    else: # Exception in EC2001, UIM09 318.02_2
         import math
         minrequiredlaps,minrestartrequiredlaps=int(minrequiredlaps),int(minrestartrequiredlaps)
         minlaps4points = int(math.ceil(minlaps4points))
 
-    needsrestart = (not isrestarted) and leaderlaps < minrequiredlaps
+    needsrestart = (not (isrestarted or isrestarted2)) and leaderlaps < minrequiredlaps
     if needsrestart:
         Info('Restart is required by U.I.M. rule 311.02.1: leaderslaps,minrequiredlaps=',leaderlaps,minrequiredlaps)
 
@@ -321,6 +326,9 @@ def analyze(heat,record,scoringsystem = []):
                             points = scoringsystem[ip]
                         elif totallaps > 0:
                             points = 0.5*scoringsystem[ip]
+                elif isrestarted2: # UIM09 311.02.7_4
+                    if totallaps:
+                        points = scoringsystem[ip]
                 else:
                     if totallaps >= minlaps4points:
                         points = scoringsystem[ip]
@@ -330,6 +338,11 @@ def analyze(heat,record,scoringsystem = []):
         res[id] = {}
         if istimetrial or isqualification:
             res[id]['points'] = 0
+            if istimetrial:
+                if len(lapstime)>1:
+                    res[id]['laptime'] = lapstime[-1] - lapstime[-2]
+                else:
+                    res[id]['laptime'] = 0
         else:
             res[id]['points'] = points
         res[id]['place'] = place
