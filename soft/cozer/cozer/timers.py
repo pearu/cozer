@@ -47,7 +47,7 @@ def calclayout(ids):
     return ret
 
 
-class TimerWin1(wxScrolledWindow,MyDebug):
+class TimerWin1(wx.ScrolledWindow,MyDebug):
     timerbuts = None
     finished = {}
     clicks = {}
@@ -55,7 +55,7 @@ class TimerWin1(wxScrolledWindow,MyDebug):
 
     def __init__(self,info,race,topparent,parent,debug):
         MyDebug.__init__(self,debug)
-        wxScrolledWindow.__init__(self, parent, -1, wxPoint(0, 0),style=wxSUNKEN_BORDER)
+        wx.ScrolledWindow.__init__(self, parent, -1, wx.Point(0, 0),style=wx.SUNKEN_BORDER)
         self.race = race
         self.info = info
 
@@ -80,8 +80,8 @@ class TimerWin1(wxScrolledWindow,MyDebug):
         self.Debug('makeGrid1')
         bsize = getopt(self,'id_but_size',40)
         btsize = getopt(self,'id_but_textsize',14)
-        gs=wxBoxSizer(wxHORIZONTAL)
-        #gs=wxBoxSizer(wxVERTICAL)
+        gs=wx.BoxSizer(wx.HORIZONTAL)
+        #gs=wx.BoxSizer(wx.VERTICAL)
         
         #record = topparent.eventdata['record']
         self.idmap={}
@@ -94,13 +94,13 @@ class TimerWin1(wxScrolledWindow,MyDebug):
             i = i + 1
             lapl = self.info[i]['course']
             self.allowclicks[i] = 0
-            s = wxBoxSizer(wxVERTICAL)
-            s.Add(wxStaticText(self,-1,'%s heat %s'%(cl,h)))
+            s = wx.BoxSizer(wx.VERTICAL)
+            s.Add(wx.StaticText(self,-1,'%s heat %s'%(cl,h)))
             
             rk2 = r.keys()
             rk2.sort()
             try: rk = self.topparent.eventdata['prevorder'][cl]
-            except:
+            except KeyError:
                 rk = r.keys()
                 rk.sort()
             rkok = len(rk) == len(rk2)
@@ -108,61 +108,58 @@ class TimerWin1(wxScrolledWindow,MyDebug):
                 if not rkok: break
                 if k not in rk2: rkok = 0; break
             if not rkok: rk = rk2
-            sh=wxBoxSizer(wxHORIZONTAL)
+            sh=wx.BoxSizer(wx.HORIZONTAL)
             s.Add(sh)
-            s1=wxBoxSizer(wxVERTICAL)
-            s2=wxBoxSizer(wxVERTICAL)
-            sh.Add(s1,0,wxEXPAND)
+            s1=wx.BoxSizer(wx.VERTICAL)
+            s2=wx.BoxSizer(wx.VERTICAL)
+            sh.Add(s1,0,wx.EXPAND)
             sh.Add(s2)
 
             for row in calclayout(rk2):
-                rs = wxBoxSizer(wxHORIZONTAL)
+                rs = wx.BoxSizer(wx.HORIZONTAL)
                 s2.Add(rs,0)
                 for k in row:
-                    id=wxNewId()
-                    but = wxButton(self,id,str(k),size=wxSize(bsize,bsize))
-                    but.SetFont(wxFont(btsize, wxSWISS, wxNORMAL, wxNORMAL))
-                    but.Connect(id,id,wxEVT_COMMAND_RIGHT_CLICK,EVT_RIGHT_DOWN)
-                    EVT_BUTTON(self,id,self.OnClick)
-                    EVT_RIGHT_DOWN(but,lambda evt,self=self,id=id,but=but:self.OnButtonRightDown(evt,id,but))
-                    rs.Add(but,0,wxALIGN_LEFT|wxALIGN_TOP)
+                    id=wx.NewId()
+                    but = wx.Button(self,id,str(k),size=wx.Size(bsize,bsize))
+                    but.SetFont(wx.Font(btsize, wx.SWISS, wx.NORMAL, wx.NORMAL))
+                    but.Connect(id, id, wx.wxEVT_COMMAND_RIGHT_CLICK, wx.EVT_RIGHT_DOWN)
+                    wx.EVT_BUTTON(self,id,self.OnClick)
+                    wx.EVT_RIGHT_DOWN(but,lambda evt,self=self,id=id,but=but:self.OnButtonRightDown(evt,id,but))
+                    rs.Add(but,0,wx.ALIGN_LEFT|wx.ALIGN_TOP)
                     self.idmap[id]=i,k
                     self.invidmap[i,k]=id
                     self.buts.append(but)
 
-
-            butparent = wxPanel(self,-1,size=wxSize(100,20*(len(rk)+len(lapl)+2)))
-            s1.Add(butparent,0,wxALIGN_LEFT|wxALIGN_TOP|wxEXPAND)
+            butparent = wx.Panel(self,-1,size=wx.Size(100,20*(len(rk)+len(lapl)+2)))
+            s1.Add(butparent,0,wx.ALIGN_LEFT|wx.ALIGN_TOP|wx.EXPAND)
             self.lapbuts[i]=[]
 
-            id = wxNewId()
-            but = wxButton(butparent,id,'Ready to Start',size=wxSize(-1,20),pos=wxPoint(0,0))
+            button_size = 30
+            button_space = 2
+            id = wx.NewId()
+            but = wx.Button(butparent,id,'Ready to Start',size=wx.Size(-1,button_size),pos=wx.Point(0,0))
             but.SetBackgroundColour(mycolors['readymark'])
-            #s1.Add(but,0,wxALIGN_LEFT|wxALIGN_TOP)
             self.lapbuts[i].append(but)
-            ypos = 20
+            ypos = button_size
             for k in rk:
                 id = self.invidmap[i,k]
-                but = wxButton(butparent,id,str(k),size=wxSize(-1,20),pos=wxPoint(0,ypos))
-                ypos = ypos + 20
-                but.SetFont(wxFont(12, wxSWISS, wxNORMAL, wxBOLD))
-                #s1.Add(but,0,wxALIGN_LEFT|wxALIGN_TOP)
+                but = wx.Button(butparent,id,str(k),size=wx.Size(-1,button_size),pos=wx.Point(0,ypos))
+                ypos = ypos + button_size + button_space
+                but.SetFont(wx.Font(12, wx.SWISS, wx.NORMAL, wx.BOLD))
                 self.lapbuts[i].append(but)
             for l in range(len(lapl)-1):
-                id = wxNewId()
-                but = wxButton(butparent,id,'Lap %s'%(l+1),size=wxSize(-1,20),pos=wxPoint(0,ypos))
-                ypos = ypos + 20
+                id = wx.NewId()
+                but = wx.Button(butparent,id,'Lap %s'%(l+1),size=wx.Size(-1,button_size),pos=wx.Point(0,ypos))
+                ypos = ypos + button_size + button_space
                 but.SetBackgroundColour(mycolors['lapmark'])
-                #s1.Add(but,0,wxALIGN_LEFT|wxALIGN_TOP)
                 self.lapbuts[i].append(but)
-            id = wxNewId()
-            but = wxButton(butparent,id,'Finish',size=wxSize(-1,20),pos=wxPoint(0,ypos))
+            id = wx.NewId()
+            but = wx.Button(butparent,id,'Finish',size=wx.Size(-1,button_size),pos=wx.Point(0,ypos))
             but.SetBackgroundColour(mycolors['finishmark_bg'])
             but.SetForegroundColour(mycolors['finishmark_fg'])
-            #s1.Add(but,0,wxALIGN_LEFT|wxALIGN_TOP)
             self.lapbuts[i].append(but)
             
-            gs.Add(s,0,wxALIGN_LEFT|wxALIGN_TOP)
+            gs.Add(s,0,wx.ALIGN_LEFT|wx.ALIGN_TOP)
             pros = lambda f=self.EmulateClicks,a1=i,a2=r:f(a1,a2)
             pros()
             #PutSleep(pros,1,self.debug+(not not self.debug))
@@ -193,7 +190,7 @@ class TimerWin1(wxScrolledWindow,MyDebug):
         menu = TimerButtonMenu(self,id,self.debug+(not not self.debug))
         bpos = but.GetPositionTuple()
         epos = evt.GetPositionTuple()
-        self.PopupMenu(menu,wxPoint(bpos[0]+epos[0],bpos[1]+epos[1]))
+        self.PopupMenu(menu,wx.Point(bpos[0]+epos[0],bpos[1]+epos[1]))
         menu.Destroy()
 
     def OnClick(self,evt):
@@ -283,11 +280,11 @@ class TimerWin1(wxScrolledWindow,MyDebug):
                                   ToggleButtonTimer(self.buts[ids_buts.index(id)],et,self.debug+(not not self.debug))]
 
 
-class ToggleButtonTimer(wxTimer,MyDebug):
+class ToggleButtonTimer(wx.Timer,MyDebug):
 
     def __init__(self,but,tm,debug):
         MyDebug.__init__(self,debug)
-        wxTimer.__init__(self)
+        wx.Timer.__init__(self)
         self.tm = tm
         self.Start(tm*1000,oneShot=true)
         self.but = but
@@ -296,7 +293,7 @@ class ToggleButtonTimer(wxTimer,MyDebug):
     def Notify(self):
         self.Debug('Notify')
         if self.tm:
-            wxBell()
+            wx.Bell()
             self.but.SetBackgroundColour(mycolors['coming'])
             self.Start(0.4*self.tm*1000,oneShot=true)
             self.tm = 0
@@ -304,11 +301,11 @@ class ToggleButtonTimer(wxTimer,MyDebug):
             self.but.SetBackgroundColour(mycolors['late'])
 
 
-class TimerButtonMenu(wxMenu,MyDebug):
+class TimerButtonMenu(wx.Menu,MyDebug):
 
     def __init__(self,parent,id,debug):
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"")
+        wx.Menu.__init__(self,"")
         ri,k=parent.idmap[id]
         cl,heat,racedata = parent.race[ri]
         self.race=racedata[k]
@@ -348,7 +345,7 @@ class TimerButtonMenu(wxMenu,MyDebug):
             self.Warning('Confused: i=%s race[i]=%s'%(i,`self.racep[i]`))
 
 
-class EditWin1(wxScrolledWindow,MyDebug):
+class EditWin1(wx.ScrolledWindow,MyDebug):
     width = 600
     startx = 30
     mousegrab = 0
@@ -356,7 +353,7 @@ class EditWin1(wxScrolledWindow,MyDebug):
 
     def __init__(self,info,rec,res,topparent,parent,debug):
         MyDebug.__init__(self,debug)
-        wxScrolledWindow.__init__(self, parent, -1, wxPoint(0, 0),style=wxSUNKEN_BORDER)
+        wx.ScrolledWindow.__init__(self, parent, -1, wx.Point(0, 0),style=wx.SUNKEN_BORDER)
         self.info = info
         self.rec = rec
         self.res = res
@@ -370,10 +367,10 @@ class EditWin1(wxScrolledWindow,MyDebug):
 
         self.VisualizeRecords()
 
-        EVT_PAINT(self, self.OnPaint)
-        EVT_LEFT_DOWN(self, self.OnLeftButtonEvent)
-        EVT_LEFT_UP(self,   self.OnLeftButtonEvent)
-        EVT_MOTION(self,    self.OnLeftButtonEvent)
+        wx.EVT_PAINT(self, self.OnPaint)
+        wx.EVT_LEFT_DOWN(self, self.OnLeftButtonEvent)
+        wx.EVT_LEFT_UP(self,   self.OnLeftButtonEvent)
+        wx.EVT_MOTION(self,    self.OnLeftButtonEvent)
         if self.info.has_key('starttime'):
             self.parent.starttimetext.SetLabel(' Start time = %s'%(time.ctime(self.info['starttime'])))
 
@@ -387,8 +384,8 @@ class EditWin1(wxScrolledWindow,MyDebug):
             header = 'Id = %s: %s'%(k,res2str(self.res[k]))
             self.rec_eds.append(\
                 RecordEditor(k,header,self,self.debug+(not not self.debug),
-                             pos=wxPoint(self.startx,ypos),
-                             size=wxSize(self.width,self.editysize)))
+                             pos=wx.Point(self.startx,ypos),
+                             size=wx.Size(self.width,self.editysize)))
             ypos = ypos + self.editysize + 5
         self.timelineheight = ypos + 25
 
@@ -401,13 +398,13 @@ class EditWin1(wxScrolledWindow,MyDebug):
     def DrawTimeLine(self,hpos,clientdc=0):
         self.Debug1('DrawTimeLine')
         if clientdc:
-            dc = wxClientDC(self)
+            dc = wx.ClientDC(self)
         else:
-            dc = wxPaintDC(self)
+            dc = wx.PaintDC(self)
         dc.Clear()
         self.PrepareDC(dc)
         dc.BeginDrawing()
-        dc.SetPen(wxPen(mycolors['timeline'],width=5))
+        dc.SetPen(wx.Pen(mycolors['timeline'],width=5))
         dc.DrawLine(hpos, 0, hpos, self.timelineheight)
         dc.DrawText(' Race stopped',hpos, 20)
         dc.DrawText(' Race stopped',hpos, self.timelineheight - 10)
@@ -453,34 +450,34 @@ class EditWin1(wxScrolledWindow,MyDebug):
         self.info['racetime'] = self.curtime
 
 
-class RecordEditor(wxPanel,MyDebug):
+class RecordEditor(wx.Panel,MyDebug):
     yline = 20
 
     def __init__(self,no,header,parent,debug,pos,size):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,wxNewId(),pos=pos,size=size)
+        wx.Panel.__init__(self,parent,wx.NewId(),pos=pos,size=size)
         self.parent = parent
         self.rec = parent.rec[no]
         self.header = header
         self.Prepare4Paint()
-        EVT_PAINT(self, self.OnPaint)
-        EVT_RIGHT_DOWN(self, self.OnRightButtonEvent)
+        wx.EVT_PAINT(self, self.OnPaint)
+        wx.EVT_RIGHT_DOWN(self, self.OnRightButtonEvent)
 
     def Prepare4Paint(self):
         self.Debug('Prepare4Paint')
         self.paint = {}
 
         pens = {}
-        pens[0] = wxPen(wxBLACK)
-        pens[1] = wxPen(wxNamedColour('BLUE'),width=10)
-        pens[2] = wxPen(mycolors['lapmark'],width=5)
-        pens[3] = wxPen(mycolors['lapmark_ins'],width=5)
-        pens[4] = wxPen(mycolors['lapmark_disable'],width=5)
-        pens[5] = wxPen(mycolors['penlap_mark'],width=5)
-        pens[6] = wxPen(mycolors['disq_mark'],width=5)
-        pens[7] = wxPen(mycolors['interruption_mark'],width=5)
+        pens[0] = wx.Pen(wx.BLACK)
+        pens[1] = wx.Pen(wx.NamedColour('BLUE'),width=10)
+        pens[2] = wx.Pen(mycolors['lapmark'],width=5)
+        pens[3] = wx.Pen(mycolors['lapmark_ins'],width=5)
+        pens[4] = wx.Pen(mycolors['lapmark_disable'],width=5)
+        pens[5] = wx.Pen(mycolors['penlap_mark'],width=5)
+        pens[6] = wx.Pen(mycolors['disq_mark'],width=5)
+        pens[7] = wx.Pen(mycolors['interruption_mark'],width=5)
         for k in reccodemap.keys():
-            pens[k] = wxPen(reccodecolours[k],width=5)
+            pens[k] = wx.Pen(reccodecolours[k],width=5)
         self.paint['pens'] = pens
 
         lines = []
@@ -526,9 +523,9 @@ class RecordEditor(wxPanel,MyDebug):
     def OnPaint(self,evt):
         self.Debug1('OnPaint')
         if evt is None:
-            dc = wxClientDC(self)
+            dc = wx.ClientDC(self)
         else:
-            dc = wxPaintDC(self)
+            dc = wx.PaintDC(self)
         dc.Clear()
         dc.BeginDrawing()
         
@@ -552,7 +549,7 @@ class RecordEditor(wxPanel,MyDebug):
             if abs(yp - self.yline)<5:
                 ct = round(xp/self.coef,roundopt)
                 menu = RecordEditorMenu(self,ct,self.debug+(not not self.debug))
-                self.PopupMenu(menu,wxPoint(xp,yp))
+                self.PopupMenu(menu,wx.Point(xp,yp))
                 menu.Destroy()
                 i = _tmpREmenuflag[0]
                 if i>=0:
@@ -573,10 +570,10 @@ _recordeditormenu = [
 _tmpREmenuflag = [-1]
 
 
-class RecordEditorMenu(wxMenu,MyDebug):
+class RecordEditorMenu(wx.Menu,MyDebug):
     def __init__(self,parent,ct,debug):
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"")
+        wx.Menu.__init__(self,"")
         self.parent = parent
         self.ct = ct
         _tmpREmenuflag[0] = -2

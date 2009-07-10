@@ -15,7 +15,7 @@ Pearu Peterson
 
 __version__ = "$Revision: 1.2 $"[10:-1]
 
-from wxPython.wx import *
+import wx
 import re,os
 
 _isMenuBar=re.compile(r'.*?_wxMenuBar_?')
@@ -33,14 +33,14 @@ def isToolBar(obj):
     return _isToolBar.match(str(obj))
 
 _bitmap_types={
-    'bmp':wxBITMAP_TYPE_BMP,
-    'gif':wxBITMAP_TYPE_GIF,
-    'pcx':wxBITMAP_TYPE_PCX,
-    'png':wxBITMAP_TYPE_PNG,
-    #'pnm':wxBITMAP_TYPE_PNM,
-    'jpg':wxBITMAP_TYPE_JPEG,
-    'tiff':wxBITMAP_TYPE_TIF,
-    'any':wxBITMAP_TYPE_ANY,
+    'bmp':wx.BITMAP_TYPE_BMP,
+    'gif':wx.BITMAP_TYPE_GIF,
+    'pcx':wx.BITMAP_TYPE_PCX,
+    'png':wx.BITMAP_TYPE_PNG,
+    #'pnm':wx.BITMAP_TYPE_PNM,
+    'jpg':wx.BITMAP_TYPE_JPEG,
+    'tiff':wx.BITMAP_TYPE_TIF,
+    'any':wx.BITMAP_TYPE_ANY,
     }
 
 def buildmenus(parent,patterns,topparent=None,mthname='',
@@ -49,10 +49,10 @@ def buildmenus(parent,patterns,topparent=None,mthname='',
                popup=0):
     """
     buildmenus()  --- builds menus and toolbars using the following rules:
-            if parent is wxFrame, a MenuBar and ToolBar will be created
-            if parent is wxMenuBar, Menus will be created
-            if parent is wxMenu, it will be filled with Items and Submenus
-            if parent is wxToolBar, it will be filled with Tools
+            if parent is wx.Frame, a MenuBar and ToolBar will be created
+            if parent is wx.MenuBar, Menus will be created
+            if parent is wx.Menu, it will be filled with Items and Submenus
+            if parent is wx.ToolBar, it will be filled with Tools
     topparent --- save the pointer of the top parent as the function
             buildmenus is called recursively. Internal.
     patterns --- a list of 2-tuples (name,dict). If empty tuple,
@@ -86,7 +86,7 @@ TODO:
         topparent = parent
     parent_this = str(parent.this)
     if isFrame(parent_this):
-        mb = wxMenuBar()
+        mb = wx.MenuBar()
         ret = buildmenus(mb,patterns,topparent,mthname,verbose=verbose)
         if ret[0]:
             parent.SetMenuBar(mb)
@@ -101,7 +101,7 @@ TODO:
                 continue
             name,rules=pat
             if rules.has_key('menu'):
-                menu = wxMenu()
+                menu = wx.Menu()
                 parent.Append(menu,rules['menu'])
                 if rules.has_key('submenu'):
                     ret2 = buildmenus(menu,rules['submenu'],topparent,mthname+name,verbose=verbose)
@@ -115,11 +115,11 @@ TODO:
                     parent.AddSeparator()
                 continue
             name,rules=pat
-            help,shelp,ID,toggle = '','',-1,false
+            help,shelp,ID,toggle = '','',-1,False
             if rules.has_key('id'): ID = rules['id']
             if rules.has_key('help'): help = rules['help']
             if rules.has_key('shelp'): shelp = rules['shelp']
-            if rules.has_key('toggle'): toggle = true
+            if rules.has_key('toggle'): toggle = True
             if rules.has_key('toolbar'):
                 #if rules.has_key('menu') and not rules.has_key('id'):
                 #    print 'buildmenus: id is needed if both menu and toolbar are specified:',mthname+name
@@ -128,10 +128,10 @@ TODO:
                     bit = _bitmap_types[ext]
                 else:
                     bit = _bitmap_types['any']
-                tool = parent.AddSimpleTool(ID,wxBitmap(rules['toolbar'],bit),shelp,help,toggle=toggle)
-                if toggle == true:
+                tool = parent.AddSimpleTool(ID,wx.Bitmap(rules['toolbar'],bit),shelp,help,toggle=toggle)
+                if toggle == True:
                     if rules['toggle']:
-                        parent.ToggleTool(ID,true)
+                        parent.ToggleTool(ID,True)
                     fmap = {'ToggleTool':['Toggle',1],'EnableTool':['Enable',1],
                             'GetToolState':['GetState',0]
                             }
@@ -158,35 +158,35 @@ TODO:
                 parent.AppendSeparator()
                 continue
             name,rules=pat
-            help,shelp,checkable= '','',false
+            help,shelp,checkable= '','',False
             if rules.has_key('id'):
                 ID = rules['id']
             else:
-                ID = wxNewId()
+                ID = wx.NewId()
                 rules['id'] = ID
             if rules.has_key('help'): help = rules['help']
             if rules.has_key('shelp'): shelp = rules['shelp']
-            if rules.has_key('check'): checkable = true
+            if rules.has_key('check'): checkable = True
             if rules.has_key('menu'):
                 if rules.has_key('submenu'):
-                    menu = wxMenu()
+                    menu = wx.Menu()
                     parent.AppendMenu(ID,rules['menu'],menu,help)
                     ret2 = buildmenus(menu,rules['submenu'],topparent,mthname+name,verbose=verbose,popup=popup)
                     ret[1]=ret[1] or ret2[1]
                 else:
                     parent.Append(ID,rules['menu'],help,checkable)
                     if checkable and rules['check']:
-                        parent.Check(ID,true)
+                        parent.Check(ID,True)
                     n = 'On%s'%(mthname+name)
                     if hasattr(topparent,n):
                         mth = getattr(topparent,n)
                         if os.name=='nt':
-                            EVT_MENU(topparent,ID,mth)
+                            wx.EVT_MENU(topparent,ID,mth)
                         else:
                             if popup:
-                                EVT_MENU(parent,ID,mth)
+                                wx.EVT_MENU(parent,ID,mth)
                             else:
-                                EVT_MENU(topparent,ID,mth)
+                                wx.EVT_MENU(topparent,ID,mth)
                     else:
                         if verbose:
                             print 'buildmenus: %s needs method %s'%(topparent.__class__,n)

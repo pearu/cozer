@@ -13,17 +13,22 @@ Pearu Peterson
 
 __version__ = "$Revision: 1.3 $"[10:-1]
 
-from wxPython.wx import *
+import wx
 try:
     from wx import USE_UNICODE
 except ImportError:
     USE_UNICODE = 0
+if USE_UNICODE:
+    print 'Using unicode'
 import sys,string,math,pprint,os,types,time,atexit
 import Queue,threading
 
 #XXX: find a way to establish this path automatically
 gsview_exe = r'"c:\Program Files\Ghostgum\gsview\gsview32.exe"'
 acrord_exe = r'"c:\Program Files\Adobe\Acrobat 7.0\Reader\AcroRd32.exe"'
+
+false = False
+true = True
 
 _log_queue = Queue.Queue(0)
 if not os.path.isdir('log'):
@@ -42,7 +47,7 @@ def empty_log():
             mess = _log_queue.get_nowait()
         except Queue.Empty:
             break
-        wxLogMessage(mess)
+        wx.LogMessage(mess)
 
 console_output = 1
 
@@ -65,8 +70,8 @@ class MyStdIO:
         _log_file.flush()
         put_log(mess)
 
-sys.stderr = MyStdIO(sys.stderr)
-sys.stdout = MyStdIO(sys.stdout)
+#sys.stderr = MyStdIO(sys.stderr)
+#sys.stdout = MyStdIO(sys.stdout)
 
 show = pprint.pprint
 
@@ -75,30 +80,30 @@ debugdetaillevel = 0
 
 top_parent = None
 
-edit_bg = wxColour(200,200,150)
-warning_bg = wxColour(150,200,150)
-disableedit_bg = wxColour(250,200,150)
-wxYELLOW = wxColour(250,250,100)
-grid_ln = wxColour(0,0,0)
+edit_bg = wx.Colour(200,200,150)
+warning_bg = wx.Colour(150,200,150)
+disableedit_bg = wx.Colour(250,200,150)
+wxYELLOW = wx.Colour(250,250,100)
+grid_ln = wx.Colour(0,0,0)
 
 roundopt = 2
 
-mycolors = {'finish':wxColour(255,0,255),
-            'coming':wxGREEN,
-            'late':wxColour(50,50,240),
-            'waiting':wxWHITE,
-            'lapmark':wxColour(255,127,0),
-            'lapmark_ins':wxColour(127,255,0),
-            'finishmark_bg':wxBLACK,
-            'finishmark_fg':wxWHITE,
-            'readymark':wxColour(0,255,127),
-            'timeline':wxRED,
-            'lapmark_disable':wxColour(127,127,0),
-            'penlap_mark':wxColour(255,255,0),
-            'disq_mark':wxRED,
-            'redcard_mark':wxRED,
+mycolors = {'finish':wx.Colour(255,0,255),
+            'coming':wx.GREEN,
+            'late':wx.Colour(50,50,240),
+            'waiting':wx.WHITE,
+            'lapmark':wx.Colour(255,127,0),
+            'lapmark_ins':wx.Colour(127,255,0),
+            'finishmark_bg':wx.BLACK,
+            'finishmark_fg':wx.WHITE,
+            'readymark':wx.Colour(0,255,127),
+            'timeline':wx.RED,
+            'lapmark_disable':wx.Colour(127,127,0),
+            'penlap_mark':wx.Colour(255,255,0),
+            'disq_mark':wx.RED,
+            'redcard_mark':wx.RED,
             'yellowcard_mark':wxYELLOW,
-            'interruption_mark':wxBLACK,
+            'interruption_mark':wx.BLACK,
             }
 
 reccodemap = {'LL':3,'PL':4,'DS':10,'IR':11,'DQ':12,'YC':13,'RC':14,
@@ -128,16 +133,16 @@ reccodelatexlabel = {'LL':r'\Lostalap',
                      'Q':'r\Qualified',
                      'NQ':r'\Notqualified',
                     }
-reccodecolours = {'LL':wxColour(255,255,0),
-                  'PL':wxColour(255,255,127),
-                  'DS':wxColour(192,192,192),
-                  'IR':wxBLACK,
-                  'DQ':wxRED,
-                  'RC':wxRED,
+reccodecolours = {'LL':wx.Colour(255,255,0),
+                  'PL':wx.Colour(255,255,127),
+                  'DS':wx.Colour(192,192,192),
+                  'IR':wx.BLACK,
+                  'DQ':wx.RED,
+                  'RC':wx.RED,
                   'YC':wxYELLOW,
-                  'NT':wxColour(159,159,95),
-                  'Q':wxColour(0,255,0),
-                  'NQ':wxColour(255,0,255),
+                  'NT':wx.Colour(159,159,95),
+                  'Q':wx.Colour(0,255,0),
+                  'NQ':wx.Colour(255,0,255),
                   }
 
 def isqclass(cl):
@@ -233,7 +238,7 @@ class MyDebug:
         if n[:8] == '__main__':
             n = n[8:]
         sys.stderr.write('WARNING:%s\n'%(string.join(map(str,list(mess)),' ')))
-        wxBell()
+        wx.Bell()
     
     def Message(self,*mess):
         n = str(self.__class__)
@@ -241,7 +246,7 @@ class MyDebug:
             n = n[8:]
         mess = string.join(map(str,list(mess)),' ')
         sys.stdout.write('Message:%s\n'%(mess))
-        wxBell()
+        wx.Bell()
             
     def Info(self,*mess):
         n = str(self.__class__)
@@ -249,19 +254,19 @@ class MyDebug:
         mess = string.join(map(str,list(mess)),' ')
         sys.stdout.write('Info:%s\n'%(mess))
         self.topparent.statusbar.SetStatusText(mess,0)
-        wxBell()
+        wx.Bell()
 
-class PutSleep(wxTimer,MyDebug):
+class PutSleep(wx.Timer,MyDebug):
 
     def __init__(self,pros,tm,debug):
         MyDebug.__init__(self,debug)
-        wxTimer.__init__(self)
+        wx.Timer.__init__(self)
         self.pros = pros
         self.Start(tm*1000,oneShot=true)
 
     def Notify(self):
         self.Debug('Notify')
-        wxBell()
+        wx.Bell()
         self.pros()
 
 def markoutercomma(line,comma=','):
@@ -422,11 +427,11 @@ def runpdfview(fp,dopts = {}):
 
 def Warning(*mess):
     sys.stderr.write('WARNING:%s\n'%(string.join(map(str,list(mess)),' ')))
-    wxBell()
+    wx.Bell()
     
 def Message(*mess):
     sys.stdout.write('Message:%s\n'%(string.join(map(str,list(mess)),' ')))
-    wxBell()
+    wx.Bell()
 
 def Info(*mess):
     global top_parent
@@ -434,7 +439,7 @@ def Info(*mess):
     sys.stdout.write('Info:%s\n'%(mess))
     if top_parent:
         top_parent.statusbar.SetStatusText(mess,0)
-    wxBell()
+    wx.Bell()
 
 def Debug(*mess):
     if debuglevel>=1:

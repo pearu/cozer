@@ -1,8 +1,8 @@
 
                          COZER - COmpetition organiZER
-                                    2.6
+                                    2.7
 
-Copyright 2000,2001,2006 Pearu Peterson all rights reserved,
+Copyright 2000,2001,2006,2009 Pearu Peterson all rights reserved,
 Pearu Peterson <pearu.peterson@gmail.com>          
 
 DISCLAIMER
@@ -83,4 +83,5 @@ Pearu Peterson
 
 CHANGES
 =======
+v2.7 - fixes for wx 2.8.4 support (23 June 2009)
 v2.6 - added unicode support, may break Python 2.1 support (19 July 2006)

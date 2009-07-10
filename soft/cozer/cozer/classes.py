@@ -13,21 +13,22 @@ Pearu Peterson
 
 __version__ = "$Revision: 1.2 $"[10:-1]
 
-from wxPython.grid import *
+import wx
+import wx.grid
 from prefs import *
 from buildmenus import *
 
 
 
-class ClassDataTable(wxPyGridTableBase,MyDebug):
+class ClassDataTable(wx.grid.PyGridTableBase,MyDebug):
     defaultdatarow = ['internal','',0,0]
     def __init__(self,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPyGridTableBase.__init__(self)
+        wx.grid.PyGridTableBase.__init__(self)
         self.colLabels = ['Class','Heats','Laps']
-        self.dataTypes = [wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_NUMBER+':1,12',
-                          wxGRID_VALUE_NUMBER+':1,12']
+        self.dataTypes = [wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_NUMBER+':1,12',
+                          wx.grid.GRID_VALUE_NUMBER+':1,12']
         self.topparent = topparent
         if not self.topparent.eventdata.has_key('classes'):
             self.topparent.eventdata['classes'] = []
@@ -55,7 +56,7 @@ class ClassDataTable(wxPyGridTableBase,MyDebug):
         return self.dataTypes[col]
     def ResetEvent(self):
         self.Debug('ResetEvent')
-        #msg = wxGridTableMessage(self,wxGRIDTABLE_NOTIFY_ROWS_APPENDED,-100)
+        #msg = wx.grid.GridTableMessage(self,wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED,-100)
         #self.GetView().ProcessTableMessage(msg)
     def Sort(self,col):
         self.Debug('Sort, col=',col)
@@ -65,10 +66,10 @@ class ClassDataTable(wxPyGridTableBase,MyDebug):
 
     
 
-class ClassGrid(wxGrid,MyDebug):
+class ClassGrid(wx.grid.Grid,MyDebug):
     def __init__(self,parent,topparent,pos,debug):
         MyDebug.__init__(self,debug)
-        wxGrid.__init__(self,parent,-1,pos)
+        wx.grid.Grid.__init__(self,parent,-1,pos)
         self.classtable = ClassDataTable(topparent,debug+(not not debug))
         self.SetTable(self.classtable,true)
         self.data = self.classtable.data
@@ -76,20 +77,20 @@ class ClassGrid(wxGrid,MyDebug):
         self.SetRowLabelSize(20)
         self.SetColLabelSize(20)
         self.SetMargins(0,0)
-        EVT_GRID_LABEL_RIGHT_CLICK(self,self.OnLabelRightClick)
-        EVT_GRID_LABEL_LEFT_CLICK(self,self.OnLabelLeftClick)
-        EVT_KEY_DOWN(self, self.OnKeyDown)
-        EVT_GRID_COL_SIZE(self,self.ResetColsSize)
+        wx.grid.EVT_GRID_LABEL_RIGHT_CLICK(self,self.OnLabelRightClick)
+        wx.grid.EVT_GRID_LABEL_LEFT_CLICK(self,self.OnLabelLeftClick)
+        wx.EVT_KEY_DOWN(self, self.OnKeyDown)
+        wx.grid.EVT_GRID_COL_SIZE(self,self.ResetColsSize)
         self.ResetColsSize()
     def ResetColsSize(self,evt = None):
         self.Debug('ResetColsSize')
         sz = self.GetColLabelSize() + 20
         for i in range(self.GetNumberCols()):
             sz = sz + self.GetColSize(i)
-        self.SetSize(wxSize(sz,200))
+        self.SetSize(wx.Size(sz,200))
 
     def OnKeyDown(self, evt):
-        if evt.KeyCode() == WXK_DELETE:
+        if evt.KeyCode == wx.WXK_DELETE:
             self.Debug('OnKeyDown, delete')
             if self.GetGridCursorCol()==0:
                 row = self.GetGridCursorRow()
@@ -99,7 +100,7 @@ class ClassGrid(wxGrid,MyDebug):
                     self.MakeCellVisible(row-1, 0)
             evt.Skip()
             return
-        if evt.KeyCode() not in [WXK_RETURN,WXK_TAB] or evt.ControlDown():
+        if evt.KeyCode not in [wx.WXK_RETURN,wx.WXK_TAB] or evt.ControlDown():
             evt.Skip()
             return
 
@@ -153,12 +154,12 @@ class ClassGrid(wxGrid,MyDebug):
         self.Refresh(-1)
     def Refresh(self,flag):
         self.Debug('Refresh')
-        msg = wxGridTableMessage(self.classtable,wxGRIDTABLE_NOTIFY_ROWS_APPENDED,flag)
+        msg = wx.grid.GridTableMessage(self.classtable,wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED,flag)
         self.classtable.GetView().ProcessTableMessage(msg)        
-class ClassMenu(wxMenu,MyDebug):
+class ClassMenu(wx.Menu,MyDebug):
     def __init__(self,parent,row,debug):
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"Class Menu")
+        wx.Menu.__init__(self,"Class Menu")
         self.parent = parent
         self.row = row
         if row == -1:

@@ -13,11 +13,11 @@ Pearu Peterson
 
 from __version__ import __version__
 
-from wxPython.wx import *
-from wxPython.html import *
-import wxPython.lib.wxpTag
+import wx
+import wx.html
+import wx.lib.wxpTag
 
-class AboutBox(wxDialog):
+class AboutBox(wx.Dialog):
     about = '''
 <html>
 <body bgcolor="#AC76DE">
@@ -49,9 +49,9 @@ time keeping, and printing various reports and letters.
 </html>
 '''
     def __init__(self,parent):
-        wxDialog.__init__(self, parent, -1, 'About the Cozer program',
-                          size=wxSize(440, 440))
-        self.html = wxHtmlWindow(self, -1, size=wxSize(440, 440))
+        wx.Dialog.__init__(self, parent, -1, 'About the Cozer program',
+                          size=wx.Size(440, 440))
+        self.html = wx.html.HtmlWindow(self, -1, size=wx.Size(440, 440))
         self.html.SetPage(self.about)
-        self.CentreOnParent(wxBOTH)
+        self.CentreOnParent(wx.BOTH)
         return

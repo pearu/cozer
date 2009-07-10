@@ -80,9 +80,14 @@ mainmenubar = [
                                   }),
                         ]}),
     ('Help',{'menu':'&Help',
-             'submenu':[('About',{'menu':'A&bout',
-                                  'help':'About Cozer',
-                                  'shelp':'About'
-                                  }),
+             'submenu':[
+    ('About',{'menu':'A&bout',
+              'help':'About Cozer',
+              'shelp':'About'
+              }),
+    ('Reload',{'menu':'R&eload',
+              'help':'Reload Cozer modules',
+              'shelp':'Reload'
+              }),
                         ]})
     ]

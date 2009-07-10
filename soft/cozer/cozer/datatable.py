@@ -15,10 +15,11 @@ __version__ = "$Revision: 1.3 $"[10:-1]
 
 from prefs import *
 from buildmenus import *
-from wxPython.grid import *
+
+import wx.grid
 import string
 
-class DataTable(wxPyGridTableBase,MyDebug):
+class DataTable(wx.grid.PyGridTableBase,MyDebug):
     """
 Childrens must define:
     self.colLabels
@@ -29,7 +30,7 @@ Childrens must define:
 
     def __init__(self,debug):
         MyDebug.__init__(self,debug)
-        wxPyGridTableBase.__init__(self)
+        wx.grid.PyGridTableBase.__init__(self)
 
     def GetNumberRows(self):
         self.Debug1('GetNumberRows')
@@ -72,7 +73,7 @@ Childrens must define:
 
     def GetTypeName(self, row, col):
         self.Debug1('GetTypeName, row col=',row,col)
-        if col == -1: return wxGRID_VALUE_STRING
+        if col == -1: return wx.grid.GRID_VALUE_STRING
         return self.dataTypes[col]
 
     def Sort(self,col):
@@ -89,7 +90,7 @@ Childrens must define:
         return self.enableedit
 
 
-class DataGrid(wxGrid,MyDebug):
+class DataGrid(wx.grid.Grid,MyDebug):
     """
     Parent must set:
     parent.topparent
@@ -98,7 +99,7 @@ class DataGrid(wxGrid,MyDebug):
 
     def __init__(self,parent,TableClass,debug):
         MyDebug.__init__(self,debug)
-        wxGrid.__init__(self,parent,-1)
+        wx.grid.Grid.__init__(self,parent,-1)
         self.table = TableClass(parent.topparent,self,debug+(not not debug))
         self.SetTable(self.table,true)
         self.data = self.table.data
@@ -109,18 +110,18 @@ class DataGrid(wxGrid,MyDebug):
         self.SetRowLabelSize(20)
         self.SetColLabelSize(20)
         self.SetMargins(0,0)
-        EVT_GRID_LABEL_RIGHT_CLICK(self,self.OnLabelRightClick)
-        EVT_GRID_LABEL_LEFT_CLICK(self,self.OnLabelLeftClick)
-        EVT_GRID_CELL_RIGHT_CLICK(self,self.OnCellRightClick)
-        EVT_KEY_DOWN(self, self.OnKeyDown)
+        wx.grid.EVT_GRID_LABEL_RIGHT_CLICK(self,self.OnLabelRightClick)
+        wx.grid.EVT_GRID_LABEL_LEFT_CLICK(self,self.OnLabelLeftClick)
+        wx.grid.EVT_GRID_CELL_RIGHT_CLICK(self,self.OnCellRightClick)
+        wx.EVT_KEY_DOWN(self, self.OnKeyDown)
 
     def OnKeyDown(self, evt):
         row,col=self.GetGridCursorRow(),self.GetGridCursorCol()
         self.MakeCellVisible(row,col)
-        if not self.IsVisible(row,col): #wxGrid bug fix
+        if not self.IsVisible(row,col): #wx.grid.Grid bug fix
             self.NewDataRow(0)
             self.MakeCellVisible(row,col)
-        if evt.KeyCode() == WXK_DELETE:
+        if evt.KeyCode == wx.WXK_DELETE:
             if col==0 and self.table.GetEnableEdit():
                 self.Debug('OnKeyDown, delete')
                 self.DeleteDataRow(row)
@@ -129,12 +130,12 @@ class DataGrid(wxGrid,MyDebug):
                     self.SetGridCursor(n, 0)
                     self.MakeCellVisible(n, 0)
             else:
-                wxBell()
+                wx.Bell()
             return
         if not self.table.GetEnableEdit():
-            wxBell()
+            wx.Bell()
             return
-        if evt.KeyCode() not in [WXK_RETURN,WXK_TAB] or evt.ControlDown():
+        if evt.KeyCode not in [wx.WXK_RETURN,wx.WXK_TAB] or evt.ControlDown():
             evt.Skip()
             return
 
@@ -215,7 +216,7 @@ class DataGrid(wxGrid,MyDebug):
 
     def NewDataRow(self,row):
         if not self.table.GetEnableEdit():
-            wxBell()
+            wx.Bell()
             return
         self.Debug('NewDataRow')
         self.data.append([])
@@ -240,7 +241,7 @@ class DataGrid(wxGrid,MyDebug):
 
     def NotifyGrid(self,flag):
         self.Debug('NotifyGrid')
-        msg = wxGridTableMessage(self.table,wxGRIDTABLE_NOTIFY_ROWS_APPENDED,flag)
+        msg = wx.grid.GridTableMessage(self.table,wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED,flag)
         self.table.GetView().ProcessTableMessage(msg)
 
     def SetEnableEdit(self,bool):
@@ -287,11 +288,11 @@ _datatablelabelmenu = [
     ]
 
 
-class DataMenu(wxMenu,MyDebug):
+class DataMenu(wx.Menu,MyDebug):
 
     def __init__(self,parent,row,debug):
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"Data Menu")
+        wx.Menu.__init__(self,"Data Menu")
         self.parent = parent
         self.row = row
         if row == -1:
@@ -337,13 +338,13 @@ class DataMenu(wxMenu,MyDebug):
 _tmpmenuflag = [-1]
 
 
-class TempMenu(wxMenu,MyDebug):
+class TempMenu(wx.Menu,MyDebug):
 
     def __init__(self,parent,menutmpl,debug):
         global _tmpmenuflag
         _tmpmenuflag[0] = -1
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"")
+        wx.Menu.__init__(self,"")
         i = -1
         for item in menutmpl:
             i = i + 1

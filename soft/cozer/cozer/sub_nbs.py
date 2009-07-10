@@ -38,20 +38,20 @@ def _fixsize(container):
     font = container.GetFont()
     tc = container.GetFullTextExtent(container.GetValue(),font)
     if tc[0]+20>cs[0]<600:
-        container.SetSize(wxSize(tc[0]+20,cs[1]))
+        container.SetSize(wx.Size(tc[0]+20,cs[1]))
     elif 20<tc[0]<cs[0]-20:
-        container.SetSize(wxSize(tc[0]+20,cs[1]))        
+        container.SetSize(wx.Size(tc[0]+20,cs[1]))        
 
 
-class GeneralInformationClasses(wxPanel,MyDebug):
+class GeneralInformationClasses(wx.Panel,MyDebug):
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.topparent = topparent
         self.grid = DataGrid(self,ClassDataTable,debug+(not not debug))
         self.grid.AutoSizeColumn(1)
-        sizer = wxBoxSizer(wxVERTICAL)
-        sizer.Add(self.grid,1,wxEXPAND)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.grid,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(sizer)
         self.grid.table.ValidateTable()
@@ -60,14 +60,14 @@ class GeneralInformationClasses(wxPanel,MyDebug):
         self.grid.table.ValidateTable()
 
 
-class GeneralInformationParticipants(wxPanel,MyDebug):
+class GeneralInformationParticipants(wx.Panel,MyDebug):
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.topparent = topparent
         self.grid = DataGrid(self,ParticipantDataTable,debug+(not not debug))
-        sizer = wxBoxSizer(wxVERTICAL)
-        sizer.Add(self.grid,1,wxEXPAND)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.grid,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(sizer)
     def Entering(self):
@@ -76,10 +76,10 @@ class GeneralInformationParticipants(wxPanel,MyDebug):
         self.grid.table.ValidateTable()
 
 
-class GeneralInformationRules(wxPanel,MyDebug):
+class GeneralInformationRules(wx.Panel,MyDebug):
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.topparent = topparent
         
         self.grid = DataGrid(self,RulesDataTable,debug+(not not debug))
@@ -91,16 +91,16 @@ class GeneralInformationRules(wxPanel,MyDebug):
         else:
             ss = ''
             topparent.eventdata['scoringsystem'] = []
-        sstext = wxTextCtrl(self,wxNewId(),ss)
+        sstext = wx.TextCtrl(self,wx.NewId(),ss)
         sstext.SetBackgroundColour(edit_bg)
-        EVT_TEXT(self,sstext.GetId(), self.OnSSEdit)
+        wx.EVT_TEXT(self,sstext.GetId(), self.OnSSEdit)
 
-        hs = wxBoxSizer(wxHORIZONTAL)
-        hs.Add(wxStaticText(self,-1,'Scoring System:'))
-        hs.Add(sstext,1,wxEXPAND)
-        sizer = wxBoxSizer(wxVERTICAL)
-        sizer.Add(hs,0,wxEXPAND)
-        sizer.Add(self.grid,1,wxEXPAND)
+        hs = wx.BoxSizer(wx.HORIZONTAL)
+        hs.Add(wx.StaticText(self,-1,'Scoring System:'))
+        hs.Add(sstext,1,wx.EXPAND)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(hs,0,wx.EXPAND)
+        sizer.Add(self.grid,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(sizer)
 
@@ -135,33 +135,34 @@ class GeneralInformationRules(wxPanel,MyDebug):
         self.grid.table.ValidateTable()
 
 
-class GeneralInformation(wxPanel,MyDebug):
+class GeneralInformation(wx.Panel,MyDebug):
     
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
 
-        gridsizer = wxGridSizer(len(_labeledit),2,2,2)
+        gridsizer = wx.GridSizer(len(_labeledit),2,2,2)
         self.inputs=[]
         for d,l in _labeledit:
-            ID = wxNewId()
-            input = wxTextCtrl(self, ID, "")
+            ID = wx.NewId()
+            input = wx.TextCtrl(self, ID, "")
             setattr(self,'%sinput'%d,input)
             input.SetBackgroundColour(edit_bg)
-            gridsizer.AddMany([(wxStaticText(self,-1,l),0,wxALIGN_RIGHT),input])
+            gridsizer.AddMany([(wx.StaticText(self,-1,l),0,wx.ALIGN_RIGHT),input])
             exec """def fun(self,evt):\n    self.topparent.eventdata['%s'] = evt.GetString()\n    _fixsize(self.%sinput)\n"""%(d,d)
             func = lambda evt,self=self,fun=fun:fun(self,evt)
-            EVT_TEXT(self, ID, func)
+            wx.EVT_TEXT(self, ID, func)
             input.SetValue(_getdefault(self,d))
             self.inputs.append(input)
-        vsizer = wxBoxSizer(wxVERTICAL)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
         vsizer.Add(gridsizer)
 
         self.CreatePages()
-        nbsizer = wxNotebookSizer(self.nb)
-        vsizer.Add(nbsizer,1,wxEXPAND)
+        #nbsizer = wx.NotebookSizer(self.nb)
+        nbsizer = self.nb
+        vsizer.Add(nbsizer,1,wx.EXPAND)
 
         self.SetAutoLayout(true)
         self.SetSizer(vsizer)
@@ -170,14 +171,14 @@ class GeneralInformation(wxPanel,MyDebug):
         self.Debug('CreatePages')
         try: self.nb.Destroy()
         except AttributeError: pass
-        self.nb = wxNotebook(self,-1)
+        self.nb = wx.Notebook(self,-1)
         self.pages = []
         for p in nb_geninf_pages:
             page = p[1](self.nb,self.topparent,self.debug+(not not self.debug))
             self.pages.append(page)
             self.nb.AddPage(page,p[0])
         self.nb.SetSelection(0)
-        EVT_NOTEBOOK_PAGE_CHANGED(self, self.nb.GetId(), self.OnPageChanged)
+        wx.EVT_NOTEBOOK_PAGE_CHANGED(self, self.nb.GetId(), self.OnPageChanged)
 
     def OnPageChanged(self,evt):
         self.Debug('OnPageChanged')
@@ -192,15 +193,15 @@ class GeneralInformation(wxPanel,MyDebug):
         map(_fixsize,self.inputs)
 
 
-class Races(wxPanel,MyDebug):
+class Races(wx.Panel,MyDebug):
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
         
-        splitter = wxSplitterWindow(self,-1)
+        splitter = wx.SplitterWindow(self,-1)
 
         self.racelst = RacesList(splitter,topparent,debug+(not not debug))
         topparent.pagedict['racelist'] = self.racelst
@@ -210,8 +211,8 @@ class Races(wxPanel,MyDebug):
         splitter.SplitVertically(self.racelst,self.raceedit)
         self.splitter = splitter
 
-        hsizer = wxBoxSizer(wxHORIZONTAL)
-        hsizer.Add(splitter,1,wxEXPAND)
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        hsizer.Add(splitter,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(hsizer)
         
@@ -221,16 +222,16 @@ class Races(wxPanel,MyDebug):
         self.splitter.SetMinimumPaneSize(20)
 
 
-class Timer(wxPanel,MyDebug):
+class Timer(wx.Panel,MyDebug):
     timerwin = None
     optwin = None
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
-        self.sizer = wxBoxSizer(wxVERTICAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.racelst = topparent.pagedict['racelist']
         self.CreateOptWin()
         self.SetAutoLayout(true)
@@ -256,7 +257,7 @@ class Timer(wxPanel,MyDebug):
         setopt(self,'id_but_size',bsize)
         if self.timerwin and hasattr(self.timerwin,'buts'):
             for b in self.timerwin.buts:
-                b.SetSize(wxSize(bsize,bsize))
+                b.SetSize(wx.Size(bsize,bsize))
 
     def SetButTextSize(self,evt):
         self.Debug('SetButTextSize')
@@ -280,32 +281,32 @@ class Timer(wxPanel,MyDebug):
         if self.optwin:
             self.sizer.Remove(self.optwin)
             self.optwin.Destroy()
-        self.optwin=wxPanel(self,-1,size=wxSize(500,30))
-        hsizer=wxBoxSizer(wxHORIZONTAL)
+        self.optwin=wx.Panel(self,-1,size=wx.Size(500,30))
+        hsizer=wx.BoxSizer(wx.HORIZONTAL)
         self.optwin.SetAutoLayout(true)
         self.optwin.SetSizer(hsizer)
-        self.sizer.Add(self.optwin,0,wxEXPAND)
+        self.sizer.Add(self.optwin,0,wx.EXPAND)
 
-        choice = wxChoice(self.optwin,wxNewId(),choices=map(self.racelst.lst.GetItemText,range(self.racelst.lst.GetItemCount())))
-        EVT_CHOICE(self.optwin,choice.GetId(),self.SelectRace)
+        choice = wx.Choice(self.optwin,wx.NewId(),choices=map(self.racelst.lst.GetItemText,range(self.racelst.lst.GetItemCount())))
+        wx.EVT_CHOICE(self.optwin,choice.GetId(),self.SelectRace)
         hsizer.Add(choice)
         self.racechoice = choice
 
-        # Use wxSpinCtrl
-        spin = wxSpinButton(self.optwin,wxNewId(),style=wxSP_VERTICAL)
+        # Use wx.SpinCtrl
+        spin = wx.SpinButton(self.optwin,wx.NewId(),style=wx.SP_VERTICAL)
         spin.SetRange(20, 100)
         spin.SetValue(getopt(self,'id_but_size',40))
-        EVT_SPIN(self.optwin, spin.GetId(), self.SetButSize)
+        wx.EVT_SPIN(self.optwin, spin.GetId(), self.SetButSize)
         hsizer.Add(spin)
         
-        spin = wxSpinButton(self.optwin,wxNewId(),style=wxSP_VERTICAL)
+        spin = wx.SpinButton(self.optwin,wx.NewId(),style=wx.SP_VERTICAL)
         spin.SetRange(10, 40)
         spin.SetValue(getopt(self,'id_but_textsize',14))
-        EVT_SPIN(self.optwin, spin.GetId(), self.SetButTextSize)
+        wx.EVT_SPIN(self.optwin, spin.GetId(), self.SetButTextSize)
         hsizer.Add(spin)
 
-        self.startbut = wxButton(self.optwin,wxNewId(),'Start')
-        EVT_BUTTON(self.optwin,self.startbut.GetId(),self.Start)
+        self.startbut = wx.Button(self.optwin,wx.NewId(),'Start')
+        wx.EVT_BUTTON(self.optwin,self.startbut.GetId(),self.Start)
         hsizer.Add(self.startbut)
 
         if 0<=self.topparent.currentRace<len(self.topparent.eventdata['races']):
@@ -334,11 +335,11 @@ class Timer(wxPanel,MyDebug):
             i = i + 1
             for k in r.keys(): fl = fl or r[k]
             if fl:
-                mess = wxMessageDialog(self,
+                mess = wx.MessageDialog(self,
                                        "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost!"%(cl,h),
                                        "Overwrite race record?",
-                                       style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
-                if not mess.ShowModal() == wxID_YES:
+                                       style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
+                if not mess.ShowModal() == wx.ID_YES:
                     skip.append(i)
                     continue
             self.timerwin.info[i]['starttime'] = t
@@ -405,22 +406,22 @@ class Timer(wxPanel,MyDebug):
             self.timerwin.CleanUp()
             self.timerwin.Destroy()
         self.timerwin = TimerWin1(info,race,self.topparent,self,self.debug+(not not self.debug))
-        self.sizer.Add(self.timerwin,1,wxEXPAND)
+        self.sizer.Add(self.timerwin,1,wx.EXPAND)
         self.sizer.Layout()
 
     def ResetEvent(self):
         self.Debug('ResetEvent')
 
 
-class EditRecord(wxPanel,MyDebug):
+class EditRecord(wx.Panel,MyDebug):
     editwin = None
     optwin = None
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
-        self.sizer = wxBoxSizer(wxVERTICAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         if not topparent.eventdata.has_key('record'):
             topparent.eventdata['record'] = {}
         self.record = topparent.eventdata['record']
@@ -451,27 +452,27 @@ class EditRecord(wxPanel,MyDebug):
         if self.optwin:
             self.sizer.Remove(self.optwin)
             self.optwin.Destroy()
-        self.optwin=wxPanel(self,-1,size=wxSize(500,30))
-        hsizer=wxBoxSizer(wxHORIZONTAL)
+        self.optwin=wx.Panel(self,-1,size=wx.Size(500,30))
+        hsizer=wx.BoxSizer(wx.HORIZONTAL)
         self.optwin.SetAutoLayout(true)
         self.optwin.SetSizer(hsizer)
-        self.sizer.Add(self.optwin,0,wxEXPAND)
+        self.sizer.Add(self.optwin,0,wx.EXPAND)
 
-        choice = wxChoice(self.optwin,wxNewId(),choices=[])
-        EVT_CHOICE(self.optwin,choice.GetId(),self.SelectClassHeat)
+        choice = wx.Choice(self.optwin,wx.NewId(),choices=[])
+        wx.EVT_CHOICE(self.optwin,choice.GetId(),self.SelectClassHeat)
         hsizer.Add(choice)
         self.recchoice = choice
 
-        delbut = wxButton(self.optwin,wxNewId(),'Delete')
-        EVT_BUTTON(self.optwin,delbut.GetId(),self.DeleteClassHeat)
+        delbut = wx.Button(self.optwin,wx.NewId(),'Delete')
+        wx.EVT_BUTTON(self.optwin,delbut.GetId(),self.DeleteClassHeat)
         hsizer.Add(delbut)
 
-        vs = wxBoxSizer(wxHORIZONTAL)
-        self.starttimetext = wxStaticText(self.optwin,wxNewId(),'Start time',
-                                          size=wxSize(250,-1))
+        vs = wx.BoxSizer(wx.HORIZONTAL)
+        self.starttimetext = wx.StaticText(self.optwin,wx.NewId(),'Start time',
+                                          size=wx.Size(250,-1))
         vs.Add(self.starttimetext)
-        self.timetext = wxStaticText(self.optwin,wxNewId(),'Race time',
-                                     size=wxSize(250,-1))
+        self.timetext = wx.StaticText(self.optwin,wx.NewId(),'Race time',
+                                     size=wx.Size(250,-1))
         vs.Add(self.timetext)        
         hsizer.Add(vs)
 
@@ -489,7 +490,7 @@ class EditRecord(wxPanel,MyDebug):
         self.editwin = EditWin1(self.record[cls][heat][0],self.record[cls][heat][1],
                                 res,
                                 self.topparent,self,self.debug+(not not self.debug))
-        self.sizer.Add(self.editwin,1,wxEXPAND)
+        self.sizer.Add(self.editwin,1,wx.EXPAND)
         self.sizer.Layout()
         
     def DeleteClassHeat(self,evt):
@@ -499,23 +500,23 @@ class EditRecord(wxPanel,MyDebug):
             self.Info('Select Class/Heat first.')
             return
         cls,heat = self.recs[sel]
-        mess = wxMessageDialog(self,
+        mess = wx.MessageDialog(self,
                                   "Are you sure that you want to delete race record of class %s heat %s"%(cls,heat),
                                   "Delete race record?",
-                               style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
-        if mess.ShowModal() == wxID_YES:
+                               style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
+        if mess.ShowModal() == wx.ID_YES:
             del self.record[cls][heat]
             self.Entering()
 
 
-class Reports(wxPanel,MyDebug):
+class Reports(wx.Panel,MyDebug):
     optwin = None
     checkwin = None
     repfunc = None
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
         if not self.topparent.eventdata.has_key('record'):
@@ -524,7 +525,7 @@ class Reports(wxPanel,MyDebug):
         if not self.topparent.eventdata.has_key('savechecked'):
             self.topparent.eventdata['savechecked']={}
         self.savechecked = self.topparent.eventdata['savechecked']
-        self.sizer = wxBoxSizer(wxVERTICAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.CreateOptWin()
         self.SetAutoLayout(true)
         self.SetSizer(self.sizer)
@@ -534,31 +535,31 @@ class Reports(wxPanel,MyDebug):
         if self.optwin:
             self.sizer.Remove(self.optwin)
             self.optwin.Destroy()
-        self.optwin=wxPanel(self,-1,size=wxSize(500,30))
-        hsizer=wxBoxSizer(wxHORIZONTAL)
+        self.optwin=wx.Panel(self,-1,size=wx.Size(500,30))
+        hsizer=wx.BoxSizer(wx.HORIZONTAL)
         self.optwin.SetAutoLayout(true)
         self.optwin.SetSizer(hsizer)
-        self.sizer.Add(self.optwin,0,wxEXPAND)
+        self.sizer.Add(self.optwin,0,wx.EXPAND)
 
-        hsizer.Add(wxStaticText(self.optwin,-1,"Report: "))
-        choice = wxChoice(self.optwin,wxNewId(),choices=[],size=wxSize(120,-1))
-        EVT_CHOICE(self.optwin,choice.GetId(),self.SelectReportType)
+        hsizer.Add(wx.StaticText(self.optwin,-1,"Report: "))
+        choice = wx.Choice(self.optwin,wx.NewId(),choices=[],size=wx.Size(120,-1))
+        wx.EVT_CHOICE(self.optwin,choice.GetId(),self.SelectReportType)
         hsizer.Add(choice)
 
-        viewbut = wxButton(self.optwin,wxNewId(),'Preview')
-        EVT_BUTTON(self.optwin,viewbut.GetId(),self.Preview)
+        viewbut = wx.Button(self.optwin,wx.NewId(),'Preview')
+        wx.EVT_BUTTON(self.optwin,viewbut.GetId(),self.Preview)
         hsizer.Add(viewbut)
 
-        psviewbut = wxButton(self.optwin,wxNewId(),'PSPreview')
-        EVT_BUTTON(self.optwin,psviewbut.GetId(),self.PSPreview)
+        psviewbut = wx.Button(self.optwin,wx.NewId(),'PSPreview')
+        wx.EVT_BUTTON(self.optwin,psviewbut.GetId(),self.PSPreview)
         hsizer.Add(psviewbut)
 
-        pdfviewbut = wxButton(self.optwin,wxNewId(),'PDFPreview')
-        EVT_BUTTON(self.optwin,pdfviewbut.GetId(),self.PDFPreview)
+        pdfviewbut = wx.Button(self.optwin,wx.NewId(),'PDFPreview')
+        wx.EVT_BUTTON(self.optwin,pdfviewbut.GetId(),self.PDFPreview)
         hsizer.Add(pdfviewbut)
 
-        printbut = wxButton(self.optwin,wxNewId(),'Print')
-        EVT_BUTTON(self.optwin,printbut.GetId(),self.Print)
+        printbut = wx.Button(self.optwin,wx.NewId(),'Print')
+        wx.EVT_BUTTON(self.optwin,printbut.GetId(),self.Print)
         hsizer.Add(printbut)
 
         self.reps = []
@@ -621,18 +622,18 @@ class Reports(wxPanel,MyDebug):
         if not self.optwin: return
         win = self.CheckWin()
 
-        vsizer = wxBoxSizer(wxVERTICAL)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
         clses = map(lambda l:l[1],self.topparent.eventdata['classes'])
         self.clsidmap = {}
         self.idmap = {}
         self.checkedcls = []
         self.checked = {}
         for cl in clses:
-            hsizer = wxBoxSizer(wxHORIZONTAL)
+            hsizer = wx.BoxSizer(wx.HORIZONTAL)
             vsizer.Add(hsizer)
-            ID = wxNewId()
-            clcheck = wxCheckBox(win,ID," Class %s"%cl,size=wxSize(120,-1))
-            EVT_CHECKBOX(win,ID,self.Checking)
+            ID = wx.NewId()
+            clcheck = wx.CheckBox(win,ID," Class %s"%cl,size=wx.Size(120,-1))
+            wx.EVT_CHECKBOX(win,ID,self.Checking)
             hsizer.Add(clcheck,0)
             self.clsidmap[ID]=cl
             self.checked[cl]=[]
@@ -644,9 +645,9 @@ class Reports(wxPanel,MyDebug):
             hks = self.record[cl].keys()
             hks.sort()
             for h in hks:
-                ID = wxNewId()
-                hcheck = wxCheckBox(win,ID," Heat %s"%h,size=wxSize(-1,-1))
-                EVT_CHECKBOX(win,ID,self.Checking)
+                ID = wx.NewId()
+                hcheck = wx.CheckBox(win,ID," Heat %s"%h,size=wx.Size(-1,-1))
+                wx.EVT_CHECKBOX(win,ID,self.Checking)
                 hsizer.Add(hcheck,0)
                 self.idmap[ID] = cl,h
                 if self.savechecked.has_key((cl,h)) and self.savechecked[cl,h]:
@@ -686,29 +687,29 @@ class Reports(wxPanel,MyDebug):
         if self.checkwin:
             self.sizer.Remove(self.checkwin)
             self.checkwin.Destroy()
-        self.checkwin = wxScrolledWindow(self,-1,wxPoint(0, 0),style=wxSUNKEN_BORDER)
+        self.checkwin = wx.ScrolledWindow(self,-1,wx.Point(0, 0),style=wx.SUNKEN_BORDER)
         self.checkwin.SetScrollbars(20, 20, 50, 50)
-        self.sizer.Add(self.checkwin,1,wxEXPAND)
+        self.sizer.Add(self.checkwin,1,wx.EXPAND)
         self.sizer.Layout()
         return self.checkwin
 
     def ResetEvent(self):
         self.Debug('ResetEvent')
 
-class Log(wxPanel,MyDebug):
+class Log(wx.Panel,MyDebug):
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
 
-        self.log = wxTextCtrl(self, -1,
-                              style = wxTE_MULTILINE|wxTE_READONLY|wxHSCROLL)
-        wxLog_SetActiveTarget(wxLogTextCtrl(self.log))
+        self.log = wx.TextCtrl(self, -1,
+                              style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+        wx.Log_SetActiveTarget(wx.LogTextCtrl(self.log))
 
-        self.sizer = wxBoxSizer(wxVERTICAL)
-        self.sizer.Add(self.log,1,wxEXPAND)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.log,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(self.sizer)    
 

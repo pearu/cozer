@@ -25,8 +25,8 @@ class ClassDataTable(DataTable,MyDebug):
         DataTable.__init__(self,debug)
         self.colLabels = ['Class',#'Heats',
                           'Race pattern: NofHeats*(NofLaps*LapLenght+...)+..:Scored']
-        self.dataTypes = [wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_STRING,
+        self.dataTypes = [wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_STRING,
                           ]
         self.topparent = topparent
         self.parent = parent
@@ -83,11 +83,11 @@ class ParticipantDataTable(DataTable,MyDebug):
             self.topparent.eventdata['participants']=[]
         self.data = self.topparent.eventdata['participants']
         self.colLabels = ['Name','Surname','From','Class','Id']
-        self.dataTypes = [wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_CHOICE,
-                          wxGRID_VALUE_STRING,
+        self.dataTypes = [wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_CHOICE,
+                          wx.grid.GRID_VALUE_STRING,
                           ]
         self.popup = [0,0,1,self.classes,0]
         return
@@ -99,7 +99,7 @@ class ParticipantDataTable(DataTable,MyDebug):
         classes = self.topparent.GetClasses()
         for i in range(len(classes)):
             self.classes.append(classes[i])
-        self.dataTypes[3] = wxGRID_VALUE_CHOICE+':'+string.join(self.classes,',')
+        self.dataTypes[3] = wx.grid.GRID_VALUE_CHOICE+':'+string.join(self.classes,',')
 
     def ValidateTable(self):
         self.Debug('ValidateTable')
@@ -147,11 +147,11 @@ _raceslistmenu = [
     ]
 
 
-class RacesListMenu(wxMenu,MyDebug):
+class RacesListMenu(wx.Menu,MyDebug):
 
     def __init__(self,parent,debug):
         MyDebug.__init__(self,debug)
-        wxMenu.__init__(self,"")
+        wx.Menu.__init__(self,"")
         self.data = parent.data
         self.parent = parent
         buildmenus(self,_raceslistmenu,self,verbose = debug)
@@ -166,42 +166,42 @@ class RacesListMenu(wxMenu,MyDebug):
     def OnDeleteRace(self,evt):
         self.Debug('DeleteRace')
         if 0<=self.parent.currentItem<len(self.data):
-            mess = wxMessageDialog(self.parent,
+            mess = wx.MessageDialog(self.parent,
                                    "Are you sure you want to delete Race %s?"%(self.parent.currentItem+1),
                                    "Delete Race?",
-                                   style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
-            if mess.ShowModal() == wxID_YES:
+                                   style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
+            if mess.ShowModal() == wx.ID_YES:
                 del self.data[self.parent.currentItem]
                 self.parent.currentItem = min(self.parent.currentItem,len(self.data)-1)
                 self.parent.SetRace()
                 self.parent.FillList()
 
 
-class RacesList(wxPanel,MyDebug):
+class RacesList(wx.Panel,MyDebug):
     currentItem = -1
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
         if not self.topparent.eventdata.has_key('races'):
             self.topparent.eventdata['races']=[]
         self.data = self.topparent.eventdata['races']
         
-        ID = wxNewId()
-        lst = wxListCtrl(self, ID,style=wxLC_REPORT|wxSUNKEN_BORDER)
+        ID = wx.NewId()
+        lst = wx.ListCtrl(self, ID,style=wx.LC_REPORT|wx.SUNKEN_BORDER)
         lst.InsertColumn(0,'Race List')
 
         self.lst = lst
-        vsizer = wxBoxSizer(wxVERTICAL)
-        vsizer.Add(lst,1,wxEXPAND)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+        vsizer.Add(lst,1,wx.EXPAND)
         self.SetAutoLayout(true)
         self.SetSizer(vsizer)
 
-        EVT_RIGHT_DOWN(self.lst, self.OnRightDown)
-        EVT_LIST_ITEM_SELECTED(self, self.lst.GetId(), self.OnItemSelected)
-        EVT_LIST_ITEM_ACTIVATED(self, self.lst.GetId(), self.OnItemActivated)
+        wx.EVT_RIGHT_DOWN(self.lst, self.OnRightDown)
+        wx.EVT_LIST_ITEM_SELECTED(self, self.lst.GetId(), self.OnItemSelected)
+        wx.EVT_LIST_ITEM_ACTIVATED(self, self.lst.GetId(), self.OnItemActivated)
         self.FillList()
 
     def OnItemActivated(self,evt):
@@ -225,8 +225,8 @@ class RacesList(wxPanel,MyDebug):
     def SetRace(self):
         self.topparent.currentRace = self.currentItem
         if 0<=self.currentItem<len(self.data):
-            self.lst.SetItemState(self.currentItem,wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
-                                  wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+            self.lst.SetItemState(self.currentItem,wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
+                                  wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
         
     def FillList(self):
         self.Debug('FillList')
@@ -235,10 +235,10 @@ class RacesList(wxPanel,MyDebug):
         for d in self.data:
             i = i + 1
             self.lst.InsertStringItem(i,'Race %d'%(i+1))
-        self.lst.SetColumnWidth(0, wxLIST_AUTOSIZE)        
+        self.lst.SetColumnWidth(0, wx.LIST_AUTOSIZE)        
         if 0<=self.currentItem<len(self.data):
-            self.lst.SetItemState(self.currentItem,wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED,
-                                  wxLIST_STATE_SELECTED|wxLIST_STATE_FOCUSED)
+            self.lst.SetItemState(self.currentItem,wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
+                                  wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
 
 
 class RaceDataTable(DataTable,MyDebug):
@@ -247,8 +247,8 @@ class RaceDataTable(DataTable,MyDebug):
         MyDebug.__init__(self,debug)
         DataTable.__init__(self,debug)
         self.colLabels = ['Class','Heat']
-        self.dataTypes = [wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_STRING,
+        self.dataTypes = [wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_STRING,
                           ]
         self.topparent = topparent
         self.parent = parent
@@ -294,18 +294,18 @@ class RaceDataTable(DataTable,MyDebug):
         self.parent.NotifyGrid(0)
 
 
-class RaceEdit(wxPanel,MyDebug):
+class RaceEdit(wx.Panel,MyDebug):
     grid = None
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wxPanel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1)
         self.parent = parent
         self.topparent = topparent
         if not self.topparent.eventdata.has_key('races'):
             self.topparent.eventdata['races']=[]
         self.data = self.topparent.eventdata['races']
-        self.sizer = wxBoxSizer(wxVERTICAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetAutoLayout(true)
         self.SetSizer(self.sizer)
 
@@ -315,7 +315,7 @@ class RaceEdit(wxPanel,MyDebug):
             self.sizer.Remove(self.grid)
             self.grid.Destroy()
         self.grid =  DataGrid(self,RaceDataTable,self.debug+(not not self.debug))
-        self.sizer.Add(self.grid,1,wxEXPAND)
+        self.sizer.Add(self.grid,1,wx.EXPAND)
         self.sizer.Layout()
         self.grid.table.ValidateTable()
 
@@ -331,9 +331,9 @@ class RulesDataTable(DataTable,MyDebug):
             self.topparent.eventdata['rules']=[]
         self.data = self.topparent.eventdata['rules']
         self.colLabels = ['Action','Paragraph','Short Description']
-        self.dataTypes = [wxGRID_VALUE_CHOICE+':'+string.join(reccodemap.keys(),','),
-                          wxGRID_VALUE_STRING,
-                          wxGRID_VALUE_STRING,
+        self.dataTypes = [wx.grid.GRID_VALUE_CHOICE+':'+string.join(reccodemap.keys(),','),
+                          wx.grid.GRID_VALUE_STRING,
+                          wx.grid.GRID_VALUE_STRING,
                           ]
         self.popup = [reccodemap.keys(),0,0]
 

@@ -18,7 +18,8 @@ Pearu Peterson
 from __version__ import __version__
 
 import os,pprint,sys,shutil
-from wxPython.wx import *
+
+import wx
 
 from buildmenus import buildmenus
 from sub_menus import mainmenubar
@@ -34,7 +35,7 @@ defaulteventdata={'classes':[[]],
                   }
 
 
-class MainFrame(wxFrame,MyDebug):
+class MainFrame(wx.Frame,MyDebug):
     """
 eventdata - a dictionary with keys:
     title - a string
@@ -70,17 +71,17 @@ eventdata - a dictionary with keys:
     def __init__(self,debug,fn=''):
 
         MyDebug.__init__(self,debug)
-        wxFrame.__init__(self, None, -1, "Cozer - The Competition Organizer",
-                            wxDefaultPosition, wxSize(800,500))
+        wx.Frame.__init__(self, None, -1, "Cozer - The Competition Organizer",
+                            wx.DefaultPosition, wx.Size(800,500))
         self.OpenCozFile(fn)
         buildmenus(self,mainmenubar,self,verbose=debug)
         self.statusbar = self.CreateStatusBar()
         self.CreatePages()
-        EVT_CLOSE(self,self.OnFileQuit)
+        wx.EVT_CLOSE(self,self.OnFileQuit)
         prefs.top_parent = self
 
     def CreatePages(self):
-        self.nb = wxNotebook(self,-1)
+        self.nb = wx.Notebook(self,-1)
         self.nb.pages = []
         i = -1
         for p in nb_pages:
@@ -90,7 +91,7 @@ eventdata - a dictionary with keys:
             self.nb.pages.append(page)
             self.pagedict[p[0]]=i
         self.nb.SetSelection(0)
-        EVT_NOTEBOOK_PAGE_CHANGED(self, self.nb.GetId(), self.OnPageChanged)
+        wx.EVT_NOTEBOOK_PAGE_CHANGED(self, self.nb.GetId(), self.OnPageChanged)
 
     def SetFilePath(self,fpath):
         self.Debug('SetFilePath fpath=',fpath)
@@ -114,16 +115,16 @@ eventdata - a dictionary with keys:
 
     def OnFileOpen(self,evt):
         self.Debug('OnFileOpen')
-        fileopen = wxFileDialog(self,'Open Cozer event file',
+        fileopen = wx.FileDialog(self,'Open Cozer event file',
                                    wildcard='Cozer events (*.coz)|*.coz',
-                                   style=wxOPEN|wxFILE_MUST_EXIST)
-        if fileopen.ShowModal() == wxID_OK:
+                                   style=wx.OPEN|wx.FILE_MUST_EXIST)
+        if fileopen.ShowModal() == wx.ID_OK:
             if not self.filepath == 'Untitled.coz':
-                mess = wxMessageDialog(self,
+                mess = wx.MessageDialog(self,
                                           "Do you wish to save current event before loading new one?",
                                           "Save current?",
-                                          style=wxYES_NO|wxCENTRE|wxICON_QUESTION)
-                if mess.ShowModal() == wxID_YES:
+                                          style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION)
+                if mess.ShowModal() == wx.ID_YES:
                     if not self.OnFileSave(evt):
                         return 0
             self.OpenCozFile(fileopen.GetPath())
@@ -133,10 +134,10 @@ eventdata - a dictionary with keys:
 
     def OnFileAppend(self,evt):
         self.Debug('OnFileAppend')
-        fileopen = wxFileDialog(self,'Append Cozer event file',
+        fileopen = wx.FileDialog(self,'Append Cozer event file',
                                    wildcard='Cozer events (*.coz)|*.coz',
-                                   style=wxOPEN|wxFILE_MUST_EXIST)
-        if fileopen.ShowModal() == wxID_OK:
+                                   style=wx.OPEN|wx.FILE_MUST_EXIST)
+        if fileopen.ShowModal() == wx.ID_OK:
             self.AppendCozFile(fileopen.GetPath())
             self.ResetEvent()
             return 1
@@ -233,20 +234,20 @@ eventdata - a dictionary with keys:
 
     def OnFileSaveAs(self,evt):
         self.Debug('OnFileSaveAs')
-        filesaveas = wxFileDialog(self,'Save Cozer event as file',
+        filesaveas = wx.FileDialog(self,'Save Cozer event as file',
                                      wildcard='Cozer events (*.coz)|*.coz',
-                                     style=wxSAVE|wxOVERWRITE_PROMPT)
-        if filesaveas.ShowModal() == wxID_OK:
+                                     style=wx.SAVE|wx.OVERWRITE_PROMPT)
+        if filesaveas.ShowModal() == wx.ID_OK:
             self.SetFilePath(filesaveas.GetPath())
             return self.OnFileSave(evt)
         return 0
 
     def OnFileImportPython(self,evt):
         self.Debug('OnFileImportPython')
-        file = wxFileDialog(self,'Import Cozer event from a Python file',
+        file = wx.FileDialog(self,'Import Cozer event from a Python file',
                                    wildcard='Python (*.py)|*.py',
-                                   style=wxOPEN|wxFILE_MUST_EXIST)
-        if file.ShowModal() == wxID_OK:
+                                   style=wx.OPEN|wx.FILE_MUST_EXIST)
+        if file.ShowModal() == wx.ID_OK:
             d = eval(open(file.GetPath()).read())
             if type(d) == type({}):
                 self.eventdata = d
@@ -256,10 +257,10 @@ eventdata - a dictionary with keys:
 
     def OnFileImportAppendPython(self,evt):
         self.Debug('OnFileImportAppendPython')
-        file = wxFileDialog(self,'Append Cozer event from a Python file',
+        file = wx.FileDialog(self,'Append Cozer event from a Python file',
                                    wildcard='Python (*.py)|*.py',
-                                   style=wxOPEN|wxFILE_MUST_EXIST)
-        if file.ShowModal() == wxID_OK:
+                                   style=wx.OPEN|wx.FILE_MUST_EXIST)
+        if file.ShowModal() == wx.ID_OK:
             d = eval(open(file.GetPath()).read())
             if type(d) == type({}):
                 self.AppendEventData(d)
@@ -269,10 +270,10 @@ eventdata - a dictionary with keys:
 
     def OnFileExportPython(self,evt):
         self.Debug('OnFileExportPython')
-        file = wxFileDialog(self,'Export Cozer event to a Python file',
+        file = wx.FileDialog(self,'Export Cozer event to a Python file',
                                      wildcard='Python (*.py)|*.py',
-                                     style=wxSAVE|wxOVERWRITE_PROMPT)
-        if file.ShowModal() == wxID_OK:
+                                     style=wx.SAVE|wx.OVERWRITE_PROMPT)
+        if file.ShowModal() == wx.ID_OK:
             f = open(file.GetPath(),'w')
             pp = pprint.PrettyPrinter(width=120,stream=f)
             pp.pprint(self.eventdata)
@@ -294,11 +295,11 @@ eventdata - a dictionary with keys:
     def OnFileQuit(self,evt,askconformation=1):
         self.Debug('OnFileQuit')
         if 1 and askconformation:
-            mess = wxMessageDialog(self,
+            mess = wx.MessageDialog(self,
                                       "Are you sure you want to quit Cozer without saving event?",
                                       "Quit without save?",
-                                      style=wxYES_NO|wxCENTRE|wxICON_QUESTION|wxNO_DEFAULT)
-            if mess.ShowModal() == wxID_NO: return 0
+                                      style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
+            if mess.ShowModal() == wx.ID_NO: return 0
         self.Destroy()
         return 1
 
@@ -332,6 +333,17 @@ eventdata - a dictionary with keys:
         from sub_help import AboutBox
         about = AboutBox(self)
         about.Show(true)
+
+    def OnHelpReload(self,evt):
+        self.Debug('OnHelpReload')
+        for modulename, module in sys.modules.items():
+            if not modulename.startswith('cozer'):
+                continue
+            if module is None:
+                self.Debug('skip reloading %r (module is None)' % (modulename))
+            else:
+                self.Debug('reloading %r' % (module))
+                reload(module)
 
     def ResetEvent(self):
         self.Debug('ResetEvent')
@@ -486,7 +498,7 @@ def get_template():
     return os.path.abspath(os.path.join(__path__[0],'data','template.coz'))
 
 
-class MyApp(wxApp):
+class MyApp(wx.App):
     def OnInit(self):
         fn = 'Untitled'
         if len(sys.argv)>1:
@@ -501,10 +513,10 @@ class MyApp(wxApp):
             frame = MainFrame(debug=0,fn=fn)
         else:
             frame = MainFrame(debug=0)
-        frame.Show(TRUE)
+        frame.Show(True)
         self.SetTopWindow(frame)
-        wxYield()
-        return TRUE
+        wx.Yield()
+        return True
 
 def runcozer():
     if os.name == 'nt':
