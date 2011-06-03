@@ -24,6 +24,9 @@ COZER has been succesfully used in the following events:
 *** U.I.M. European Championship O-125
     30 June - 1 July, 2001, Lake Harku, Tallinn, Estonia
 
+*** U.I.M. World Championships JT-250, S-550, O-125
+    July 10-12, 2009, Lake Harku, Tallinn, Estonia
+
 and in many other international and national events as well.
 
 Comments, feedback, bug reports, suggestions, etc. should be send to
@@ -34,10 +37,11 @@ REQUIREMENTS
 ============
 
      Python 2.1 (other versions may work as well) <http://www.python.org>
-     Python 2.3, 2.4
+     Python 2.3, 2.4, 2.5
 
-     wxPython <http://www.wxpython.org>, use with ANSI string backend
-
+     wxPython <http://www.wxpython.org>, use with ANSI string backend.
+     Lastly tested to work with wx 2.8.4.
+     
      latex, xdvi, dvips, gv          (on Unix)
 
      latex, yap, dvips, gsview32     (on Windows)

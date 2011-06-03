@@ -92,7 +92,7 @@ if __name__ == "__main__":
           description       = "COZER - COmpetation organiZER",
           author            = "Pearu Peterson",
           author_email      = "pearu.peterson@gmail.com",
-          licence           = "GPL",
+          license           = "GPL",
           long_description  = """\
           COZER is a program for organizing competitive events. In
           particular, for events of the Aquatic Motorsports according
