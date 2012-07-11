@@ -1,0 +1,3 @@
+include cozer.py install.py
+recursive-include cozer/data *.tex *.py *.coz *.sty
+recursive-include events *.coz
