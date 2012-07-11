@@ -25,7 +25,11 @@ import Queue,threading
 
 #XXX: find a way to establish this path automatically
 gsview_exe = r'"c:\Program Files\Ghostgum\gsview\gsview32.exe"'
-acrord_exe = r'"c:\Program Files\Adobe\Acrobat 7.0\Reader\AcroRd32.exe"'
+
+acrord_exe = r'AcroRd32.exe'
+if os.name=='nt':
+    import glob
+    acrord_exe = (glob.glob (r'C:\Program Files\Adobe\*\Reader\AcroRd32.exe') or [acrord_exe])[0]
 
 false = False
 true = True
@@ -420,7 +424,7 @@ def runpdfview(fp,dopts = {}):
     opts = ''
     if dopts.has_key('acroread'): opts = dopts['acroread']
     if os.name=='nt':
-        com = '%s %s %s.pdf'%(acrord_exe, opts,fp)
+        com = '%r %s %s.pdf'%(acrord_exe, opts,fp)
     else:
         com = 'acroread %s %s.pdf'%(opts,fp)
     run_thread(com)
