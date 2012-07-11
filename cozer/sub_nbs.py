@@ -550,17 +550,19 @@ class Reports(wx.Panel,MyDebug):
         wx.EVT_BUTTON(self.optwin,viewbut.GetId(),self.Preview)
         hsizer.Add(viewbut)
 
-        psviewbut = wx.Button(self.optwin,wx.NewId(),'PSPreview')
-        wx.EVT_BUTTON(self.optwin,psviewbut.GetId(),self.PSPreview)
-        hsizer.Add(psviewbut)
+        if os.name!='nt':
+            psviewbut = wx.Button(self.optwin,wx.NewId(),'PSPreview')
+            wx.EVT_BUTTON(self.optwin,psviewbut.GetId(),self.PSPreview)
+            hsizer.Add(psviewbut)
 
         pdfviewbut = wx.Button(self.optwin,wx.NewId(),'PDFPreview')
         wx.EVT_BUTTON(self.optwin,pdfviewbut.GetId(),self.PDFPreview)
         hsizer.Add(pdfviewbut)
 
-        printbut = wx.Button(self.optwin,wx.NewId(),'Print')
-        wx.EVT_BUTTON(self.optwin,printbut.GetId(),self.Print)
-        hsizer.Add(printbut)
+        if os.name!='nt':
+            printbut = wx.Button(self.optwin,wx.NewId(),'Print')
+            wx.EVT_BUTTON(self.optwin,printbut.GetId(),self.Print)
+            hsizer.Add(printbut)
 
         self.reps = []
         repmap = reports.report_map
