@@ -30,7 +30,7 @@ acrord_exe = r'AcroRd32.exe'
 if os.name=='nt':
     import os, glob
     acrord_exe = (glob.glob (r'C:\Program Files\Adobe\*\Reader\AcroRd32.exe') or [acrord_exe])[0]
-    os.environ['PATH'].append (os.path.dirname (acrord_exe))
+    os.environ['PATH'] += os.pathsep + os.path.dirname (acrord_exe)
     acrord_exe = os.path.basename(acrord_exe)
 
 false = False
