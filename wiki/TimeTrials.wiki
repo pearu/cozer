@@ -36,7 +36,7 @@ It is expected that all boats will take part of the time-trail race by subsequen
 
 During the time-trial race, do *not* `Stop` the race until all boats have completed their time-trial laps.
 
-The operator using Cozer should press boat number button each time the boat crosses finish line. For each boat the operator should press the corresponding boat number button three times (two is mandatory for registering time-trial result).
+The operator using Cozer should press boat number button each time a boat crosses finish line. For each boat the operator should press the corresponding boat number button three times (two is mandatory for registering the time-trial result).
 
 Note that the boat numbers do not change their locations during time-trial race.
 
