@@ -11,7 +11,7 @@ FT-125/T
 The `Race Pattern` must declare a 2 lap race, first for warmup lap (boat starts from yeti till the finish line) and the next for time-trial lap (boat makes one lap at full speed).
 For the given example, the race pattern would read:
 {{{
-1:(1400+1500):1
+1*(1400+1500):1
 }}}
 where `1400` is the length of first lap (from starting yeti till finish line)
 and `1500` is the full length of one lap.
