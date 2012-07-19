@@ -32,7 +32,7 @@ def calclayout(ids):
     bdkeys = bydec.keys()
     bdkeys.sort()
     n = max(3,int(math.ceil(math.sqrt(len(ids)))))
-    m = max(map(lambda k,b=bydec:len(b[k]),bdkeys))
+    #m = max(map(lambda k,b=bydec:len(b[k]),bdkeys))
     for k in bdkeys:
         if len(ret[-1])+len(bydec[k])<n:
             ret[-1]=ret[-1]+bydec[k]
