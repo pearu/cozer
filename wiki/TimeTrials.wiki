@@ -1,0 +1,52 @@
+#summary How to organize time trials with Cozer
+
+The following section titles correspond to tab names in the Cozer program.
+
+== General Information ==
+=== Classes ===
+To setup a time-trial race for a class, say, `FT-125`, create a new class that ends with `/T`. For the given example: 
+{{{
+FT-125/T
+}}}
+The `Race Pattern` must declare a 2 lap race, first for warmup lap (boat starts from yeti till the finish line) and the next for time-trial lap (boat makes one lap at full speed).
+For the given example, the race pattern would read:
+{{{
+1:(1400+1500):1
+}}}
+where `1400` is the length of first lap (from starting yeti till finish line)
+and `1500` is the full length of one lap.
+
+=== Participants ===
+No changes needed, all participants have the original class name, say, {{{FT-125}}}.
+
+=== Races ===
+Create a new race and specify the time-trial class name for `Class`, for instance, 
+{{{
+FT-125/T
+}}}
+The `Heat` will be automatically set to 
+{{{
+1t
+}}}
+
+== Timer ==
+Select time-trial race and press `Start` button when the first boat leaves a yeti.
+
+It is expected that all boats will take part of the time-trail race by subsequently starting from yeti, completing three laps (warm-up lap, time-trial lap, and safety lap), and return to yeti. The order of boats must be drawn at the drivers meeting. It is upto organizers to decide what is the frequency of letting the boats to time-trial race but normally the next boat can leave the yeti for warm-up lap immidiately after the previous one has finished the time-trial lap.
+
+During the time-trial race, do *not* `Stop` the race until all boats have completed their time-trial laps.
+
+The operator using Cozer should press boat number button each time the boat crosses finish line. For each boat the operator should press the corresponding boat number button three times (two is mandatory for registering time-trial result).
+
+Note that the boat numbers do not change their locations during time-trial race.
+
+When time-trial race is completed, press `Stop` and save Cozer document.
+
+== Edit Race Records ==
+
+Select time-trial race and insert any needed comments to time-trial records.
+Most probably only `Interruption` and `Did't start` comments are need at this stage of the event.
+
+== Reports ==
+
+Select `Intermediate` for report type and press `Preview` button to vied the time-trial race results. Note that the corresponding time-trial class and time-trial heat (`F-125/T` and `1t`) selections must be marked to see the results.
