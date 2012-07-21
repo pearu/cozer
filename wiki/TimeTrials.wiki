@@ -1,4 +1,4 @@
-#summary How to organize time trials with Cozer
+#summary How to organize time-trials with Cozer
 
 The following section titles correspond to tab names in the Cozer program.
 
@@ -8,13 +8,19 @@ To setup a time-trial race for a class, say, `FT-125`, create a new class that e
 {{{
 FT-125/T
 }}}
-The `Race Pattern` must declare a 2 lap race, first for warmup lap (boat starts from yeti till the finish line) and the next for time-trial lap (boat makes one lap at full speed).
+The `Race Pattern` must declare a 2 lap race, first for warm-up lap (boat starts from yeti till the finish line) and the next for time-trial lap (boat makes one lap at full speed).
 For the given example, the race pattern would read:
 {{{
 1*(1400+1500):1
 }}}
 where `1400` is the length of first lap (from starting yeti till finish line)
 and `1500` is the full length of one lap.
+
+  * Alternatively, when time-trial race consists of two laps and the best lap should be taken into account, use
+    {{{
+1*(1400+2*1500):1
+    }}}
+
 
 === Participants ===
 No changes needed, all participants have the original class name, say, {{{FT-125}}}.
@@ -32,20 +38,25 @@ The `Heat` will be automatically set to
 == Timer ==
 Select time-trial race and press `Start` button when the first boat leaves a yeti.
 
-It is expected that all boats will take part of the time-trail race by subsequently starting from yeti, completing three laps (warm-up lap, time-trial lap, and safety lap), and return to yeti. The order of boats must be drawn at the drivers meeting. It is upto organizers to decide what is the frequency of letting the boats to time-trial race but normally the next boat can leave the yeti for warm-up lap immidiately after the previous one has finished the time-trial lap.
+It is expected that all boats will take part of the time-trail race by subsequently starting from yeti, completing three laps (warm-up lap, time-trial lap, and safety lap), and return to yeti. The order of boats must be drawn at the drivers meeting. It is upto organizers to decide what is the frequency of letting the boats to time-trial race but normally the next boat can leave the yeti for warm-up lap immediately after the previous one has finished the time-trial lap.
 
 During the time-trial race, do *not* `Stop` the race until all boats have completed their time-trial laps.
 
-The operator using Cozer should press boat number button each time a boat crosses finish line. For each boat the operator should press the corresponding boat number button three times (two is mandatory for registering the time-trial result).
+The operator using Cozer should press boat number button each time a boat crosses finish line. For each boat the operator should press the corresponding boat number button two times. In case of more button clicks, only the *last two* button clicks are taken into account.
 
 Note that the boat numbers do not change their locations during time-trial race.
 
 When time-trial race is completed, press `Stop` and save Cozer document.
 
+  * In case of two-lap time-trial race, in above increase the counts accordingly.
+
+
 == Edit Race Records ==
 
 Select time-trial race and insert any needed comments to time-trial records.
 Most probably only `Interruption` and `Did't start` comments are need at this stage of the event.
+
+  * In case of two-lap time-trial, note that Cozer uses the lap time of the last lap by default (note to Cozer developers: this should be changed to the best lap). So, operator needs to manually edit the race record when the lap time of the first lap was best (smallest). For that, just disable the mark of the last lap. Recall that in time-trial races Cozer uses only the last two marks for computing the best lap time.
 
 == Reports ==
 
