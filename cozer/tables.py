@@ -24,7 +24,7 @@ class ClassDataTable(DataTable,MyDebug):
         MyDebug.__init__(self,debug)
         DataTable.__init__(self,debug)
         self.colLabels = ['Class',#'Heats',
-                          'Race pattern: NofHeats*(NofLaps*LapLenght+...)+..:Scored']
+                          'Race pattern: NofHeats*(NofLaps*LapLength+...)+..:Scored OR NofEstimatedLaps*LapLength/Hours']
         self.dataTypes = [wx.grid.GRID_VALUE_STRING,
                           wx.grid.GRID_VALUE_STRING,
                           ]

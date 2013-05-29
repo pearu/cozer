@@ -309,10 +309,26 @@ class Timer(wx.Panel,MyDebug):
         wx.EVT_BUTTON(self.optwin,self.startbut.GetId(),self.Start)
         hsizer.Add(self.startbut)
 
+        self.resumebut = wx.Button(self.optwin,wx.NewId(),'Resume')
+        wx.EVT_BUTTON(self.optwin,self.resumebut.GetId(),self.Resume)
+        hsizer.Add(self.resumebut)
+
         if 0<=self.topparent.currentRace<len(self.topparent.eventdata['races']):
             choice.SetSelection(self.topparent.currentRace)
             #self.TimerWin()
         self.sizer.Layout()
+
+    def Resume(self,evt):
+        self.Debug('Resume')
+        if not self.timerwin:
+            return
+        if self.startbut.GetLabel() == 'Stop':
+            return
+        i = -1
+        for cl,h,r in self.timerwin.race:
+            i = i + 1
+            self.timerwin.allowclicks[i] = 1
+        self.startbut.SetLabel('Stop')
 
     def Start(self,evt):
         self.Debug('Start')
@@ -390,15 +406,21 @@ class Timer(wx.Panel,MyDebug):
                     if not record[cl][h][1].has_key(val):
                         record[cl][h][1][val]=[]
             rpat=None
+            duration = None
             for l in self.topparent.eventdata['classes']:
                 if l[1] and l[2] and l[1]==cl:
-                    rpat,sheats=self.topparent.CrackRacePattern(l[2],cl)
+                    r = self.topparent.CrackRacePattern(l[2],cl)
+                    if len (r)==2:
+                        rpat,sheats=r
+                    elif len (r)==3:
+                        rpat,sheats,duration=r
                     break
 
             if h[-1] in ['r','q','t','R']: li = eval(h[:-1])-1
             else: li = eval(h)-1
             record[cl][h][0]['course'] = rpat[li]
             record[cl][h][0]['sheats'] = sheats
+            record[cl][h][0]['duration'] = duration
             race.append((cl,h,record[cl][h][1]))
             info.append(record[cl][h][0])
         if self.timerwin:
@@ -416,9 +438,12 @@ class Timer(wx.Panel,MyDebug):
 class EditRecord(wx.Panel,MyDebug):
     editwin = None
     optwin = None
+    class_heat = None, None
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
-        wx.Panel.__init__(self,parent,-1)
+        wx.Panel.__init__(self,parent,-1, size=wx.Size (2000,2000))
+        self.zoom = 1
+        self.seltime = None
         self.parent = parent
         self.topparent = topparent
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -432,6 +457,7 @@ class EditRecord(wx.Panel,MyDebug):
         self.CreateOptWin()
         self.SetAutoLayout(true)
         self.SetSizer(self.sizer)
+
 
     def Entering(self):
         self.Debug('Entering')
@@ -476,9 +502,25 @@ class EditRecord(wx.Panel,MyDebug):
         vs.Add(self.timetext)        
         hsizer.Add(vs)
 
+        zoomin = wx.Button(self.optwin,wx.NewId(),'Zoom In')
+        wx.EVT_BUTTON(self.optwin,zoomin.GetId(),self.ZoomIn)
+        hsizer.Add(zoomin)
+
+        zoomout = wx.Button(self.optwin,wx.NewId(),'Zoom Out')
+        wx.EVT_BUTTON(self.optwin,zoomout.GetId(),self.ZoomOut)
+        hsizer.Add(zoomout)
+
+        self.zoomtext = wx.StaticText(self.optwin,wx.NewId(),'Zoom: 1',
+                                      size=wx.Size(150,-1))
+        hsizer.Add(self.zoomtext)
+
     def SelectClassHeat(self,evt):
         self.Debug('SelectClassHeat')
-        cls,heat = self.recs[evt.GetSelection()]
+        if evt is None:
+            cls, heat = self.class_heat
+        else:
+            cls,heat = self.recs[evt.GetSelection()]
+            self.class_heat = cls, heat
         self.Info('Selected class %s heat %s'%(cls,heat))
         if self.editwin:
             self.sizer.Remove(self.editwin)
@@ -489,7 +531,8 @@ class EditRecord(wx.Panel,MyDebug):
         res = analyzer.analyze(heat,self.record[cls][heat],self.scoringsystem)
         self.editwin = EditWin1(self.record[cls][heat][0],self.record[cls][heat][1],
                                 res,
-                                self.topparent,self,self.debug+(not not self.debug))
+                                self.topparent,self,self.debug+(not not self.debug),
+                                zoom = self.zoom, seltime=self.seltime)
         self.sizer.Add(self.editwin,1,wx.EXPAND)
         self.sizer.Layout()
         
@@ -508,6 +551,19 @@ class EditRecord(wx.Panel,MyDebug):
             del self.record[cls][heat]
             self.Entering()
 
+    def ZoomIn(self,evt):
+        self.Debug('ZoomIn')
+        self.zoom += 1
+        self.zoomtext.SetLabel('Zoom: %s' % (self.zoom))
+        self.seltime = self.editwin.seltime
+        self.SelectClassHeat(None)
+
+    def ZoomOut(self,evt):
+        self.Debug('ZoomOut')
+        self.zoom -= 1
+        self.zoomtext.SetLabel('Zoom: %s' % (self.zoom))
+        self.seltime = self.editwin.seltime
+        self.SelectClassHeat (None)
 
 class Reports(wx.Panel,MyDebug):
     optwin = None

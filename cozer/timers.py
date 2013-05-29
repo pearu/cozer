@@ -59,6 +59,7 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         self.race = race
         self.info = info
 
+        print info
 
         self.topparent = topparent
         self.parent = parent
@@ -76,6 +77,9 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
                     tb.Stop()
                 del self.timerbuts[k]
 
+    def makeGrid1Endurance(self):
+        self.Debug('makeGrid1Endurance')
+
     def makeGrid1(self):
         self.Debug('makeGrid1')
         bsize = getopt(self,'id_but_size',40)
@@ -90,6 +94,7 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         self.buts = []
         self.lapbuts = {}
         self.timerbuts = {}
+
         for cl,h,r in self.race:
             i = i + 1
             lapl = self.info[i]['course']
@@ -346,24 +351,34 @@ class TimerButtonMenu(wx.Menu,MyDebug):
 
 
 class EditWin1(wx.ScrolledWindow,MyDebug):
-    width = 600
+    #width = 600
     startx = 30
     mousegrab = 0
     editysize = 40
 
-    def __init__(self,info,rec,res,topparent,parent,debug):
+    def __init__(self,info,rec,res,topparent,parent,debug,zoom,seltime):
         MyDebug.__init__(self,debug)
-        wx.ScrolledWindow.__init__(self, parent, -1, wx.Point(0, 0),style=wx.SUNKEN_BORDER)
+        wx.ScrolledWindow.__init__(self, parent, -1, wx.Point(0, 0),style=wx.SUNKEN_BORDER,
+                                   )
+
         self.info = info
         self.rec = rec
         self.res = res
         self.topparent = topparent
         self.parent = parent
         self.SetScrollbars(20, 20, 50, 50)
+        self.zoom = zoom
         self.calcMaxTime()
         if not self.info.has_key('racetime'):
             self.info['racetime'] = self.maxtime/1.03
         self.SetCurTime(self.info['racetime'])
+        self.rec_eds = []
+        if seltime is None:        
+            self.SetSelTime(self.maxtime/2.0)
+        else:
+            self.SetSelTime(seltime)
+
+        self._startx = parent.GetSizeTuple()[0]/2 - self.seltime/float(self.maxtime)*self.width
 
         self.VisualizeRecords()
 
@@ -373,6 +388,14 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         wx.EVT_MOTION(self,    self.OnLeftButtonEvent)
         if self.info.has_key('starttime'):
             self.parent.starttimetext.SetLabel(' Start time = %s'%(time.ctime(self.info['starttime'])))
+
+    @property
+    def width(self):
+        return int (pow (2.0, self.zoom)*600)
+
+    @property
+    def startx(self):
+        return self._startx# + int(self.seltime*self.width/self.maxtime) - int (pow (2.0, self.zoom)*300)
 
     def VisualizeRecords(self):
         self.Debug('VisualizeRecords')
@@ -388,14 +411,18 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
                              size=wx.Size(self.width,self.editysize)))
             ypos = ypos + self.editysize + 5
         self.timelineheight = ypos + 25
+        self.selectlineheight = ypos + 25
 
     def OnPaint(self,evt):
         self.Debug1('OnPaint')
         val = self.curtime/float(self.maxtime)
+        selval = self.seltime/float(self.maxtime)
         hpos = self.startx+val*self.width
-        self.DrawTimeLine(hpos,evt is None)
+        selhpos = self.startx+selval*self.width
+        self.DrawTimeLine(hpos,selhpos,evt is None)
 
-    def DrawTimeLine(self,hpos,clientdc=0):
+
+    def DrawTimeLine(self,hpos,selhpos,clientdc=0):
         self.Debug1('DrawTimeLine')
         if clientdc:
             dc = wx.ClientDC(self)
@@ -408,6 +435,9 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         dc.DrawLine(hpos, 0, hpos, self.timelineheight)
         dc.DrawText(' Race stopped',hpos, 20)
         dc.DrawText(' Race stopped',hpos, self.timelineheight - 10)
+
+        dc.SetPen(wx.Pen(mycolors['selectline'],width=5))
+        dc.DrawLine(selhpos, 0, selhpos, self.selectlineheight)
         dc.EndDrawing()
 
     def calcMaxTime(self):
@@ -429,16 +459,32 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         xs,ys = vs[0]*sp[0]+evt.GetX(),vs[1]*sp[1]+evt.GetY()
         if evt.LeftDown():
             val = self.curtime/float(self.maxtime)
+            selval = self.seltime/float(self.maxtime)
             if abs(xs - self.startx - val*self.width) < 5:
                 self.mousegrab = 1
+            elif abs(xs - self.startx - selval*self.width) < 5:
+                self.mousegrab = 2
+                self.saved_xs = xs
         elif evt.Dragging():
-            if self.mousegrab:
+            if self.mousegrab==1:
                 tm = max(0,self.maxtime*(xs-self.startx)/float(self.width))
                 if (tm>60 and int(tm) - int(self.curtime)) or tm<=60:
                     self.SetCurTime(tm)                    
                     self.OnPaint(None)
                     map(lambda r:r.OnPaint(None),self.rec_eds)
+            elif self.mousegrab==2:
+                tm = max(0,self.maxtime*(xs-self.startx)/float(self.width))
+                if (tm>60 and int(tm) - int(self.seltime)) or tm<=60:
+                    self.SetSelTime(tm)
+                    self.OnPaint(None)
+                    map(lambda r:r.OnPaint(None),self.rec_eds)                
         elif evt.LeftUp():
+            if self.mousegrab==2:
+                self._startx = self.parent.GetSizeTuple()[0]/2 - self.seltime/float(self.maxtime)*self.width
+                for rec in self.rec_eds:
+                    rec.SetPosition(wx.Point(self.startx,rec.GetPositionTuple()[1]))
+                self.OnPaint(None)
+                map(lambda r:r.OnPaint(None),self.rec_eds)                
             self.mousegrab = 0
 
     def SetCurTime(self,tm):
@@ -448,6 +494,10 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         secs = self.curtime - 60*mns
         self.parent.timetext.SetLabel(' Race time = %.2d:%2.2f (%0.2f secs)'%(mns,secs,self.curtime))
         self.info['racetime'] = self.curtime
+
+    def SetSelTime(self,tm):
+        self.Debug1('SetSelTime')
+        self.seltime = round(tm,roundopt)
 
 
 class RecordEditor(wx.Panel,MyDebug):
