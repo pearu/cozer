@@ -4,7 +4,7 @@ COZER - COmpetition organiZER
 """
 """
 
-Copyright 2000,2001 Pearu Peterson all rights reserved,
+Copyright 2000,2001,2013 Pearu Peterson all rights reserved,
 Pearu Peterson <pearu@cens.ioc.ee>          
 Permission to use, modify, and distribute this software is given under the
 terms of the GPL.  See http://www.fsf.org
@@ -377,10 +377,17 @@ eventdata - a dictionary with keys:
 
     def CrackRacePattern(self,pat,cl=''):
         """
-        pat = 'NofHeats*(NofLaps*LapLength+..)+..:NofScoredHeats'
-        --> list of lists [[<lap lengths for heat 1>],...]
+        pat = 'NofHeats*(NofLaps*LapLength+..)+..:NofScoredHeats' or 'NofEstimatedLaps*LapLength/Hours' for endurance race
+        --> list of lists [[<lap lengths for heat 1>],...], <scored heats>
+        or
+        --> 2-tuple [[<lap length>]*<nof estimated laps>], <hours>
         """
         self.Debug('CrackRacePattern')
+        pat = pat.replace(' ','')
+        if '/' in pat:
+            ll,hours = pat.split('/')
+            nlaps, ll = ll.split('*')
+            return [[eval(ll)]*eval(nlaps)], 1, eval(hours)
         apat=string.split(pat,':')
         pat=apat[0]
         apat=apat[1:]
@@ -416,7 +423,11 @@ eventdata - a dictionary with keys:
         rpat=None
         for l in self.eventdata['classes']:
             if l[1] and l[2] and l[1]==cl:
-                rpat,sheats=self.CrackRacePattern(l[2])
+                r = self.CrackRacePattern(l[2])
+                if len (r)==2:
+                    rpat,sheats=r
+                elif len (r)==3:
+                    rpat,sheats,duration=r
                 break
         if not rpat: return ret
         if isqclass(cl):
@@ -437,7 +448,8 @@ eventdata - a dictionary with keys:
         tims = {}
         for l in self.eventdata['classes']:
             if l[1] and l[2]:
-                nofh[l[1]]=len(self.CrackRacePattern(l[2])[0])
+                r = self.CrackRacePattern(l[2])
+                nofh[l[1]]=len(r[0])
                 if isqclass(l[1]):
                     allowedheats[l[1]]=map(lambda x:`x`+'q',range(1,1+nofh[l[1]]))
                     quals[l[1]]=[]
