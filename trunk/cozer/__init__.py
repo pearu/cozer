@@ -386,7 +386,10 @@ eventdata - a dictionary with keys:
         pat = pat.replace(' ','')
         if '/' in pat:
             ll,hours = pat.split('/')
-            nlaps, ll = ll.split('*')
+            if '*' in ll:
+                nlaps, ll = ll.split('*')
+            else:
+                nlaps='1'
             return [[eval(ll)]*eval(nlaps)], 1, eval(hours)
         apat=string.split(pat,':')
         pat=apat[0]
