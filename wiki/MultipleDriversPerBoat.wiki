@@ -10,9 +10,10 @@ The following section titles correspond to tab names in the Cozer program.
 
 == Participants ==
 
-When boat has several drivers then in filling up the name and surname columns
+When boat has several drivers then in Name and Surname columns of Participants table
 separate the names and surnames of the corresponding drivers by semicolon.
-For example, when a boat team consists of two drivers, Mati Kala and Vello Lind, then in Name column specify
+
+For example, when a boat team consists of two drivers, Mati Kala and Vello Lind, then in Name column you should have
 {{{
 Mati; Vello
 }}}
