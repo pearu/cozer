@@ -586,12 +586,13 @@ class RecordEditor(wx.Panel,MyDebug):
         for l in self.paint['rectangles']:
             dc.SetPen(self.paint['pens'][l[0]])
             exec 'dc.DrawRectangle%s'%(`l[1]`)
-        dx = None
-        for l in self.paint['texts']:
+        for i,l in enumerate(self.paint['texts']):
             dc.SetPen(self.paint['pens'][l[0]])
             text, x, y = l[1]
-            if dx is None:
+            if i==0:
                 dx = max (0, x-self.parent.startx) - x + 10
+            else:
+                dx = 0
             dc.DrawText(text, x+dx, y)
 
         dc.EndDrawing()
