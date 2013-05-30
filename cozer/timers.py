@@ -391,11 +391,12 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
 
     @property
     def width(self):
-        return int (pow (2.0, self.zoom)*600)
+        zoom_base = 1.4
+        return int (pow (zoom_base, self.zoom)*600)
 
     @property
     def startx(self):
-        return self._startx# + int(self.seltime*self.width/self.maxtime) - int (pow (2.0, self.zoom)*300)
+        return self._startx
 
     def VisualizeRecords(self):
         self.Debug('VisualizeRecords')
@@ -481,10 +482,10 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         elif evt.LeftUp():
             if self.mousegrab==2:
                 self._startx = self.parent.GetSizeTuple()[0]/2 - self.seltime/float(self.maxtime)*self.width
+                self.OnPaint(None)
                 for rec in self.rec_eds:
                     rec.SetPosition(wx.Point(self.startx,rec.GetPositionTuple()[1]))
-                self.OnPaint(None)
-                map(lambda r:r.OnPaint(None),self.rec_eds)                
+                    rec.OnPaint(None)
             self.mousegrab = 0
 
     def SetCurTime(self,tm):
@@ -585,9 +586,13 @@ class RecordEditor(wx.Panel,MyDebug):
         for l in self.paint['rectangles']:
             dc.SetPen(self.paint['pens'][l[0]])
             exec 'dc.DrawRectangle%s'%(`l[1]`)
+        dx = None
         for l in self.paint['texts']:
             dc.SetPen(self.paint['pens'][l[0]])
-            exec 'dc.DrawText%s'%(`l[1]`)
+            text, x, y = l[1]
+            if dx is None:
+                dx = max (0, x-self.parent.startx) - x + 10
+            dc.DrawText(text, x+dx, y)
 
         dc.EndDrawing()
 
