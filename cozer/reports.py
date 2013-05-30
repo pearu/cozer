@@ -332,6 +332,8 @@ check_table_latextmpl = r"""
 
 """
 check_part1_latextmpl = r"""#name# & #from# & \textbf{#id#} & & & &\\[1.5ex]\hline"""
+check_part1cont_latextmpl = r"""#name# & #from# & \textbf{#id#} & & & &\\"""
+check_part1contlast_latextmpl = r"""#name# & #from# & \textbf{#id#} & & & &\\\hline"""
 
 
 info_doc_latextmpl = r"""
@@ -424,6 +426,16 @@ laps_table_latextmpl = r"""
 """
 #laps_row_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} #heatsres# & #bestresult# & #sumpoints#"""
 
+def get_fullname(first, last):
+    if ';' in first and first.count(';')==last.count (';'):
+        name = []
+        for f1,l1 in zip (first.split (';'), last.split (';')):
+            name.append ('%s %s'%(f1,l1))
+        name = '; '.join(name)
+    else:
+        name = '%s %s'%(first, last)
+    return name
+
 def participants(clses,heat_map,eventdata):
     Debug('participants')
     parts = {}
@@ -461,10 +473,14 @@ def participants(clses,heat_map,eventdata):
         if not parts.has_key(cl): continue
         rd['table'].append(replace(parts_class_latextmpl,{'class':cl}))
         for p in parts[cl]:
-            d = {'name':'%s %s'%(p[1],p[2]),
-                 'country':p[3],
-                 'id':'%s'%(p[4])}
-            rd['table'].append(replace(parts_part_latextmpl,d))
+            for i, name in enumerate (get_fullname (p[1], p[2]).split (';')):
+                if i:
+                    d = {'name':name,'country':'', 'id':''}
+                else:
+                    d = {'name':name,
+                         'country':p[3],
+                         'id':'%s'%(p[4])}
+                rd['table'].append(replace(parts_part_latextmpl,d))
     txt = replace(parts_doc_latextmpl,rd)
     f.write(denormalize_str(txt))
     f.close()
@@ -566,8 +582,10 @@ def intermediate(clses,heat_map,eventdata):
             if lr is None:
                 continue
             p = parts[cl,'%s'%id]
+            fullnames = get_fullname(p[0],p[1]).split (';')
+        
             dp = {'place':'-','id':'%s'%id,'result':lr,'points':'-',
-                  'name':'%s %s'%(p[0],p[1]),'from':p[2],
+                  'name':fullnames[0],'from':p[2],
                   'bestresult':'-','sumpoints':'-'}
             if r['place']>0:
                 dp['place'] = '%s'%r['place']
@@ -579,7 +597,15 @@ def intermediate(clses,heat_map,eventdata):
                 d['table1'].append(replace(inter_tt_part1_latextmpl,dp))
             else:
                 d['table1'].append(replace(inter_part1_latextmpl,dp))
+
             d['table'].append(replace(inter_part_latextmpl,dp))
+            for name in fullnames[1:]:
+                for dpk in dp: dp[dpk] = ''
+                dp['name'] = name
+                if istimetrial:
+                    d['table1'].append(replace(inter_tt_part1_latextmpl,dp))
+                else:
+                    d['table1'].append(replace(inter_part1_latextmpl,dp))
             if r['notes']:
                 for k in r['notes'].keys():
                     if k not in legend: legend.append(k)
@@ -660,8 +686,9 @@ def fullfinal(clses,heat_map,eventdata):
         legend = []
         for id in rks:
             p = parts[cl,'%s'%id]
+            names = get_fullname(p[0], p[1]).split (';')
             dp = {'place':'-','bestresult':'-','sumpoints':'-',
-                  'name':'%s %s'%(p[0],p[1]),'from':p[2],'id':'%s'%id,
+                  'name':names[0],'from':p[2],'id':'%s'%id,
                   'heatsres':[]}
             sr = sumres[cl][id]
             if sr['place']>0:
@@ -679,7 +706,14 @@ def fullfinal(clses,heat_map,eventdata):
                     for k in r['notes'].keys():
                         if k not in legend: legend.append(k)
             d['table'].append(replace(full_part1_latextmpl,dp))
-
+            for name in names[1:]:
+                for dpk in dp:
+                    if isinstance (dp[dpk], list):
+                        dp[dpk]=['&'*v.count ('&') for v in dp[dpk]]
+                    else:
+                        dp[dpk]=''
+                dp['name'] = name
+                d['table'].append(replace(full_part1_latextmpl,dp))
         for l in legend:
             d['notes'].append('%s=%s'%(l,reccodelatexlabel[l]))
         rd['tables'].append(replace(full_table_latextmpl,d))
@@ -750,8 +784,9 @@ def shortfinal(clses,heat_map,eventdata):
         legend = []
         for id in rks:
             p = parts[cl,'%s'%id]
+            names = get_fullname (p[0],p[1]).split (';')
             dp = {'place':'-','bestresult':'-','sumpoints':'-',
-                  'name':'%s %s'%(p[0],p[1]),'from':p[2],'id':'%s'%id,
+                  'name':names[0],'from':p[2],'id':'%s'%id,
                   'heatsres':[]}
             sr = sumres[cl][id]
             if sr['place']>0:
@@ -759,6 +794,14 @@ def shortfinal(clses,heat_map,eventdata):
                 dp['bestresult'] = '%.1f/%.1f'%(sr['avgspeed'],sr['maxlapspeed'])
                 dp['sumpoints'] = '%s'%sr['points']
             d['table'].append(replace(short_part1_latextmpl,dp))
+            for name in names[1:]:
+                for dpk in dp:
+                    if isinstance (dp[dpk], list):
+                        dp[dpk]=['&'*v.count ('&') for v in dp[dpk]]
+                    else:
+                        dp[dpk]=''
+                dp['name'] = name
+                d['table'].append(replace(short_part1_latextmpl,dp))
 
         for l in legend:
             d['notes'].append('%s=%s'%(l,reccodelatexlabel[l]))
@@ -814,10 +857,17 @@ def checklist(clses,heat_map,eventdata):
              'class':cl
              }
         for p in parts[cl]:
-            dp = {'name':'%s %s'%(p[1],p[2]),
+            fullnames = get_fullname(p[1],p[2]).split (';')
+            dp = {'name':fullnames[0],
                  'from':p[3],
                  'id':'%s'%(p[4])}
-            d['table'].append(replace(check_part1_latextmpl,dp))
+            if len (fullnames)==1:
+                d['table'].append(replace(check_part1_latextmpl,dp))
+            else:
+                d['table'].append(replace(check_part1cont_latextmpl,dp))
+                for name in fullnames[1:-1]:
+                    d['table'].append(replace(check_part1cont_latextmpl,{'name':name,'from':'','id':''}))
+                d['table'].append(replace(check_part1contlast_latextmpl,{'name':fullnames[-1],'from':'','id':''}))
         rd['tables'].append(replace(check_table_latextmpl,d))
     f.write(denormalize_str(replace(check_doc_latextmpl,rd)))
     f.close()
