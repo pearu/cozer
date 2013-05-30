@@ -672,7 +672,13 @@ class Reports(wx.Panel,MyDebug):
         self.topparent.eventdata['sheats']={}
         for l in self.topparent.eventdata['classes']:
             if l[1] and l[2]:
-                rpat,self.topparent.eventdata['sheats'][l[1]]=self.topparent.CrackRacePattern(l[2])
+                r = self.topparent.CrackRacePattern(l[2])
+                if len (r)==2:
+                    rpat,self.topparent.eventdata['sheats'][l[1]]=r
+                elif len (r)==3:
+                    rpat,self.topparent.eventdata['sheats'][l[1]],duration=r
+                else:
+                    raise NotImplementedError(`r`)
         return self.repfunc(self.checkedcls,self.checked,self.topparent.eventdata)
 
     def Entering(self):
