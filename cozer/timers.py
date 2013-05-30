@@ -217,12 +217,15 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
                 self.inittimes[i][k] = tt
         else:
             if not self.allowclicks[i]:
+                self.ApplyClickTT(ID,mycolors['ignore'])
                 self.Warning('Click ignored for %s. Press Start button to start the race.'%(`k`))
                 return
             ot = reduce(lambda x,y:x+y,gettimes(self.race[i][2][k]),0)
             t = time.time() - self.info[i]['starttime']
             self.race[i][2][k].append((1,round(t-ot,roundopt)))
             self.ApplyClick(ID,0)
+            ii = int(len (self.race[i][2][k]) % 2==0)
+            self.ApplyClickTT(ID,mycolors['waiting%s' % (ii)])
 
     def ApplyClickTT(self,id,color):
         self.Debug('ApplyClickTT')

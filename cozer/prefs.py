@@ -96,8 +96,11 @@ roundopt = 2
 
 mycolors = {'finish':wx.Colour(255,0,255),
             'coming':wx.GREEN,
-            'late':wx.Colour(50,50,240),
+            'late':wx.Colour(150,150,240),
             'waiting':wx.WHITE,
+            'waiting0':wx.Colour(250,250,250),
+            'waiting1':wx.Colour(200,200,200),
+            'ignore':wx.Colour(240, 50, 50),
             'lapmark':wx.Colour(255,127,0),
             'lapmark_ins':wx.Colour(127,255,0),
             'finishmark_bg':wx.BLACK,
