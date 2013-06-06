@@ -161,7 +161,6 @@ class RacesListMenu(wx.Menu,MyDebug):
         self.data.append([['','','']])
         self.parent.currentItem = len(self.data)-1
         self.parent.FillList()
-        #self.parent.SetRace()
 
     def OnDeleteRace(self,evt):
         self.Debug('DeleteRace')
