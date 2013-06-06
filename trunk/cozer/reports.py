@@ -427,6 +427,10 @@ laps_table_latextmpl = r"""
 #laps_row_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} #heatsres# & #bestresult# & #sumpoints#"""
 
 def get_fullname(first, last):
+    if ';' in first and first.count(';')>last.count (';'):
+        last += ';' * (first.count(';')-last.count (';'))
+    if ';' in last and first.count(';')<last.count (';'):
+        first += ';' * (last.count(';')-first.count (';'))
     if ';' in first and first.count(';')==last.count (';'):
         name = []
         for f1,l1 in zip (first.split (';'), last.split (';')):
