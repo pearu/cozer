@@ -59,8 +59,6 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         self.race = race
         self.info = info
 
-        print info
-
         self.topparent = topparent
         self.parent = parent
 
@@ -318,7 +316,6 @@ class TimerButtonMenu(wx.Menu,MyDebug):
         cl,heat,racedata = parent.race[ri]
         self.race=racedata[k]
         self.parent = parent
-        #print k,self.race
         enableonoff = []
         i = -1
         for r in self.race:

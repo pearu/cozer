@@ -399,6 +399,7 @@ class Timer(wx.Panel,MyDebug):
             if not record.has_key(cl): record[cl]={}
             prevheats = record[cl].keys()
             if not record[cl].has_key(h): record[cl][h]={},{}
+            record[cl][h][1].clear ()
             for p in self.topparent.eventdata['participants']:
                 if p[4]==qcl:
                     try: val=eval(p[5])
