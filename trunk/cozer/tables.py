@@ -160,8 +160,8 @@ class RacesListMenu(wx.Menu,MyDebug):
         self.Debug('OnNewRace')
         self.data.append([['','','']])
         self.parent.currentItem = len(self.data)-1
-        self.parent.SetRace()
         self.parent.FillList()
+        #self.parent.SetRace()
 
     def OnDeleteRace(self,evt):
         self.Debug('DeleteRace')
@@ -171,10 +171,15 @@ class RacesListMenu(wx.Menu,MyDebug):
                                    "Delete Race?",
                                    style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
             if mess.ShowModal() == wx.ID_YES:
-                del self.data[self.parent.currentItem]
-                self.parent.currentItem = min(self.parent.currentItem,len(self.data)-1)
-                self.parent.SetRace()
+                current = self.parent.currentItem
+                del self.data[current]
+                if len (self.data)==0:
+                    current = -1
+                else:
+                    current = len(self.data)-1
+                self.parent.currentItem = current
                 self.parent.FillList()
+                #self.parent.SetRace()
 
 
 class RacesList(wx.Panel,MyDebug):
@@ -207,7 +212,6 @@ class RacesList(wx.Panel,MyDebug):
     def OnItemActivated(self,evt):
         self.Debug('OnItemActivated')
         self.currentItem = evt.m_itemIndex
-        #self.SetRace()
         self.FillList()
 
     def OnItemSelected(self,evt):
@@ -235,11 +239,8 @@ class RacesList(wx.Panel,MyDebug):
         for d in self.data:
             i = i + 1
             self.lst.InsertStringItem(i,'Race %d'%(i+1))
-        self.lst.SetColumnWidth(0, wx.LIST_AUTOSIZE)        
-        if 0<=self.currentItem<len(self.data):
-            self.lst.SetItemState(self.currentItem,wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED,
-                                  wx.LIST_STATE_SELECTED|wx.LIST_STATE_FOCUSED)
-
+        self.lst.SetColumnWidth(0, wx.LIST_AUTOSIZE)
+        self.SetRace()
 
 class RaceDataTable(DataTable,MyDebug):
 
