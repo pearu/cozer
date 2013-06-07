@@ -246,6 +246,7 @@ class Timer(wx.Panel,MyDebug):
     timerwin = None
     optwin = None
     autosavetimer = None
+    autosaveperiod = 30
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
@@ -356,7 +357,7 @@ class Timer(wx.Panel,MyDebug):
     def StartAutoSaveTimer(self):
         self.StopAutoSaveTimer ()
         if self.autosavebut.GetLabel().startswith('Auto Save ON'):
-            self.autosavetimer = AutoSaveTimer(self.topparent, self.autosavebut,1,self.debug+(not not self.debug))
+            self.autosavetimer = AutoSaveTimer(self.topparent, self.autosavebut,self.autosaveperiod,self.debug+(not not self.debug))
 
     def StopAutoSaveTimer(self):
         if self.autosavetimer:
