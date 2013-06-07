@@ -116,13 +116,17 @@ mycolors = {'finish':wx.Colour(255,0,255),
             'interruption_mark':wx.BLACK,
             }
 
-reccodemap = {'LL':3,'PL':4,'DS':10,'IR':11,'DQ':12,'YC':13,'RC':14,
+reccodemap = {'LL':3,'PL':4,
+              'PL5':5,'PL8':8,
+              'DS':10,'IR':11,'DQ':12,'YC':13,'RC':14,
               'NT':20,'Q':30,'NQ':31}
 invreccodemap = {}
 for k in reccodemap.keys():
     invreccodemap[reccodemap[k]] = k
 reccodemenulabel = {'LL':'Lost a lap',
                     'PL':'Penalty lap',
+                    'PL5':'5 penalty laps',
+                    'PL8':'8 penalty laps',
                     'DS':"Didn't start",
                     'IR':'Interruption',
                     'DQ':'Disqualif.',
@@ -134,6 +138,8 @@ reccodemenulabel = {'LL':'Lost a lap',
                     }
 reccodelatexlabel = {'LL':r'\Lostalap',
                      'PL':r'\Penaltylap',
+                     'PL5':r'\FivePenaltylaps',
+                     'PL8':r'\EightPenaltylaps',
                      'DS':r'\Didntstart',
                      'IR':r'\Interruption',
                      'DQ':r'\Disqualif',
@@ -145,6 +151,8 @@ reccodelatexlabel = {'LL':r'\Lostalap',
                     }
 reccodecolours = {'LL':wx.Colour(255,255,0),
                   'PL':wx.Colour(255,255,127),
+                  'PL5':wx.Colour(255,255,127),
+                  'PL8':wx.Colour(255,255,127),
                   'DS':wx.Colour(192,192,192),
                   'IR':wx.BLACK,
                   'DQ':wx.RED,
