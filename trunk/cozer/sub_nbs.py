@@ -221,10 +221,31 @@ class Races(wx.Panel,MyDebug):
         self.splitter.SetSashPosition(100)
         self.splitter.SetMinimumPaneSize(20)
 
+class AutoSaveTimer (wx.Timer, MyDebug):
+     def __init__(self,topparent, but,tm,debug):
+        MyDebug.__init__(self,debug)
+        wx.Timer.__init__(self)
+        self.topparent=topparent
+        self.but = but
+        self.tm = tm
+        self.Start(tm*1000,oneShot=true)
+     def Notify(self):
+        self.Debug('Notify')
+        label = self.but.GetLabel()
+        if label.endswith('.'):
+            label = label.rstrip('.')
+        else:
+            label = label + '..'
+        self.but.SetLabel (label)
+        self.topparent.OnFileSave(None)
+
+        self.Start(self.tm*1000,oneShot=true)
+
 
 class Timer(wx.Panel,MyDebug):
     timerwin = None
     optwin = None
+    autosavetimer = None
 
     def __init__(self,parent,topparent,debug):
         MyDebug.__init__(self,debug)
@@ -313,10 +334,49 @@ class Timer(wx.Panel,MyDebug):
         wx.EVT_BUTTON(self.optwin,self.resumebut.GetId(),self.Resume)
         hsizer.Add(self.resumebut)
 
+        self.autosavebut = wx.Button(self.optwin,wx.NewId(),'Auto Save OFF')
+        wx.EVT_BUTTON(self.optwin,self.autosavebut.GetId(),self.AutoSave)
+        hsizer.Add(self.autosavebut)
+
         if 0<=self.topparent.currentRace<len(self.topparent.eventdata['races']):
             choice.SetSelection(self.topparent.currentRace)
             #self.TimerWin()
         self.sizer.Layout()
+
+    def AutoSave (self,evt):
+        self.Debug('AutoSave')
+        if not self.timerwin:
+            return
+        if self.autosavebut.GetLabel() == 'Auto Save OFF':
+            self.autosavebut.SetLabel('Auto Save ON')
+        elif self.autosavebut.GetLabel().startswith('Auto Save ON'):
+            self.autosavebut.SetLabel('Auto Save OFF')
+        self.StartAutoSaveTimer ()
+
+    def StartAutoSaveTimer(self):
+        self.StopAutoSaveTimer ()
+        if self.autosavebut.GetLabel().startswith('Auto Save ON'):
+            self.autosavetimer = AutoSaveTimer(self.topparent, self.autosavebut,1,self.debug+(not not self.debug))
+
+    def StopAutoSaveTimer(self):
+        if self.autosavetimer:
+            self.autosavetimer.Stop()
+
+    def SetResumeButtonState (self):
+        enable = None
+        if self.startbut.GetLabel() == 'Stop':
+            enable = False
+        elif self.startbut.GetLabel() == 'Start':
+            if self.timerwin:
+                try:
+                    self.timerwin.info[0]['starttime']
+                    enable = True
+                except Exception, msg:
+                    enable = False # nothing to resume
+        if enable:
+            self.resumebut.Enable()
+        elif enable==False:
+            self.resumebut.Disable()
 
     def Resume(self,evt):
         self.Debug('Resume')
@@ -329,6 +389,8 @@ class Timer(wx.Panel,MyDebug):
             i = i + 1
             self.timerwin.allowclicks[i] = 1
         self.startbut.SetLabel('Stop')
+        self.StartAutoSaveTimer ()
+        self.SetResumeButtonState ()
 
     def Start(self,evt):
         self.Debug('Start')
@@ -342,9 +404,12 @@ class Timer(wx.Panel,MyDebug):
                 i = i + 1
                 self.timerwin.allowclicks[i] = 0
             self.startbut.SetLabel('Start')
+            self.StopAutoSaveTimer ()
+            self.SetResumeButtonState ()
             return
         else:
             self.startbut.SetLabel('Stop')
+            self.StartAutoSaveTimer ()
         skip,i = [],-1
         for cl,h,r in self.timerwin.race:
             fl = 0
@@ -377,6 +442,8 @@ class Timer(wx.Panel,MyDebug):
             self.timerwin.finished[i]=[]
             self.timerwin.clicks[i]=[]
             self.timerwin.allowclicks[i] = 1
+
+
 
     def TimerWin(self):
         self.Debug('TimerWin')
@@ -431,6 +498,8 @@ class Timer(wx.Panel,MyDebug):
         self.timerwin = TimerWin1(info,race,self.topparent,self,self.debug+(not not self.debug))
         self.sizer.Add(self.timerwin,1,wx.EXPAND)
         self.sizer.Layout()
+        self.SetResumeButtonState ()
+
 
     def ResetEvent(self):
         self.Debug('ResetEvent')
