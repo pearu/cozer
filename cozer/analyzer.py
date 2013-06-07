@@ -117,9 +117,9 @@ def analyze(heat,record,scoringsystem = []):
         didntstart = 0
         notes = {}
         for m in rec[id]:
-            if m[0]==4:
+            if m[0] in [4,5,8]:
                 if m[1] <= racetime:
-                    penlaps = penlaps + 1
+                    penlaps = penlaps + {4:1,5:5,8:8}[m[0]]
                     n = string.strip(m[2])
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
@@ -169,6 +169,10 @@ def analyze(heat,record,scoringsystem = []):
                     if not notes.has_key(k): notes[k] = []
                     if n: notes[k].append(n)
             elif m[0]==4: # penalty lap
+                pass
+            elif m[0]==5: # 5 penalty laps
+                pass
+            elif m[0]==8: # 8 penalty laps
                 pass
             elif m[0]==10: # DS
                 didntstart = 1
