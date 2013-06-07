@@ -20,6 +20,8 @@ from __version__ import __version__
 import os,pprint,sys,shutil
 
 import wx
+import cPickle as pickle
+
 
 from buildmenus import buildmenus
 from sub_menus import mainmenubar
@@ -148,7 +150,6 @@ eventdata - a dictionary with keys:
         if not (fn and os.path.isfile(fn)):
             self.Debug('Cannot open file.')
             return 0
-        import cPickle;pickle = cPickle
         f = open(fn,'rb')
         eventdata = normalize_str(pickle.load(f))
         f.close()
@@ -214,7 +215,6 @@ eventdata - a dictionary with keys:
             return 0
         self.SetFilePath(fn)
         self.Debug('New filepath is',`self.filepath`,'Loading...')
-        import cPickle;pickle = cPickle
         f = open(self.filepath,'rb')
         d = pickle.load(f)
         d = normalize_str(d)
@@ -226,7 +226,8 @@ eventdata - a dictionary with keys:
         self.Debug('OnFileSave, filepath=',self.filepath)
         if self.filepath in ['','Untitled.coz']:
             return self.OnFileSaveAs(evt)
-        import cPickle;pickle = cPickle
+        #if evt is None:
+        #    print 'Saving to', self.filepath
         f = open(self.filepath,'wb')
         pickle.dump(denormalize_str(self.eventdata),f,1)
         f.close()
