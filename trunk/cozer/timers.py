@@ -96,6 +96,8 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         for cl,h,r in self.race:
             i = i + 1
             lapl = self.info[i]['course']
+            duration = self.info[i].get ('duration')
+            isendurance = duration is not None
             self.allowclicks[i] = 0
             s = wx.BoxSizer(wx.VERTICAL)
             s.Add(wx.StaticText(self,-1,'%s heat %s'%(cl,h)))
@@ -133,12 +135,13 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
                     self.invidmap[i,k]=id
                     self.buts.append(but)
 
-            butparent = wx.Panel(self,-1,size=wx.Size(100,20*(len(rk)+len(lapl)+2)))
+            button_size = 30
+            button_space = 2
+
+            butparent = wx.Panel(self,-1,size=wx.Size(100,button_size*(len(rk)+len(lapl)+button_space)))
             s1.Add(butparent,0,wx.ALIGN_LEFT|wx.ALIGN_TOP|wx.EXPAND)
             self.lapbuts[i]=[]
 
-            button_size = 30
-            button_space = 2
             id = wx.NewId()
             but = wx.Button(butparent,id,'Ready to Start',size=wx.Size(-1,button_size),pos=wx.Point(0,0))
             but.SetBackgroundColour(mycolors['readymark'])
@@ -236,13 +239,26 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         i,k=self.idmap[id]
         self.clicks[i].append(k)
         flag = not (k in self.finished[i])
-        if self.finished[i] or len(self.info[i]['course']) == self.clicks[i].count(k):
-            self.finished[i].append(k)
+        duration = self.info[i].get('duration')
+        isendurance = duration is not None
+        finish = False
+        stime = self.info[i].get('racetime',-1)
+        tms = gettimes(self.race[i][2][k],stime)
+        if isendurance:
+            if self.finished[i] or (tms and sum(tms) > duration):
+                self.finished[i].append(k)
+                finish = True
+        else:
+            if self.finished[i] or len(self.info[i]['course']) == self.clicks[i].count(k):
+                self.finished[i].append(k)
         if self.timerbuts.has_key(id):
             for tb in self.timerbuts[id]:
                 tb.Stop()
             del self.timerbuts[id]
-        ids=map(lambda b:b.GetId(),self.lapbuts[i])
+        if isendurance:
+            ids=map(lambda b:b.GetId(),self.lapbuts[i])
+        else:
+            ids=map(lambda b:b.GetId(),self.lapbuts[i])
         ids_buts=map(lambda b:b.GetId(),self.buts)
         if flag:
             j1 = ids.index(id)
@@ -255,9 +271,13 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
                         j2 = j2 - 1
                         fl = 0
                         break
-                    else: fl = 1
+                    else:
+                        fl = 1
             if fl:
                 j2 = len(ids) - 1
+            if isendurance and not finish:
+                j2 = j2 - 1
+
             for j in range(j1,j2):
                 b1 = self.lapbuts[i][j]
                 b2 = self.lapbuts[i][j+1]
@@ -274,16 +294,20 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         if k in self.finished[i]:
             return
         if skiptoggle: return
-        if self.info[i].has_key('racetime'):
-            stime = self.info[i]['racetime']
-        else: stime = -1
-        tms = gettimes(self.race[i][2][k],stime)
-        ll = min(len(tms),len(self.info[i]['course'])-1)
-        if 0<ll:
-            lastlapspeed = self.info[i]['course'][ll-1]/tms[-1]
-            et = max(self.info[i]['course'][ll]/lastlapspeed - 5,10)
-            self.timerbuts[id] = [ToggleButtonTimer(self.lapbuts[i][j2],et,self.debug+(not not self.debug)),
-                                  ToggleButtonTimer(self.buts[ids_buts.index(id)],et,self.debug+(not not self.debug))]
+
+        if isendurance:
+            if len (tms)>1:
+                lastlapspeed = self.info[i]['course'][0]/tms[-1]
+                et = max(self.info[i]['course'][0]/lastlapspeed - 5,10)
+                self.timerbuts[id] = [ToggleButtonTimer(self.lapbuts[i][j2],et,self.debug+(not not self.debug)),
+                                      ToggleButtonTimer(self.buts[ids_buts.index(id)],et,self.debug+(not not self.debug))]
+        else:
+            ll = min(len(tms),len(self.info[i]['course'])-1)
+            if 0<ll:
+                lastlapspeed = self.info[i]['course'][ll-1]/tms[-1]
+                et = max(self.info[i]['course'][ll]/lastlapspeed - 5,10)
+                self.timerbuts[id] = [ToggleButtonTimer(self.lapbuts[i][j2],et,self.debug+(not not self.debug)),
+                                      ToggleButtonTimer(self.buts[ids_buts.index(id)],et,self.debug+(not not self.debug))]
 
 
 class ToggleButtonTimer(wx.Timer,MyDebug):

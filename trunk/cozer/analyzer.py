@@ -100,10 +100,15 @@ def analyze(heat,record,scoringsystem = []):
         info['racetime'] = 1.05 * racetime
     racetime = info['racetime']
 
+    duration = info.get('duration')
+    #if duration is not None: # is in hours, need in seconds
+    #    duration = duration*60*60
+
     isrestarted = (heat and heat[-1]=='r')
     isrestarted2 = (heat and heat[-1]=='R')
     isqualification = (heat and heat[-1]=='q')
     istimetrial = (heat and heat[-1]=='t')
+    isendurance = duration is not None
     preres = []
     for id in rec.keys():
         penlaps = 0
@@ -124,7 +129,10 @@ def analyze(heat,record,scoringsystem = []):
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
                     if n: notes[k].append(n)
-        lapsrequired = len(course)
+        if isendurance:
+            lapsrequired = 10000 # large number
+        else:
+            lapsrequired = len(course)
         maxlapspeed = 0
         avgspeed = 0
         distcovered = 0
@@ -134,6 +142,7 @@ def analyze(heat,record,scoringsystem = []):
         esttime = 0
         lapstime = []
         dt = 0
+        li = 0
         for m in rec[id]:
             if abs(m[0]) in [1,2]:
                 if (not ignorelaps) and t + m[1] <= racetime and laps<lapsrequired + penlaps:
@@ -239,12 +248,21 @@ def analyze(heat,record,scoringsystem = []):
             penlapavgspeed = avgspeed
         else:
             if laps:
-                avgspeed = round(3.6*distcovered/float(t),roundopt)
+                if t>0:
+                    avgspeed = round(3.6*distcovered/float(t),roundopt)
+                else:
+                    avgspeed = 0
             if penlapsleft:
-                penlapavgspeed = round(3.6*(distcovered-penlapsleft*course[li])/float(t),roundopt)
+                if t>0:
+                    penlapavgspeed = round(3.6*(distcovered-penlapsleft*course[li])/float(t),roundopt)
+                else:
+                    penlapavgspeed = 0
             else:
                 penlapavgspeed = avgspeed
-        lapsleft = lapsrequired - laps + penlaps
+        if isendurance:
+            lapsleft = 0
+        else:
+            lapsleft = lapsrequired - laps + penlaps
         code = 10*didntstart+interruption+100*disqualification
         if lapsleft and (not pastafterstoppage) and (code==0):
             if t+2.5*esttime<racetime and not istimetrial:
