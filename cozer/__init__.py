@@ -381,7 +381,7 @@ eventdata - a dictionary with keys:
         pat = 'NofHeats*(NofLaps*LapLength+..)+..:NofScoredHeats' or 'NofEstimatedLaps*LapLength/Hours' for endurance race
         --> list of lists [[<lap lengths for heat 1>],...], <scored heats>
         or
-        --> 2-tuple [[<lap length>]*<nof estimated laps>], <hours>
+        --> 2-tuple [[<lap length>]*<nof estimated laps>], <seconds>
         """
         self.Debug('CrackRacePattern')
         pat = pat.replace(' ','')
@@ -389,9 +389,10 @@ eventdata - a dictionary with keys:
             ll,hours = pat.split('/')
             if '*' in ll:
                 nlaps, ll = ll.split('*')
+                nlaps = '1'
             else:
                 nlaps='1'
-            return [[eval(ll)]*eval(nlaps)], 1, eval(hours)
+            return [[eval(ll)]*eval(nlaps)], 1, eval(hours)*60*60
         apat=string.split(pat,':')
         pat=apat[0]
         apat=apat[1:]
