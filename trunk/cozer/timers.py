@@ -225,7 +225,7 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
             t = time.time() - self.info[i]['starttime']
             self.race[i][2][k].append((1,round(t-ot,roundopt)))
             self.ApplyClick(ID,0)
-            ii = int(len (self.race[i][2][k]) % 2==0)
+            ii = int(len (self.race[i][2][k]) % 2==1)
             self.ApplyClickTT(ID,mycolors['waiting%s' % (ii)])
 
     def ApplyClickTT(self,id,color):
@@ -237,7 +237,8 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
     def ApplyClick(self,id,skiptoggle=1):
         self.Debug('ApplyClick')
         i,k=self.idmap[id]
-        print `i,self.clicks`
+        #i=class id withing race
+        #k=bloat id
         self.clicks[i].append(k)
         flag = not (k in self.finished[i])
         duration = self.info[i].get('duration')
