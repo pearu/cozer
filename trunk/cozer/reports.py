@@ -179,6 +179,60 @@ inter_table_latextmpl = r"""
 
 inter_part_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#} & #result# & #points# & #bestresult# & #sumpoints#"""
 
+endurance_full_doc_latextmpl = r"""
+\documentclass[11pt,a4paper]{article}
+\input #language#_cozer
+\usepackage[T1]{fontenc}
+\usepackage[estonian,english]{babel}
+\usepackage{a4wide}
+\usepackage{landscape}
+\usepackage{longtable}
+\usepackage{fancyheadings}
+\pagestyle{fancy}
+\lfoot{/#officer#/\\\OfficeroftheDay}
+\cfoot{\Page{} \thepage}
+\rfoot{/#secretary#/\\\SecretaryoftheRace}
+\rhead{#date#\\#venue#}
+%\lhead{#title#}
+\lhead{
+\begin{minipage}[b]{.6\textwidth}
+#title#
+\end{minipage}
+}
+\hoffset=-1cm
+\headheight=36pt
+\voffset=-36pt
+\begin{document}
+\begin{center}
+\textbf{\Large \FinalResults}
+\end{center}
+
+#tables#
+
+\end{document}
+"""
+
+endurance_full_table_latextmpl = r"""
+\nobreak
+\ifdim\pagetotal>0.75\textheight\clearpage\fi
+\subsection*{\Class{} #class#}
+\begin{center}
+\setlongtables
+\begin{longtable}[l]{c|l|l|c|c|c|c|c|c}
+\Place & \Name & \From & \No & Best Lap Time & Best Lap & Total Laps Time & Total Laps & Points \\\hline
+#table#
+\\\hline
+\multicolumn{#nofcols#}{p{1cm}}{
+\begin{minipage}{.9\textwidth}
+#notes#
+\end{minipage}
+}
+\end{longtable}
+\end{center}
+
+"""
+endurance_full_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#}  & #bestlaptime# & #bestlap# & #totallapstime# & #totallaps# & #points#"""
+
 full_doc_latextmpl = r"""
 \documentclass[11pt,a4paper]{article}
 \input #language#_cozer
@@ -630,6 +684,119 @@ def intermediate(clses,heat_map,eventdata):
                'dvipdfm':'-p a4',
                'dvips':'-q'}
 
+def sec2time (secs):
+    hours = int(secs / 3600)
+    minutes = int ((secs - hours * 3600)/60)
+    seconds = int ((secs - hours*3600-minutes*60))
+    rest = (secs - hours*3600-minutes*60-seconds)*1000
+    assert (hours*60*60+minutes*60+seconds+rest/1000. - secs)<0.001,`secs,hours*60*60+minutes*60+seconds+rest/1000.`
+    return '%02i:%02i:%02i.%03d' % (hours, minutes, seconds, rest)
+
+def fullfinal_endurance(clses,heat_map,eventdata):
+    Debug('fullfinial_endurance')
+    record = eventdata['record']
+    res={}
+    info={}
+    parts={}
+    for l in eventdata['participants']:
+        parts[l[4],l[5]] = [l[1],l[2],l[3]]
+    sumres = {}
+    for cl in clses:
+        res[cl] = {}
+        for h in heat_map[cl]:
+            info[cl,h]=record[cl][h][0]
+            res[cl][h] = analyzer.analyze(h,record[cl][h],eventdata['scoringsystem'])
+        #if len(heat_map[cl])>1:
+        sumres[cl] = analyzer.sumanalyze(heat_map[cl],res[cl],eventdata['sheats'][cl])
+        #else:
+        #    sumres[cl] = {}
+
+    wd = latexworkingdir()
+    if len(clses) == len(eventdata['classes']): fn = 'endurance_full_all'
+    else: fn = 'endurance_full_%s'%(string.join(clses,'_'))
+    for k in badnames.keys():
+        fn = string.replace(fn,k,badnames[k])
+    fn = os.path.join(wd,fn)
+    f = open(fn+'.tex','w')
+    rd = {}
+    rd['title'] = eventdata['title']
+    rd['date'] = eventdata['date']
+    rd['venue'] = eventdata['venue']
+    rd['secretary'] = eventdata['secretary']
+    rd['officer'] = eventdata['officer']
+    try: l = eventdata['configure']['language']
+    except KeyError: l = 'English'
+    rd['language'] = l
+    rd['tables'] = []
+    rd['separatorsfor'] = {'tables':'\n'}
+    rd['currenttime'] = time.ctime(time.time())
+
+    for cl in clses:
+        if not heat_map[cl]: continue
+        #curheat = heat_map[cl][-1]
+        rks = analyzer.getsumresorder(sumres[cl])
+        saveorder(eventdata,cl,rks)
+        nofh = len(heat_map[cl])
+        d = {'separatorsfor':{'table':'\\\\\n','notes':'; '},
+             'tablepat':nofh*'|c|c',
+             'nofcols':'9',
+             #'tablehead1':map(lambda s:'&\multicolumn2{c|}{\\Heat{} %s}'%s,heat_map[cl][:-1])+\
+             #['&\multicolumn2{c||}{\\Heat{} %s}'%heat_map[cl][-1]],
+             #'tablehead2':nofh*r'&{\small \Res}&{\small \Pts}',
+             'cline':'\\cline{5-%s}'%(4+2*nofh+2),
+             'table':[],
+             'notes':[r'\ResNote'],
+             'class':getclass(cl)
+             }
+        legend = []
+        rks = analyzer.getsumresorder(sumres[cl])
+        for place, id in enumerate(rks):
+            p = parts[cl,'%s'%id]
+            names = get_fullname(p[0], p[1]).split (';')
+            dp = {'place':'-','points':'-',
+                  'name':names[0],'from':p[2],'id':'%s'%id,
+                  'totallaps':'-', 'totallapstime':'-',
+                  'bestlap':'-','bestlaptime':'-',
+                  }
+            assert len (heat_map[cl])==1,`cl, heat_map[cl]`
+            h=heat_map[cl][0]
+            r = res[cl][h][id]
+            dp['totallaps'] = str(r['totallaps'][1])
+            dp['totallapstime'] = sec2time(r['totallaps'][0])
+            dp['bestlap'] = str(r['bestlap'][1])
+            dp['bestlaptime'] = sec2time(r['bestlap'][0])
+
+            if r['points']>0:
+                dp['points'] = '%s'%r['points']
+                dp['place'] = '%s'%(place+1)
+
+            if r['notes']:
+                for k in r['notes'].keys():
+                    if k not in legend: legend.append(k)
+
+            d['table'].append(replace(endurance_full_part1_latextmpl,dp))
+            for name in names[1:]:
+                for dpk in dp:
+                    if isinstance (dp[dpk], list):
+                        dp[dpk]=['&'*v.count ('&') for v in dp[dpk]]
+                    else:
+                        dp[dpk]=''
+                dp['name'] = name
+                d['table'].append(replace(endurance_full_part1_latextmpl,dp))
+        for l in legend:
+            d['notes'].append('%s=%s'%(l,reccodelatexlabel[l]))
+        rd['tables'].append(replace(endurance_full_table_latextmpl,d))
+
+    f.write(denormalize_str(replace(endurance_full_doc_latextmpl,rd)))
+    f.close()
+    return fn,{'latex':'--interaction nonstopmode',
+               'dvips':'-q -t landscape -t a4',
+               'dvipdfm':'-l -p a4',
+               'xdvi':'-paper a4r',
+               'yap':'',
+               'gv':'--media=a4 --swap',
+               }
+
 def fullfinal(clses,heat_map,eventdata):
     Debug('fullfinial')
     record = eventdata['record']
@@ -1041,6 +1208,7 @@ def lapsprotocol(clses,heat_map,eventdata):
 
 report_map={'Participants':participants,
             'Intermediate':intermediate,
+            'Endurance Full Final':fullfinal_endurance,
             'Full Final':fullfinal,
             'Short Final':shortfinal,
             'Check List':checklist,

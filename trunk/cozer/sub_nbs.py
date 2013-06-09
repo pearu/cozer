@@ -805,6 +805,7 @@ class Reports(wx.Panel,MyDebug):
                         self.checked[cl].append(h)
                     hcheck.SetValue(true)
         vsizer.Layout()
+        win.SetSizer(vsizer)
 
     def Checking(self,evt):
         self.Debug('Checking')
