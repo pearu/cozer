@@ -487,6 +487,18 @@ def gettimes(race,stime=-1):
                 dt = dt + r[1]
     return ret
 
+def getlasttime(race):
+    dt = 0
+    t = 0
+    for r in race:
+        if r:
+            if r[0] in [1,2]:
+                t = t + r[1] + dt
+                dt = 0
+            elif r[0] in [-1,-2]:
+                dt = dt + r[1]
+    return t
+
 def normalize_str(obj):
     if not USE_UNICODE:
         return obj

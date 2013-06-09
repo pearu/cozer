@@ -416,6 +416,7 @@ class Timer(wx.Panel,MyDebug):
             fl = 0
             i = i + 1
             for k in r.keys(): fl = fl or r[k]
+            print r
             if fl:
                 mess = wx.MessageDialog(self,
                                        "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost!"%(cl,h),
