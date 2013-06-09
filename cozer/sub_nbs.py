@@ -411,25 +411,32 @@ class Timer(wx.Panel,MyDebug):
         else:
             self.startbut.SetLabel('Stop')
             self.StartAutoSaveTimer ()
+
         skip,i = [],-1
         for cl,h,r in self.timerwin.race:
             fl = 0
             i = i + 1
             for k in r.keys(): fl = fl or r[k]
-            print r
             if fl:
                 mess = wx.MessageDialog(self,
-                                       "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost!"%(cl,h),
+                                       "Race record for class %s heat %s contains data!\nDo you wish to overwrite it?\nIf affirmative, old data will be lost! Otherwise use Resume."%(cl,h),
                                        "Overwrite race record?",
                                        style=wx.YES_NO|wx.CENTRE|wx.ICON_QUESTION|wx.NO_DEFAULT)
-                if not mess.ShowModal() == wx.ID_YES:
+                if not (mess.ShowModal() == wx.ID_YES):
                     skip.append(i)
+                    break
                     continue
             self.timerwin.info[i]['starttime'] = t
             if self.timerwin.info[i].has_key('racetime'):
                 del self.timerwin.info[i]['racetime']                
             for k in r.keys():
                 r[k] = []
+
+        if skip:
+            self.startbut.SetLabel('Start')
+            self.StopAutoSaveTimer ()
+            self.SetResumeButtonState ()
+            return
 
         self.TimerWin()
         i = -1
@@ -444,8 +451,6 @@ class Timer(wx.Panel,MyDebug):
             self.timerwin.finished[i]=[]
             self.timerwin.clicks[i]=[]
             self.timerwin.allowclicks[i] = 1
-
-
 
     def TimerWin(self):
         self.Debug('TimerWin')
@@ -468,13 +473,13 @@ class Timer(wx.Panel,MyDebug):
             if not record.has_key(cl): record[cl]={}
             prevheats = record[cl].keys()
             if not record[cl].has_key(h): record[cl][h]={},{}
-            record[cl][h][1].clear ()
+            old_record =  record[cl][h][1].copy()
+            record[cl][h][1].clear()
             for p in self.topparent.eventdata['participants']:
                 if p[4]==qcl:
                     try: val=eval(p[5])
                     except: val=p[5]
-                    if not record[cl][h][1].has_key(val):
-                        record[cl][h][1][val]=[]
+                    record[cl][h][1][val] = old_record.get(val, [])
             rpat=None
             duration = None
             for l in self.topparent.eventdata['classes']:
@@ -497,6 +502,7 @@ class Timer(wx.Panel,MyDebug):
             self.sizer.Remove(self.timerwin)
             self.timerwin.CleanUp()
             self.timerwin.Destroy()
+
         self.timerwin = TimerWin1(info,race,self.topparent,self,self.debug+(not not self.debug))
         self.sizer.Add(self.timerwin,1,wx.EXPAND)
         self.sizer.Layout()
@@ -530,7 +536,6 @@ class EditRecord(wx.Panel,MyDebug):
         self.SetAutoLayout(true)
         self.SetSizer(self.sizer)
 
-
     def Entering(self):
         self.Debug('Entering')
         if not self.optwin: return
@@ -544,6 +549,13 @@ class EditRecord(wx.Panel,MyDebug):
             for h in hks:
                 self.recs.append((cl,h))
                 self.recchoice.Append('%s/%s'%(cl,h))
+
+
+        timerwin = self.topparent.nb.pages[self.topparent.pagedict['Timer']]
+        if timerwin.startbut.GetLabel ()=='Start':
+            self.delbut.Enable ()
+        else:
+            self.delbut.Disable ()
         
     def CreateOptWin(self):
         self.Debug('CreateOptWin')
@@ -564,6 +576,7 @@ class EditRecord(wx.Panel,MyDebug):
         delbut = wx.Button(self.optwin,wx.NewId(),'Delete')
         wx.EVT_BUTTON(self.optwin,delbut.GetId(),self.DeleteClassHeat)
         hsizer.Add(delbut)
+        self.delbut = delbut
 
         vs = wx.BoxSizer(wx.HORIZONTAL)
         self.starttimetext = wx.StaticText(self.optwin,wx.NewId(),'Start time',
@@ -591,9 +604,10 @@ class EditRecord(wx.Panel,MyDebug):
         if evt is None:
             cls, heat = self.class_heat
         else:
-            cls,heat = self.recs[evt.GetSelection()]
+            cls, heat = self.recs[evt.GetSelection()]
             self.class_heat = cls, heat
         self.Info('Selected class %s heat %s'%(cls,heat))
+
         if self.editwin:
             self.sizer.Remove(self.editwin)
             self.editwin.Destroy()
