@@ -237,15 +237,15 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
     def ApplyClick(self,id,skiptoggle=1):
         self.Debug('ApplyClick')
         i,k=self.idmap[id]
+        print `i,self.clicks`
         self.clicks[i].append(k)
         flag = not (k in self.finished[i])
         duration = self.info[i].get('duration')
         isendurance = duration is not None
         finish = False
-        stime = self.info[i].get('racetime',-1)
-        tms = gettimes(self.race[i][2][k],stime)
+
         if isendurance:
-            if self.finished[i] or (tms and sum(tms) > duration):
+            if self.finished[i] or (getlasttime(self.race[i][2][k]) > duration):
                 self.finished[i].append(k)
                 finish = True
         else:
@@ -295,8 +295,10 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
             return
         if skiptoggle: return
 
+        stime = self.info[i].get('racetime',-1)
+        tms = gettimes(self.race[i][2][k],stime)
         if isendurance:
-            if len (tms)>1:
+            if tms:
                 lastlapspeed = self.info[i]['course'][0]/tms[-1]
                 et = max(self.info[i]['course'][0]/lastlapspeed - 5,10)
                 self.timerbuts[id] = [ToggleButtonTimer(self.lapbuts[i][j2],et,self.debug+(not not self.debug)),
@@ -395,7 +397,11 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         self.calcMaxTime()
         if not self.info.has_key('racetime'):
             self.info['racetime'] = self.maxtime/1.03
-        self.SetCurTime(self.info['racetime'])
+        duration = self.info.get ('duration')
+        if duration is not None:
+            self.SetCurTime(duration)
+        else:
+            self.SetCurTime(self.info['racetime'])
         self.rec_eds = []
         if seltime is None:        
             self.SetSelTime(self.maxtime/2.0)
