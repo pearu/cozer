@@ -204,7 +204,7 @@ endurance_full_doc_latextmpl = r"""
 \voffset=-36pt
 \begin{document}
 \begin{center}
-\textbf{\Large \FinalResults}
+\textbf{\Large #reporttitle#}
 \end{center}
 
 #tables#
@@ -685,11 +685,17 @@ def intermediate(clses,heat_map,eventdata):
                'dvips':'-q'}
 
 def sec2time (secs):
+    if secs is None:
+        return '-'
+    if secs<0:
+        return '- ' + sec2time (-secs)
     hours = int(secs / 3600)
     minutes = int ((secs - hours * 3600)/60)
     seconds = int ((secs - hours*3600-minutes*60))
-    rest = (secs - hours*3600-minutes*60-seconds)*1000
+    rest = int((secs - hours*3600-minutes*60-seconds)*1000)
     assert (hours*60*60+minutes*60+seconds+rest/1000. - secs)<0.001,`secs,hours*60*60+minutes*60+seconds+rest/1000.`
+    if isinstance (secs, int):
+        return '%02i:%02i:%02i' % (hours, minutes, seconds)
     return '%02i:%02i:%02i.%03d' % (hours, minutes, seconds, rest)
 
 def fullfinal_endurance(clses,heat_map,eventdata):
@@ -730,9 +736,22 @@ def fullfinal_endurance(clses,heat_map,eventdata):
     rd['tables'] = []
     rd['separatorsfor'] = {'tables':'\n'}
     rd['currenttime'] = time.ctime(time.time())
+    rd['reporttitle'] = r'\FinalResults{}'
+
 
     for cl in clses:
         if not heat_map[cl]: continue
+        try:
+            info = eventdata['record'][cl][heat_map[cl][0]][0]
+        except:
+            info = None
+        if info is not None:
+            stoptime = info['starttime'] + info['duration']
+            currenttime = time.time ()
+            if currenttime < stoptime:
+                rd['reporttitle'] = r'\IntermediateResults{}' + ' \\small{--- %s to go}' % (sec2time(int(stoptime - currenttime)))
+            else:
+                rd['reporttitle'] = r'\FinalResults{}' + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)))
         #curheat = heat_map[cl][-1]
         rks = analyzer.getsumresorder(sumres[cl])
         saveorder(eventdata,cl,rks)
@@ -749,7 +768,7 @@ def fullfinal_endurance(clses,heat_map,eventdata):
              'class':getclass(cl)
              }
         legend = []
-        rks = analyzer.getsumresorder(sumres[cl])
+        #rks = analyzer.getsumresorder(sumres[cl])
         for place, id in enumerate(rks):
             p = parts[cl,'%s'%id]
             names = get_fullname(p[0], p[1]).split (';')
@@ -761,9 +780,9 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             assert len (heat_map[cl])==1,`cl, heat_map[cl]`
             h=heat_map[cl][0]
             r = res[cl][h][id]
-            dp['totallaps'] = str(r['totallaps'][1])
+            dp['totallaps'] = str(r['totallaps'][1] or '-')
             dp['totallapstime'] = sec2time(r['totallaps'][0])
-            dp['bestlap'] = str(r['bestlap'][1])
+            dp['bestlap'] = str(r['bestlap'][1] or '-')
             dp['bestlaptime'] = sec2time(r['bestlap'][0])
 
             if r['points']>0:
