@@ -117,7 +117,6 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
                     if n: notes[k].append(n)
-        lapsrequired = 10000 # large number
         maxlapspeed = 0
         avgspeed = 0
         distcovered = 0
@@ -142,10 +141,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                     else:
                         laps = laps + 1
                         li = 0
-                        if penlaps and laps > lapsrequired:
-                            penlapsleft = penlapsleft - 1
-                        else:
-                            distcovered = distcovered + course[li]
+                        distcovered = distcovered + course[li]
                         lapspeed = round(3.6*course[li]/float(dt),roundopt)
                         if lapspeed>maxlapspeed:
                             maxlapspeed = lapspeed
@@ -213,40 +209,14 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                         notes[k].append(n)
             else:
                 print 'analyzer.analyze: unused code',m[0]
-
-        if laps:
-            if t>0:
-                avgspeed = round(3.6*distcovered/float(t),roundopt)
-            else:
-                avgspeed = 0
-        if penlapsleft:
-            if t>0:
-                penlapavgspeed = round(3.6*(distcovered-penlapsleft*course[li])/float(t),roundopt)
-            else:
-                penlapavgspeed = 0
-        else:
-            penlapavgspeed = avgspeed
-        lapsleft = 0
+            avgspeed = 0
+        if laps and t>0:
+            avgspeed = round(3.6*distcovered/float(t),roundopt)
 
         code = 10*didntstart+interruption+100*disqualification
-        if lapsleft and (not pastafterstoppage) and (code==0):
-            if t+2.5*esttime<racetime:
-                if laps:
-                    Warning('Appended IR mark for %s'%id)
-                    code = 1
-                    insertmark(rec[id],11,t+2.5*esttime,'')
-                    k = invreccodemap[11]
-                    if not notes.has_key(k): notes[k] = []
-                else:
-                    Warning('Appended DS mark for %s'%id)
-                    code = 10
-                    insertmark(rec[id],10,t+2.5*esttime,'')
-                    k = invreccodemap[10]
-                    if not notes.has_key(k): notes[k] = []
         #0,1,10,11,100,101,110,111
         preres.append((code,
-                       qualification,
-                       lapsleft,-penlapavgspeed,
+                       -(laps - penlaps - lapslost),
                        -avgspeed,-maxlapspeed,lapstime,
                        (pastafterstoppage,penlapsleft,laps),
                        id,notes))
@@ -255,18 +225,19 @@ def analyze_endurance(heat,record,scoringsystem=[]):
     requiredlaps4pointscoef = 0.4
     notrunningrequiredlaps4pointscoef = 0.9
 
-    leaderlaps = preres[0][7][2] - preres[0][7][1]
+    leaderlaps = preres[0][1]
     leadertime = 0
-    if preres[0][6]:
-        leadertime = preres[0][6][-1]
+    if preres[0][4]:
+        leadertime = preres[0][4][-1]
     minlaps4points = max(1,requiredlaps4pointscoef*leaderlaps)
     notrunningminlaps4points = max(1,notrunningrequiredlaps4pointscoef*leaderlaps)
     
     res = {}
     for i,item in enumerate(preres):
         ip = min(i,len(scoringsystem)-1)
-        code,qualification,lapsleft,penlapavgspeed,avgspeed,maxlapspeed,lapstime,(pastafterstoppage,penlapsleft,laps),id,notes = item
-        penlapavgspeed,avgspeed,maxlapspeed=-penlapavgspeed,-avgspeed,-maxlapspeed
+        code, countedlaps, avgspeed, maxlapspeed, lapstime,(pastafterstoppage, penlapsleft, laps), id, notes = item
+        avgspeed,maxlapspeed=-avgspeed,-maxlapspeed
+        countedlaps = -countedlaps
         points = -1
         place = -1
         ll = 0
@@ -283,22 +254,20 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                 if t>leadertime:
                     lasttime = t
                     break
-            if ll<len(lapstime):
-                laps = laps - (len(lapstime)-ll)
-                lapsleft = lapsleft + (len(lapstime)-ll)
-                Info('You must disable last %s lapmarks for %s'%(len(lapstime)-ll,id))
-
-
-            for i in range (len(lapstime)):
+            #if ll<len(lapstime):
+            #    laps = laps - (len(lapstime)-ll)
+            #    lapsleft = lapsleft + (len(lapstime)-ll)
+            #    Info('You must disable last %s lapmarks for %s'%(len(lapstime)-ll,id))
+            for j in range (len(lapstime)):
                 if bestlap is None:
                     bestlaptime = lapstime[i]
-                    bestlap = i+1
+                    bestlap = j+1
                 else:
-                    lt = lapstime[i] - lapstime[i-1]
+                    lt = lapstime[j] - lapstime[j-1]
                     if lt < bestlaptime:
                         bestlaptime = lt
-                        bestlap = i+1
-        totallaps = laps - penlapsleft
+                        bestlap = j+1
+        totallaps = countedlaps
         getspoints = (lasttime>leadertime) or (totallaps>=notrunningminlaps4points)
         if code==0:
             if getspoints:
@@ -306,9 +275,6 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                 points = 0
                 if totallaps >= minlaps4points:
                     points = scoringsystem[ip]
-            else:
-                if lapsleft:
-                    Info('Check %s for interruption or insert a lapmark after stoppage.'%(id))                
         res[id] = {}
 
         res[id]['points'] = points
@@ -316,8 +282,8 @@ def analyze_endurance(heat,record,scoringsystem=[]):
         res[id]['avgspeed'] = avgspeed
         res[id]['maxlapspeed'] = maxlapspeed
         res[id]['bestlap'] = bestlaptime, bestlap
-        res[id]['totallaps'] = totallapstime, laps
-        res[id]['lapinfo'] = laps,penlapsleft,lapsleft
+        res[id]['totallaps'] = totallapstime, totallaps
+        res[id]['lapinfo'] = laps,penlapsleft,0
         res[id]['notes'] = notes
 
     return res    
