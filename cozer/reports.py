@@ -231,7 +231,7 @@ endurance_full_table_latextmpl = r"""
 \end{center}
 
 """
-endurance_full_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#}  & #bestlaptime# & #bestlap# & #totallapstime# & #totallaps# & #points#"""
+endurance_full_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#}  & #bestlaptime# & #bestlap# & #totallapstime# & #totallaps##indices# & #points#"""
 
 full_doc_latextmpl = r"""
 \documentclass[11pt,a4paper]{article}
@@ -546,6 +546,7 @@ def participants(clses,heat_map,eventdata):
                'gv':'--media=a4',
                'dvipdfm':'-p a4',
                'dvips':'-q'}
+
 def res2latex(res,notes, istimetrial=False, isqualification=False):
     l = len(notes)
     r=''
@@ -764,11 +765,13 @@ def fullfinal_endurance(clses,heat_map,eventdata):
              #'tablehead2':nofh*r'&{\small \Res}&{\small \Pts}',
              'cline':'\\cline{5-%s}'%(4+2*nofh+2),
              'table':[],
-             'notes':[r'\ResNote'],
+             'notes':[],
              'class':getclass(cl)
              }
         legend = []
         #rks = analyzer.getsumresorder(sumres[cl])
+        notescounter = 0
+        notesmap = {}
         for place, id in enumerate(rks):
             p = parts[cl,'%s'%id]
             names = get_fullname(p[0], p[1]).split (';')
@@ -776,6 +779,7 @@ def fullfinal_endurance(clses,heat_map,eventdata):
                   'name':names[0],'from':p[2],'id':'%s'%id,
                   'totallaps':'-', 'totallapstime':'-',
                   'bestlap':'-','bestlaptime':'-',
+                  'indices':''
                   }
             assert len (heat_map[cl])==1,`cl, heat_map[cl]`
             h=heat_map[cl][0]
@@ -784,6 +788,16 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             dp['totallapstime'] = sec2time(r['totallaps'][0])
             dp['bestlap'] = str(r['bestlap'][1] or '-')
             dp['bestlaptime'] = sec2time(r['bestlap'][0])
+
+            if r['notes']:
+                indices = []
+                for mark, rules in r['notes'].items ():
+                    for rule in rules:
+                        index = notesmap.get ((mark, rule))
+                        if index is None:
+                            index = notesmap[mark, rule] = len(notesmap)+1
+                        indices.append(str(index))
+                dp['indices'] = '${}^{%s}$' % (', '.join (indices))
 
             if r['points']>0:
                 dp['points'] = '%s'%r['points']
@@ -802,6 +816,9 @@ def fullfinal_endurance(clses,heat_map,eventdata):
                         dp[dpk]=''
                 dp['name'] = name
                 d['table'].append(replace(endurance_full_part1_latextmpl,dp))
+        for (mark,rule),index in notesmap.items ():
+            d['notes'].append ('${}^{%s}$---%s $%s$' % (index, mark, rule))
+
         for l in legend:
             d['notes'].append('%s=%s'%(l,reccodelatexlabel[l]))
         rd['tables'].append(replace(endurance_full_table_latextmpl,d))
