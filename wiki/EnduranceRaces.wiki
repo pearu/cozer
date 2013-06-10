@@ -2,7 +2,16 @@
 
 = How to specify race course =
 
-In `General Information/Race pattern` table
+In `General Information/Race pattern` table column, specify the course using the following pattern:
+{{{
+<Lap length>/<Race time>
+}}}
+where lap length should be given in meters and race time in hours.
+For example,
+{{{
+5000/6
+}}}
+specifies 6h endurance race on 5000m circuit.
 
 
 = How to generate intermediate results =
