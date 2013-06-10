@@ -1,6 +1,6 @@
 #summary How to organize endurance races with Cozer
 
-= How to specify race course =
+= How to specify race course? =
 
 In `General Information/Race pattern` table column, specify the course using the following pattern:
 {{{
@@ -13,9 +13,16 @@ For example,
 }}}
 specifies 6h endurance race on 5000m circuit.
 
+= How to resume a race and enable auto save? =
 
-= How to generate intermediate results =
+Because of long race time, anything can happen, for instance, a electricity failure or timers computer goes crazy.
+
+To minimize data loss, cozer supports auto saving data during a race. To enable it, in `Timer` page, toggle `Auto Save OFF` button to `Auto Save ON`. As a result, the cozer session will be saved every 30 seconds.
+
+When you need to resume a race, in `Timer` page, press `Resume` instead of `Start`.
+
+= How to generate intermediate results? =
 
 U.I.M. rules require that intermediate results are posted during a race.
 
-In cozer, everytime you wish to generate results report, in `Edit Race Record` page you must re-select all class/heat combinations currently running. Then go to `Reports` page and select `Endurance Full Final` as a report type.
+In cozer, everytime you wish to generate a results report, in `Edit Race Record` page you must re-select all class/heat combinations currently running. Then go to `Reports` page and select `Endurance Full Final` as a report type.
