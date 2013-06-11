@@ -162,6 +162,21 @@ eventdata - a dictionary with keys:
             if ((not self.eventdata.has_key(k)) or (checkempty(self.eventdata[k]))):
                 self.Message('Setting eventdata[%s]'%(`k`))
                 self.eventdata[k] = eventdata[k]
+            elif k=='rules':
+                for rule in eventdata[k]:
+                    rule = map (unicode, rule)
+                    flag = True
+                    for rule2 in self.eventdata[k]:
+                        if rule[1]==rule2[1] and rule[2]==rule2[2]:
+                            if rule[3]==rule2[3]:
+                                flag = False
+                                break
+                        if not flag:
+                            break
+                    if flag:
+                        self.eventdata[k].append(rule)
+            elif k=='scoringsystem':
+                self.eventdata[k] = eventdata[k]
         if eventdata.has_key('classes'):
             for l in eventdata['classes']:
                 if checkempty(l): continue
@@ -262,7 +277,7 @@ eventdata - a dictionary with keys:
                                    wildcard='Python (*.py)|*.py',
                                    style=wx.OPEN|wx.FILE_MUST_EXIST)
         if file.ShowModal() == wx.ID_OK:
-            d = eval(open(file.GetPath()).read())
+            d = eval(open(file.GetPath()).read(),{},{})
             if type(d) == type({}):
                 self.AppendEventData(d)
                 self.ResetEvent()

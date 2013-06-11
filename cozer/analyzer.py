@@ -110,9 +110,9 @@ def analyze_endurance(heat,record,scoringsystem=[]):
         didntstart = 0
         notes = {}
         for m in rec[id]:
-            if m[0] in [4,5,8]:
+            if m[0] in [4,5,8,9]:
                 if m[1] <= racetime:
-                    penlaps = penlaps + {4:1,5:5,8:8}[m[0]]
+                    penlaps = penlaps + {4:1,5:5,8:8,9:10}[m[0]]
                     n = string.strip(m[2])
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
@@ -151,9 +151,9 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                 else:
                     pastafterstoppage = 1
                     ignorelaps = 1
-            elif m[0]==3: # lost a lap
+            elif m[0] in [3,6]: # lost one or two lap
                 if m[1] <= racetime:
-                    lapslost = lapslost + 1
+                    lapslost = lapslost + {3:1,6:2}[m[0]]
                     n = string.strip(m[2]) 
                     k = invreccodemap[m[0]]
                     if not notes.has_key(k): notes[k] = []
