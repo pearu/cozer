@@ -26,3 +26,7 @@ When you need to resume a race, in `Timer` page, press `Resume` instead of `Star
 U.I.M. rules require that intermediate results are posted during a race.
 
 In cozer, everytime you wish to generate a results report, in `Edit Race Record` page you must re-select all class/heat combinations currently running. Then go to `Reports` page and select `Endurance Full Final` as a report type.
+
+= Can I use the same Cozer file for both endurance and circuit races =
+
+No, you cannot. The main reason is that they have different scoring systems and cozer can use only one at the time.
