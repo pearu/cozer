@@ -260,7 +260,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
             #    Info('You must disable last %s lapmarks for %s'%(len(lapstime)-ll,id))
             for j in range (len(lapstime)):
                 if bestlap is None:
-                    bestlaptime = lapstime[i]
+                    bestlaptime = lapstime[j]
                     bestlap = j+1
                 else:
                     lt = lapstime[j] - lapstime[j-1]
