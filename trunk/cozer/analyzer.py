@@ -93,10 +93,26 @@ def get_racetime(record):
     racetime = info['racetime']
     return racetime    
 
+def ceil(f):
+    if int(f)<f:
+        return int (f+1)
+    return int(f)
+
 def analyze_endurance(heat,record,scoringsystem=[]):
     info,rec = record
     racetime = get_racetime(record)
     course = info['course']
+    duration = info.get ('duration', racetime)
+    if racetime >= 0.9*duration:
+        pointscoeff = 1.0
+    elif racetime >= 0.75*duration:
+        pointscoeff = 0.75
+    elif racetime >= 0.5*duration:
+        pointscoeff = 0.5
+    elif racetime >= 0.25*duration:
+        pointscoeff = 0.25
+    else:
+        pointscoeff = 0
     preres = []
     for id in rec.keys():
         penlaps = 0
@@ -222,6 +238,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                        id,notes))
     preres.sort()
 
+    requiredlaps4pointscoefinterrupt = 0.25
     requiredlaps4pointscoef = 0.4
     notrunningrequiredlaps4pointscoef = 0.9
 
@@ -274,7 +291,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                 place = i+1
                 points = 0
                 if totallaps >= minlaps4points:
-                    points = scoringsystem[ip]
+                    points = ceil(scoringsystem[ip]*pointscoeff)
         res[id] = {}
 
         res[id]['points'] = points
