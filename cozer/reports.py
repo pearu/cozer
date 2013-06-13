@@ -746,13 +746,31 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             info = eventdata['record'][cl][heat_map[cl][0]][0]
         except:
             info = None
+        skippoints = False
         if info is not None:
-            stoptime = info['starttime'] + info['duration']
+            stoptime = info['starttime'] + info['racetime']
             currenttime = time.time ()
             if currenttime < stoptime:
+                skippoints = True
                 rd['reporttitle'] = r'\IntermediateResults{}' + ' \\small{--- %s to go}' % (sec2time(int(stoptime - currenttime)))
             else:
-                rd['reporttitle'] = r'\FinalResults{}' + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)))
+                rd['reporttitle'] = r'\FinalResults{}' + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)),
+                                                                               )
+                titlenote = ''
+                if info['racetime'] >= info['duration']:
+                    pass
+                elif info['racetime'] >= 0.9*info['duration']:
+                    titlenote = ', full points are awarded (U.I.M. 902.17)'
+                elif info['racetime'] >= 0.75*info['duration']:
+                    titlenote = ', 75\\% of points are awarded (U.I.M. 902.17)'
+                elif info['racetime'] >= 0.5*info['duration']:
+                    titlenote = ', 50\\% of points are awarded (U.I.M. 902.17)'
+                elif info['racetime'] >= 0.25*info['duration']:
+                    titlenote = ', 25\\% of points are awarded (U.I.M. 902.17)'
+                else:
+                    titlenote = ', no points are awarded (U.I.M. 902.17)'
+
+                rd['reporttitle'] += '\\\\\\small{Race duration is %s%s}' % (sec2time (int (info['racetime'])), titlenote)
         #curheat = heat_map[cl][-1]
         rks = analyzer.getsumresorder(sumres[cl])
         saveorder(eventdata,cl,rks)
@@ -800,7 +818,8 @@ def fullfinal_endurance(clses,heat_map,eventdata):
                 dp['indices'] = '${}^{%s}$' % (', '.join (indices))
 
             if r['points']>0:
-                dp['points'] = '%s'%r['points']
+                if not skippoints:
+                    dp['points'] = '%s'%r['points']
                 dp['place'] = '%s'%(place+1)
 
             if r['notes']:
