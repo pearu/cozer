@@ -12,8 +12,8 @@ Finally, to grap/update COZER program from its SVN repository, TortoiseSVN is re
 Below follows detailed instructions how I recently (July 2012) set up COZER
 under Windows 7:
 
-  * Download Python 2.7: http://python.org/ftp/python/2.7.3/python-2.7.3.msi; run to install.
-  * Download wxPython: http://downloads.sourceforge.net/wxpython/wxPython2.8-win32-ansi-2.8.12.1-py27.exe; run to install.
+  * Download Python 2.7: http://python.org/ftp/python/2.7.3/python-2.7.3.msi ; run to install.
+  * Download wxPython: http://downloads.sourceforge.net/wxpython/wxPython2.8-win32-ansi-2.8.12.1-py27.exe ; run to install.
   * Download MikTeX: go to http://miktex.org/2.9/setup and download  "Basic MiKTeX 2.9" Installer; run to install.
   * Download Subversion client: go to http://tortoisesvn.net/downloads.html and download TortoiseSVN; run to install.
   * Checkout the latest COZER from SVN repository: https://code.google.com/p/cozer/source/checkout
