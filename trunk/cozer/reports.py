@@ -739,6 +739,7 @@ def fullfinal_endurance(clses,heat_map,eventdata):
     rd['currenttime'] = time.ctime(time.time())
     rd['reporttitle'] = r'\FinalResults{}'
 
+    nofinish = False
 
     for cl in clses:
         if not heat_map[cl]: continue
@@ -748,11 +749,14 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             info = None
         skippoints = False
         if info is not None:
-            stoptime = info['starttime'] + info['racetime']
+            stoptime = info['starttime'] + info.get('duration', info['racetime'])
             currenttime = time.time ()
-            if currenttime < stoptime:
+            if nofinish:
+                pass
+            elif currenttime < stoptime:
                 skippoints = True
                 rd['reporttitle'] = r'\IntermediateResults{}' + ' \\small{--- %s to go}' % (sec2time(int(stoptime - currenttime)))
+                nofinish = True
             else:
                 rd['reporttitle'] = r'\FinalResults{}' + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)),
                                                                                )

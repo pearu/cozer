@@ -398,7 +398,7 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         self.calcMaxTime()
         duration = self.info.get ('duration')
         if not self.info.has_key('racetime'):
-            self.info['racetime'] = self.maxtime/1.03
+            self.info['racetime'] = duration #self.maxtime/1.0
             if duration is not None:
                 self.SetCurTime(max (self.info['racetime'], duration))
             else:
