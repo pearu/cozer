@@ -30,3 +30,21 @@ In cozer, everytime you wish to generate a results report, in `Edit Race Record`
 = Can I use the same Cozer file for both endurance and circuit races =
 
 No, you cannot. The main reason is that they have different scoring systems and cozer can use only one at the time.
+
+= How to finish a race? =
+
+Say, endurance race is for 6 hours. The race is finished when leader boat has completed 6 hours and after that has crossed the finish line
+when the square flag is flown for the first time. Say, this happens
+at 6h2min37sec. After that all other boats have to cross the finish
+line within 10 minutes in order to score points.
+
+By default, cozer sets the race time for 6 hours exactly. To obtain
+correct results for the race report, in "Edit Race Records" you must shift the race stoppage line just a little bit before the leader
+finishes. For the above example, the race stoppage should be set
+to 6h2min36sec. Be careful not the shift the race stoppage line
+over the time when leader finishes, otherwise the report will be incorrect.
+
+Note that when the leader boat receives penalties after finishing, as a
+result of it looses its leader position, the race stoppage line
+should be still set at the time position when the square flag was
+first flown.
