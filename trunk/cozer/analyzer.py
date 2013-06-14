@@ -100,7 +100,7 @@ def ceil(f):
 
 def analyze_endurance(heat,record,scoringsystem=[]):
     info,rec = record
-    racetime = get_racetime(record)
+    racetime = info.get('racetime', info.get ('duration'))#get_racetime(record)
     course = info['course']
     duration = info.get('duration', racetime)
     if racetime >= 0.9*duration:
