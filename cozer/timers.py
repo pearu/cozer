@@ -396,11 +396,13 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         self.SetScrollbars(20, 20, 50, 50)
         self.zoom = zoom
         self.calcMaxTime()
+        duration = self.info.get ('duration')
         if not self.info.has_key('racetime'):
             self.info['racetime'] = self.maxtime/1.03
-        duration = self.info.get ('duration')
-        if duration is not None:
-            self.SetCurTime(duration)
+            if duration is not None:
+                self.SetCurTime(max (self.info['racetime'], duration))
+            else:
+                self.SetCurTime(self.info['racetime'])
         else:
             self.SetCurTime(self.info['racetime'])
         self.rec_eds = []
