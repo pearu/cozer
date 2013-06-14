@@ -102,7 +102,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
     info,rec = record
     racetime = get_racetime(record)
     course = info['course']
-    duration = info.get ('duration', racetime)
+    duration = info.get('duration', racetime)
     if racetime >= 0.9*duration:
         pointscoeff = 1.0
     elif racetime >= 0.75*duration:
@@ -139,13 +139,15 @@ def analyze_endurance(heat,record,scoringsystem=[]):
         lapslost = 0
         penlapsleft = penlaps
         pastafterstoppage = 0
-        esttime = 0
+        #esttime = 0
         lapstime = []
         dt = 0
         li = 0
         for m in rec[id]:
             if abs(m[0]) in [1,2]:
-                if (not ignorelaps) and t + m[1] <= racetime:
+                if (not ignorelaps) and t + m[1] <= racetime + 10*60:
+                    if t + m[1] > racetime:
+                        ignorelaps = 1
                     t = t + m[1]
                     if m[0]<0:
                         dt = dt + m[1]
@@ -161,9 +163,10 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                         lapspeed = round(3.6*course[li]/float(dt),roundopt)
                         if lapspeed>maxlapspeed:
                             maxlapspeed = lapspeed
-                        esttime = round(3.6*course[li]/float(maxlapspeed),roundopt)
+                        #esttime = round(3.6*course[li]/float(maxlapspeed),roundopt)
                         lapstime.append(t)
                     dt = 0
+
                 else:
                     pastafterstoppage = 1
                     ignorelaps = 1
