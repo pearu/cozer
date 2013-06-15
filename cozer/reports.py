@@ -749,7 +749,7 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             info = None
         skippoints = False
         if info is not None:
-            stoptime = info['starttime'] + info.get('duration', info['racetime'])
+            stoptime = info['starttime'] + info.get('duration', info.get('racetime'))
             currenttime = time.time ()
             if nofinish:
                 pass
