@@ -219,7 +219,8 @@ endurance_full_table_latextmpl = r"""
 \begin{center}
 \setlongtables
 \begin{longtable}[l]{c|l|l|c|c|c|c|c|c}
-\Place & \Name & \From & \No & Best Lap Time & Best Lap & Total Laps Time & Total Laps & Points \\\hline
+%\Place & \Name & \From & \No & Best Lap Time & Best Lap & Total Laps Time & Total Laps & Points \\\hline
+\Place & \Name & \From & \No  & Total Laps Time & Total Laps & Points \\\hline
 #table#
 \\\hline
 \multicolumn{#nofcols#}{p{1cm}}{
@@ -232,6 +233,7 @@ endurance_full_table_latextmpl = r"""
 
 """
 endurance_full_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#}  & #bestlaptime# & #bestlap# & #totallapstime# & #totallaps##indices# & #points#"""
+endurance_full_part1_latextmpl = r"""#place# & #name# & #from# & \textbf{#id#}  & #totallapstime# & #totallaps##indices# & #points#"""
 
 full_doc_latextmpl = r"""
 \documentclass[11pt,a4paper]{article}
@@ -752,14 +754,13 @@ def fullfinal_endurance(clses,heat_map,eventdata):
             stoptime = info['starttime'] + info.get('duration', info.get('racetime'))
             currenttime = time.time ()
             if nofinish:
-                pass
+                skippoints = True
             elif currenttime < stoptime:
                 skippoints = True
                 rd['reporttitle'] = r'\IntermediateResults{}' + ' \\small{--- %s to go}' % (sec2time(int(stoptime - currenttime)))
                 nofinish = True
             else:
-                rd['reporttitle'] = r'\FinalResults{}' + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)),
-                                                                               )
+                rd['reporttitle'] = r'\FinalResults{}'  + ' \\small{--- %s}' % (time.strftime('%y %b %d %H:%M:%S',time.localtime(currenttime)))
                 titlenote = ''
                 if info['racetime'] >= info['duration']:
                     pass
