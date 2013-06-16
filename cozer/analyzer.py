@@ -245,7 +245,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
     requiredlaps4pointscoef = 0.4
     notrunningrequiredlaps4pointscoef = 0.9
 
-    leaderlaps = preres[0][1]
+    leaderlaps = -preres[0][1]
     leadertime = 0
     if preres[0][4]:
         leadertime = preres[0][4][-1]
@@ -288,11 +288,12 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                         bestlaptime = lt
                         bestlap = j+1
         totallaps = countedlaps
-        getspoints = (lasttime>leadertime) or (totallaps>=notrunningminlaps4points)
+        getspoints = (lasttime>min (duration, leadertime)) or (totallaps>=notrunningminlaps4points)
         if code==0:
             if getspoints:
                 place = i+1
                 points = 0
+
                 if totallaps >= minlaps4points:
                     points = ceil(scoringsystem[ip]*pointscoeff)
         res[id] = {}
