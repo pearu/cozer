@@ -42,7 +42,7 @@ It is expected that all boats will take part of the time-trail race by subsequen
 
 During the time-trial race, *do not* `Stop` the race until all boats have completed their time-trial laps.
 
-The operator using Cozer should press boat number button when boat leaves yeti and then each time a boat crosses finish line of time trial (don't click when boat returns yeti from safety lap). For each boat the operator should press the corresponding boat number button at least three times (first when leaving yeti, second when starting time-trial lap, and third when finishing time-trial lap). In case of more button clicks, only the *last two* button clicks are taken into account.
+The operator using Cozer should press boat number button when boat leaves yeti and then each time a boat crosses finish line of time trial (don't click when boat returns yeti from safety lap). For each boat the operator should press the corresponding boat number button *at least three times* (first when leaving yeti, second when starting time-trial lap, and third when finishing time-trial lap). In case of more button clicks, only the *last two* button clicks are taken into account.
 
 Note that the boat numbers do not change their locations during time-trial race, nor the boat numbers will change colors when clicking.
 
