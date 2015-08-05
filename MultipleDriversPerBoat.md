@@ -1,0 +1,21 @@
+# Introduction #
+
+In generating reports, Cozer now supports specifying multiple drivers per boat.
+
+The following section titles correspond to tab names in the Cozer program.
+
+# General Information #
+
+## Participants ##
+
+When boat has several drivers then in Name and Surname columns of Participants table
+separate the names and surnames of the corresponding drivers by semicolon.
+
+For example, when a boat team consists of two drivers, Mati Kala and Vello Lind, then in Name column you should have
+```
+Mati; Vello
+```
+and in Surname column
+```
+Kala; Lind
+```

@@ -1,0 +1,1 @@
+COZER is a program for organizing competitive events. In particular, for events of the Aquatic Motorsports according to U.I.M. Circuit Rules
