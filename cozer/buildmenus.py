@@ -181,7 +181,7 @@ TODO:
                     if hasattr(topparent,n):
                         mth = getattr(topparent,n)
                         if os.name=='nt':
-                            wx.EVT_MENU(topparent,ID,mth)
+                            wx.EVT_MENU(topparent,ID,mth) # NEEDS A TEST!!
                         else:
                             if popup:
                                 wx.EVT_MENU(parent,ID,mth)

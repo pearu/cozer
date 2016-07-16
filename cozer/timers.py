@@ -207,6 +207,7 @@ class TimerWin1(wx.ScrolledWindow,MyDebug):
         if istclass(cl):
             if not hasattr(self,'inittimes'): self.inittimes = {}
             if not self.inittimes.has_key(i): self.inittimes[i] = {}
+
             if not self.inittimes[i].has_key(k):
                 self.inittimes[i][k] = time.time()
                 self.ApplyClickTT(ID,mycolors['waiting'])
@@ -351,27 +352,54 @@ class TimerButtonMenu(wx.Menu,MyDebug):
             else: do = 'on'
             if len(r)==2: val = '%s'%r[1]
             elif len(r)==3: val = '%s:%s'%(r[1],r[2])
-            enableonoff.append(('Item%s'%i,{'menu':'Set %s %s'%(val,do)}))
+            #enableonoff.append(('Item%s'%i,{'menu':'set %s %s'%(val,do)}))
+            if do=='off':
+                enableonoff.append(('Item%s'%i,{'menu':'disable lap %s'%(val)}))
+            else:
+                enableonoff.append(('Item%s'%i,{'menu':'enable lap %s'%(val)}))
             exec 'self.OnEnableOnOffItem%s = lambda evt,i=%s,self=self:self.OnEnableOnOff(evt,i)'%(i,i)
-        timerbutmenu = [('EnableOnOff',{'menu':'%s'%k,
-                                        'submenu':enableonoff,
-                                        })]
+        timerbutmenu = []
+        if enableonoff:
+            timerbutmenu.append ( ('EnableOnOff',{'menu':'Edit lap', #'%s'%k,
+                                                  'submenu':enableonoff,
+            }))
         if istclass(cl):
-            exec 'self.OnResetTime = lambda evt,ri=ri,k=k,self=self:self.OnResetTimeApply(evt,ri,k)'
-            timerbutmenu.append('ResetTime',{'menu':'Reset'})
-        buildmenus(self,timerbutmenu,self,verbose = debug)
-
+            if self.race:
+                exec 'self.OnResetTime = lambda evt,ri=ri,k=k,self=self:self.OnResetTimeApply(evt,ri,k)'
+                timerbutmenu.append(('ResetTime',{'menu':'Erase Data' }))
+            t = 0
+            laptimes = []
+            for m in self.race:
+                if abs (m[0]) in [1,2]:
+                    t = t + m[1]
+                    if m[0]<0:
+                        continue
+                    laptimes.append (t)
+            if laptimes:
+                timerbutmenu.append (())
+            last_t = 0
+            for t in laptimes:
+                timerbutmenu.append (('LapTimes', {'menu':'%s s' % (t-last_t)}))
+                last_t = t
+        if not timerbutmenu:
+            if self.race or getattr(self.parent, 'inittimes', None):
+                timerbutmenu.append(('_tmp',{'menu':'Has not crossed finish line' }))
+            else:
+                timerbutmenu.append(('_tmp',{'menu':'Has not started' }))
+        buildmenus(self,timerbutmenu,self,verbose = debug, popup=True)
+        
     def OnResetTimeApply(self,evt,ri,k):
         self.Debug('OnResetTimeApply')
         sp = self.parent
         if hasattr(sp,'inittimes') and sp.inittimes.has_key(ri) and sp.inittimes[ri].has_key(k):
-            del self.parent.inittimes[ri][k]
+            del sp.inittimes[ri][k]
+        self.race[:] = []
 
     def OnEnableOnOff(self,evt,i):
         self.Debug('OnEnableOnOff')
         if len(self.race[i]) == 2:
             self.race[i] = (-self.race[i][0],self.race[i][1])
-        elif len(self.race[i]) == 2:
+        elif len(self.race[i]) == 3:
             self.race[i] = (-self.race[i][0],self.race[i][1],self.race[i][2])
         else:
             self.Warning('Confused: i=%s race[i]=%s'%(i,`self.racep[i]`))

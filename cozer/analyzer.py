@@ -294,7 +294,7 @@ def analyze_endurance(heat,record,scoringsystem=[]):
                 place = i+1
                 points = 0
 
-                if totallaps >= minlaps4points:
+                if totallaps >= minlaps4points and ip>=0:
                     points = ceil(scoringsystem[ip]*pointscoeff)
         res[id] = {}
 
