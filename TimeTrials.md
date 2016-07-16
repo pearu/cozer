@@ -19,9 +19,10 @@ and `1500` is the full length of one lap.
 1*(1400+2*1500):1
 ```
 
+Warning: when using time-trial races, there must be always two rows per class in the Classes tab. For instance, `FT-125` is used for participants and actual race while `FT-125/T` is a special class name used for time-trial races only.
 
 ### Participants ###
-No changes needed, all participants have the original class name, say, `FT-125`.
+No changes needed, all participants have the original class name, say, `FT-125`. Warning: Do not use time-trial class names for participants! For instance, when specifying `FT-125/T` as a class name for a participant, the Timer tab will not show the Id button for this particular participant.
 
 ### Races ###
 Create a new race and specify the time-trial class name for `Class`, for instance,
