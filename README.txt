@@ -1,13 +1,19 @@
 
                          COZER - COmpetition organiZER
-                                    2.7
+                                    2.8
 
-Copyright 2000,2001,2006,2009 Pearu Peterson all rights reserved,
+Copyright 2000,2001,2006,2009,2016 Pearu Peterson all rights reserved,
 Pearu Peterson <pearu.peterson@gmail.com>          
 
 DISCLAIMER
 ==========
        NO WARRANTY IS EXPRESSED OR IMPLIED.  USE AT YOUR OWN RISK.
+
+LICENSE
+=======
+
+Starting from year 2016, one needs an user license to use
+COZER. Please contact Pearu for pricing options.
 
 INTRODUCTION
 ============
@@ -37,12 +43,12 @@ REQUIREMENTS
 ============
 
      Python 2.1 (other versions may work as well) <http://www.python.org>
-     Python 2.3, 2.4, 2.5
+     Python 2.3, 2.4, 2.5, 2.7
 
      wxPython <http://www.wxpython.org>, use with ANSI string backend.
-     Lastly tested to work with wx 2.8.4.
+     Lastly tested to work with wx 2.8.4, 2.8.12.1.
      
-     latex, xdvi, dvips, gv          (on Unix)
+     latex, xdvi, dvips, gv, evince  (on Unix)
 
      latex, yap, dvips, gsview32     (on Windows)
 
@@ -87,5 +93,7 @@ Pearu Peterson
 
 CHANGES
 =======
+
+v2.8 - switch from acroread to evince (16 July 2016)
 v2.7 - fixes for wx 2.8.4 support (23 June 2009)
 v2.6 - added unicode support, may break Python 2.1 support (19 July 2006)

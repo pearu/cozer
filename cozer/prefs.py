@@ -446,7 +446,7 @@ def runpdfview(fp,dopts = {}):
     if os.name=='nt':
         com = '%s %s %s.pdf'%(acrord_exe, opts,fp)
     else:
-        com = 'acroread %s %s.pdf'%(opts,fp)
+        com = 'evince %s %s.pdf'%(opts,fp)
     run_thread(com)
 
 def Warning(*mess):
