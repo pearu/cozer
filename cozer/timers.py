@@ -421,7 +421,7 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         self.res = res
         self.topparent = topparent
         self.parent = parent
-        self.SetScrollbars(20, 20, 50, 50)
+        self.SetScrollbars(20, 20, 50, 100)
         self.zoom = zoom
         self.calcMaxTime()
         duration = self.info.get ('duration')
@@ -664,7 +664,6 @@ class RecordEditor(wx.Panel,MyDebug):
             else:
                 dx = 0
             dc.DrawText(text, x+dx, y)
-
         dc.EndDrawing()
 
     def OnRightButtonEvent(self,evt):
