@@ -421,7 +421,7 @@ class EditWin1(wx.ScrolledWindow,MyDebug):
         self.res = res
         self.topparent = topparent
         self.parent = parent
-        self.SetScrollbars(20, 20, 50, 100)
+        self.SetScrollbars(20, 20, 50, ((len (res))*(self.editysize+5)+150)//20)
         self.zoom = zoom
         self.calcMaxTime()
         duration = self.info.get ('duration')
