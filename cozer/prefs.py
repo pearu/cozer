@@ -536,7 +536,7 @@ def denormalize_str(obj):
     if not USE_UNICODE:
         return obj
     if isinstance(obj,unicode):
-        return obj.encode('latin-1')
+        return obj.encode('UTF-8')
     elif isinstance(obj, list):
         l = []
         flag = 0
