@@ -163,7 +163,7 @@ title = "U.I.M. World Championship OSY-400, U.I.M. World Championship GT-30, U.I
 schedule = f"""
 DAY: 18
 
-@ 10:28
+@ 10:33
 1: Testing 1 ...
 2: {title}
 3: The event starts tomorrow.
@@ -712,7 +712,7 @@ def main():
             print("-"*80)
 
         if sleep_secs:
-            print(f'{sleep_secs=}')
+            print(f'{sleep_secs}', end=' ', flush=True)
         sleep = min(max(sleep_secs-1, 1), 1)
         time.sleep(sleep)
 

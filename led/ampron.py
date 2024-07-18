@@ -27,6 +27,17 @@ displays = {
 def make_display(name="192x48"):
     height = displays[name]["height"]
     width = displays[name]["width"]
+
+    """
+    
+    """
+    h1 = (2 * height) // 5
+    h2 = (2 * height) // 5
+    h3 = max(height - h1 - h2, 0)
+
+    w11 = min(width, 128) // 2
+    w12 = width - w11
+
     return dict(
         port=9527,
         displays=dict(
@@ -68,33 +79,66 @@ def make_display(name="192x48"):
                             fontColor= "255 255 153",
                         )
                     ),
-                    matrix=OrderedDict(
+                    L11_12_2_3=OrderedDict(
                         text11=dict(
-                            coordinates=(0, 0, width//2-1, height//2 - 1),
+                            coordinates=(0, 0, w11-1, h1 - 1),
                             type="text",
                             align="left",
 			    font="font.ttf",
-                            fontSize=(height // 2 - 1),
+                            fontSize=(h1 - 1),
                             fontColor= "255 0 0",
                         ),
                         text12=dict(
-                            coordinates=(width//2, 0, width-1, height//2 - 1),
+                            coordinates=(w11, 0, width-1, h1-1),
                             type="text",
                             align="right",
 			    font="font.ttf",
-                            fontSize=(height // 2 - 1),
+                            fontSize=(h1 - 1),
                             fontColor= "0 255 0",
                         ),
                         text2=dict(
-                            coordinates=(0, height // 2, width-1, height -1),
+                            coordinates=(0, h1, width-1, h1+h2-1),
                             type="text",
                             align="center",
 		            font="font.ttf",
-                            fontSize=(height // 2 - 1),
+                            fontSize=(h2 - 1),
+                            fontColor= "255 255 255",
+                        ),
+                        text3=dict(
+                            coordinates=(0, h1 + h2, width-1, h1+h2+h3-1),
+                            type="text",
+                            align="center",
+		            font="font.ttf",
+                            fontSize=(h3 - 1),
                             fontColor= "255 255 153",
                         )
                     ),
-                    
+                    L1_2_3=OrderedDict(
+                        text1=dict(
+                            coordinates=(0, 0, width-1, h1 - 1),
+                            type="text",
+                            align="left",
+			    font="font.ttf",
+                            fontSize=(h1 - 1),
+                            fontColor= "0 255 0",
+                        ),
+                        text2=dict(
+                            coordinates=(0, h1, width-1, h1+h2-1),
+                            type="text",
+                            align="center",
+		            font="font.ttf",
+                            fontSize=(h2 - 1),
+                            fontColor= "255 255 255",
+                        ),
+                        text3=dict(
+                            coordinates=(0, h1 + h2, width-1, h1+h2+h3-1),
+                            type="text",
+                            align="center",
+		            font="font.ttf",
+                            fontSize=(h3 - 1),
+                            fontColor= "255 255 153",
+                        )
+                    ),
                 )
             )
         )
