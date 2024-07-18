@@ -35,7 +35,7 @@ def make_display(name="192x48"):
     h2 = (2 * height) // 5
     h3 = max(height - h1 - h2, 0)
 
-    w11 = min(width, 128) // 2
+    w11 = width // 2
     w12 = width - w11
 
     return dict(
@@ -83,7 +83,7 @@ def make_display(name="192x48"):
                         text11=dict(
                             coordinates=(0, 0, w11-1, h1 - 1),
                             type="text",
-                            align="left",
+                            align="center",
 			    font="font.ttf",
                             fontSize=(h1 - 1),
                             fontColor= "255 0 0",
@@ -91,7 +91,7 @@ def make_display(name="192x48"):
                         text12=dict(
                             coordinates=(w11, 0, width-1, h1-1),
                             type="text",
-                            align="right",
+                            align="center",
 			    font="font.ttf",
                             fontSize=(h1 - 1),
                             fontColor= "0 255 0",
@@ -117,7 +117,7 @@ def make_display(name="192x48"):
                         text1=dict(
                             coordinates=(0, 0, width-1, h1 - 1),
                             type="text",
-                            align="left",
+                            align="center",
 			    font="font.ttf",
                             fontSize=(h1 - 1),
                             fontColor= "0 255 0",
@@ -173,7 +173,7 @@ def save_config(config: dict):
     return config_file
 
 
-def geturl(config, id=None):
+def get_ip_port(config, id=None):
     if id is None:
         for k, v in config["displays"].items():
             if "displayIp" in v:
@@ -183,6 +183,10 @@ def geturl(config, id=None):
     else:
         ip = config["displays"][id]["displayIp"]
         port = config["displays"][id]["displayPort"]
+    return ip, port
+
+def geturl(config, id=None):
+    ip, port = get_ip_port(config, id=id)
     return f"http://{ip}:{port}"
 
 
@@ -193,6 +197,9 @@ def make_url(config, **params):
         if k in {'id', 'layout'}:
             items.append(f'{k}={v}')
         else:
+            if len(v) > 255:
+                print(f"Too long string ({len(v)}>255): `{v}`")
+                v = v[:255]
             items.append(f'{k}={urllib.parse.quote(v)}')
     url = f"{geturl(config, id)}/mlds?" + "&".join(items)
     return url
@@ -219,14 +226,18 @@ def setip():
     # urllib.request.urlopen(url)  # use with care
 
 def update_config(config):
+    name=["192x48", "128x32"][0]
+    ip, _ = get_ip_port(config, id='main')
+    port = 37670
     config_file = save_config(config)
-    cmd = f"sshpass -p veemoto scp {config_file} {displays[name]['hostname']}:config.json"
+    cmd = f'sshpass -p veemoto scp -P {port} -o User=admin -o "HostKeyAlgorithms=+ssh-rsa" -o "PubkeyAcceptedAlgorithms=+ssh-rsa" {config_file} {ip}:config.json'
+    cmd = f'sshpass -p veemoto scp -P {port} -o User=admin -o "HostKeyAlgorithms=+ssh-rsa" {config_file} {ip}:config.json'
     print(cmd)
     if 1:
         s = os.system(cmd)
         assert s == 0, s
-    print(f"url={geturl(display1)}")
-    contents = urllib.request.urlopen(f"{geturl(display1)}/reload_config").read().decode()
+    print(f"url={geturl(config)}")
+    contents = urllib.request.urlopen(f"{geturl(config)}/reload_config").read().decode()
     print(contents)
 
 def main():
@@ -236,7 +247,7 @@ def main():
     update_config(display1)
 
     #update(display1, id="main", layout="vsplit", text1="OSY-400", text2="1: 400, 2: 300, 3: 225")
-    update(display1, id="main", layout="matrix", text11="OSY-400", text12="Practice", text2="1: 400, 2: 300, 3: 225, 4: 127")
+    #update(display1, id="main", layout="matrix", text11="OSY-400", text12="Practice", text2="1: 400, 2: 300, 3: 225, 4: 127")
 
     if 0:
         contents = urllib.request.urlopen(f"{led_url}/reload_config").read().decode()

@@ -3,74 +3,75 @@ import ampron
 import urllib.request
 
 led_name=["192x48", "128x32"][0]
-try_run = True
+try_run = not True
 
 participants = {
     "F-125": {
         10: 'HENRYK SYNORACKI',
-        12: 'THOMAS MANTRIPP - GBR',
+        12: 'THOMAS MANTRIPP/GBR',
         21: 'MATTIA CALŽOLARI',
-        22: 'JOONAS LEMBER - EST',
-        25: 'SEBASTIAN KECINSKI - POL',
+        22: 'JOONAS LEMBER/EST',
+        25: 'SEBASTIAN KECINSKI/POL',
         27: 'DANIELE GHIRALDI',
-        30: 'THOMAS TRABITŽSCH - GER',
-        44: 'KRISTERS MUSTS - LAT',
-        52: 'MICHAŁ KAUSA - POL',
-        62: 'LADISLAV HERBANSKY - SVK',
-        71: 'JURI SUVOROV',
-        76: 'RASMUS LAURIK - EST',
-        85: 'KRISTAPS STURIS - LAT',
+        30: 'THOMAS TRABITŽSCH/GER',
+        44: 'KRISTERS MUSTS/LAT',
+        52: 'MICHAŁ KAUSA/POL',
+        62: 'LADISLAV HERBANSKY/SVK',
+        71: 'JURI SUVOROV/EST',
+        74: 'SANNA A.-KAASIK/EST',
+        76: 'RASMUS LAURIK/EST',
+        85: 'KRISTAPS STURIS/LAT',
         91: 'TOBIAS WAHLSTEN',
     },
     'GT-15': {
-        4: 'PAUL RICHARD LAUR - EST',
-        6: 'MARKUS KOIT - EST',
-        8: 'TRISTAN KOIT - EST',
-        9: 'ALFRED RAADIK - EST',
-        19: 'HĒRA BIETE',
-        33: 'OLIVER LÄÄNE',
-        38: 'ROBIN LÄÄNE - EST',
-        44: 'KEVIN SILLAOTS - EST',
-        54: 'TONI KADE',
-        69: 'JOOSEP PETERSON - EST',
+        4: 'PAUL RICHARD LAUR/EST',
+        6: 'MARKUS KOIT/EST',
+        8: 'TRISTAN KOIT/EST',
+        9: 'ALFRED RAADIK/EST',
+        19: 'HĒRA BIETE/LAT',
+        33: 'OLIVER LÄÄNE/EST',
+        38: 'ROBIN LÄÄNE/EST',
+        44: 'KEVIN SILLAOTS/EST',
+        54: 'TONI KADE/FIN',
+        69: 'JOOSEP PETERSON/EST',
         90: 'LUCAS TAURÉN',
     },
     'GT-30': {
-        7: 'KÄROL SOODLA - EST',
-        19: 'RENE SUUK - EST',
-        20: 'DINIJA IVANOVA - LAT',
+        7: 'KÄROL SOODLA/EST',
+        19: 'RENE SUUK/EST',
+        20: 'DINIJA IVANOVA/LAT',
         21: 'KRZYSZTOF GAJEWSKI',
         24: 'NICO GUSTAVSON',
-        26: 'ERIK SUUK - EST',
+        26: 'ERIK SUUK/EST',
         29: 'OLIVER HORNTVEDT',
-        47: 'MANTAS KULCINAVICIUS - LAT',
+        47: 'MANTAS KULCINAVICIUS/LAT',
         50: 'MARCIN KOCIUCKI',
-        60: 'MIKAEL BENGTSSON - SWE',
+        60: 'MIKAEL BENGTSSON/SWE',
         61: 'ENDIJS BOKIS',
-        65: 'ADRIAN OSTBY - NOR',
-        77: 'KARLIS DEGAINIS - LAT',
-        91: 'RAUNO PEET - EST',
+        65: 'ADRIAN OSTBY/NOR',
+        77: 'KARLIS DEGAINIS/LAT',
+        91: 'RAUNO PEET/EST',
         92: 'JENNI RANTALA',
         
     },
     'OSY-400': {
-        7: 'KÄROL SOODLA - EST',
+        7: 'KÄROL SOODLA/EST',
         11: 'PHILIPP ZEIBIG',
-        19: 'RENE SUUK - EST',
-        22: 'AKOS KASZA - HUN',
-        # 23: 'PHILIP ZEIBIG - GER'
+        19: 'RENE SUUK/EST',
+        22: 'AKOS KASZA/HUN',
+        # 23: 'PHILIP ZEIBIG/GER'
         24: 'BARTOSZ ROCHOWIAK',
-        26: 'MARTINA BARBARINI - ITA',
+        26: 'MARTINA BARBARINI/ITA',
         27: 'FRANŽ TROGLIO',
-        28: 'BARBARA NIKOLETT BAZINSKA - SVK',
-        29: 'CEZARY STRUMNIK - POL',
+        28: 'BARBARA NIKOLETT BAZINSKA/SVK',
+        29: 'CEZARY STRUMNIK/POL',
         37: 'JAMES BOWMAN',
         39: 'SIXTEN ERIKSSON',
-        43: 'ARVYDAS DRANSEIKA - LIT',
-        62: 'MIROSLAV BAZINSKY - SVK',
+        43: 'ARVYDAS DRANSEIKA/LIT',
+        62: 'MIROSLAV BAZINSKY/SVK',
         65: 'JORIS GUŽĖ',
-        88: 'JAAN ERIK BRANNO - EST',
-        94: 'MICHAL POŽNIAK - POL',     
+        88: 'JAAN ERIK BRANNO/EST',
+        94: 'MICHAL POŽNIAK/POL',     
     }
 }
 
@@ -151,54 +152,85 @@ results = {
     ),
 }
 
+def format_name(clsname, name):
+    if '/' in name:
+        name, country = name.rsplit('/', 1)
+    else:
+        country = 'TBD'
+    words = name.split()
+    if clsname == 'OSY-400':
+        name = words[-1]
+    else:
+        name = ''.join([w[0] + '.' for w in words[:-1]] + words[-1:])
+    if country:
+        return name + ' ' + country
+    return name
+
 
 participants_text = {'all': ''}
 for clsname, parts in participants.items():
-    participants_text[clsname] = ", ".join(f'{boat}: {name}' for boat, name in parts.items())
-
+    participants_text[clsname] = ",".join(f'{boat}:{format_name(clsname, name)}' for boat, name in parts.items())
+    print(clsname, len(participants_text[clsname]))
     participants_text['all'] += f'{clsname} drivers:: {participants_text[clsname]}     ' 
 
+    
 title = "U.I.M. World Championship OSY-400, U.I.M. World Championship GT-30, U.I.M. European Championship F-125, Estonian Championship II round GT-15"
 
 schedule = f"""
 DAY: 18
 
-@ 10:33
-1: Testing 1 ...
+@ 15:25
+1: Welcome to Tallinn!
 2: {title}
-3: The event starts tomorrow.
+3: Pit area open tomorrow 12:00-23:00, Race administration open tomorrow 12:00-20:00, Scrutineering tomorrow 16:00-20:00
+"""
 
-@ +0:01
+for i in range(10):
+    schedule += f"""
+
+@ +0:03
 11: GT-15
 12: Drivers
 2: {participants_text["GT-15"]}
-3: The event starts tomorrow.
+3: {title}
 
-@ +0:01
+@ +0:03
 11: GT-30
 12: Drivers
 2: {participants_text["GT-30"]}
-3: The event starts tomorrow.
+3: {title}
 
-@ +0:01
+@ +0:03
 11: F-125
 12: Drivers
 2: {participants_text["F-125"]}
-3: The event starts tomorrow.
+3: {title}
 
-@ +0:01
+@ +0:03
 11: OSY-400
 12: Drivers
 2: {participants_text["OSY-400"]}
-3: The event starts tomorrow.
+3: {title}
+
+@ +0:02
+1: Welcome to Tallinn!
+2: {title}
+3: Pit area open tomorrow 12:00-23:00, Race administration open tomorrow 12:00-20:00, Scrutineering tomorrow 16:00-20:00
+"""
+
+schedule += f"""
 
 @ +0:01
-11: All
-12: Drivers
-2: {participants_text["all"]}
-3: The event starts tomorrow.
+1: Welcome to Tallinn!
+2: {title}
+3: Pit area open tomorrow 12:00-23:00, Race administration open tomorrow 12:00-20:00, Scrutineering tomorrow 16:00-20:00
 
 DAY: 19
+
+@ 0:00
+1: Welcome to Tallinn!
+2: {title}
+3: Pit area open 12:00-23:00, Race administration 12:00-20:00, Scrutineering 16:00-20:00, Organizing committee and organization meeting 20:00-20:30.
 
 @ 8:00
 1: Welcome to Tallinn!
