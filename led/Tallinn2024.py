@@ -7,12 +7,12 @@ try_run = not True
 
 participants = {
     "F-125": {
-        10: 'HENRYK SYNORACKI',
+        10: 'HENRYK SYNORACKI/POL',
         12: 'THOMAS MANTRIPP/GBR',
-        21: 'MATTIA CALŽOLARI',
+        21: 'MATTIA CALŽOLARI/ITA',
         22: 'JOONAS LEMBER/EST',
         25: 'SEBASTIAN KECINSKI/POL',
-        27: 'DANIELE GHIRALDI',
+        27: 'DANIELE GHIRALDI/ITA',
         30: 'THOMAS TRABITŽSCH/GER',
         44: 'KRISTERS MUSTS/LAT',
         52: 'MICHAŁ KAUSA/POL',
@@ -21,7 +21,7 @@ participants = {
         74: 'SANNA A.-KAASIK/EST',
         76: 'RASMUS LAURIK/EST',
         85: 'KRISTAPS STURIS/LAT',
-        91: 'TOBIAS WAHLSTEN',
+        91: 'TOBIAS WAHLSTEN/SWE',
     },
     'GT-15': {
         4: 'PAUL RICHARD LAUR/EST',
@@ -34,42 +34,42 @@ participants = {
         44: 'KEVIN SILLAOTS/EST',
         54: 'TONI KADE/FIN',
         69: 'JOOSEP PETERSON/EST',
-        90: 'LUCAS TAURÉN',
+        90: 'LUCAS TAURÉN/FIN',
     },
     'GT-30': {
         7: 'KÄROL SOODLA/EST',
         19: 'RENE SUUK/EST',
         20: 'DINIJA IVANOVA/LAT',
-        21: 'KRZYSZTOF GAJEWSKI',
-        24: 'NICO GUSTAVSON',
+        # 21: 'KRZYSZTOF GAJEWSKI/POL',
+        24: 'NICO GUSTAVSON/FIN',
         26: 'ERIK SUUK/EST',
-        29: 'OLIVER HORNTVEDT',
-        47: 'MANTAS KULCINAVICIUS/LAT',
-        50: 'MARCIN KOCIUCKI',
+        29: 'OLIVER HORNTVEDT/NOR',
+        47: 'MANTAS KULCINAVICIUS/LIT',
+        50: 'MARCIN KOCIUCKI/POL',
         60: 'MIKAEL BENGTSSON/SWE',
-        61: 'ENDIJS BOKIS',
+        61: 'ENDIJS BOKIS/LAT',
         65: 'ADRIAN OSTBY/NOR',
         77: 'KARLIS DEGAINIS/LAT',
         91: 'RAUNO PEET/EST',
-        92: 'JENNI RANTALA',
+        92: 'JENNI RANTALA/FIN',
         
     },
     'OSY-400': {
         7: 'KÄROL SOODLA/EST',
-        11: 'PHILIPP ZEIBIG',
+        11: 'PHILIPP ZEIBIG/GER',
         19: 'RENE SUUK/EST',
         22: 'AKOS KASZA/HUN',
         # 23: 'PHILIP ZEIBIG/GER'
-        24: 'BARTOSZ ROCHOWIAK',
+        24: 'BARTOSZ ROCHOWIAK/POL',
         26: 'MARTINA BARBARINI/ITA',
-        27: 'FRANŽ TROGLIO',
-        28: 'BARBARA NIKOLETT BAZINSKA/SVK',
+        27: 'FRANŽ TROGLIO/ITA',
+        # 28: 'BARBARA NIKOLETT BAZINSKA/SVK',
         29: 'CEZARY STRUMNIK/POL',
-        37: 'JAMES BOWMAN',
-        39: 'SIXTEN ERIKSSON',
+        37: 'JAMES BOWMAN/GBR',
+        39: 'SIXTEN ERIKSSON/SWE',
         43: 'ARVYDAS DRANSEIKA/LIT',
         62: 'MIROSLAV BAZINSKY/SVK',
-        65: 'JORIS GUŽĖ',
+        65: 'JORIS GUŽĖ/LIT',
         88: 'JAAN ERIK BRANNO/EST',
         94: 'MICHAL POŽNIAK/POL',     
     }
@@ -185,7 +185,7 @@ DAY: 18
 3: Pit area open tomorrow 12:00-23:00, Race administration open tomorrow 12:00-20:00, Scrutineering tomorrow 16:00-20:00
 """
 
-for i in range(10):
+for i in range(0):
     schedule += f"""
 
 @ +0:03
@@ -247,6 +247,45 @@ DAY: 19
 2: {title}
 3: Pit area open til 23:00, Race administration open til 20:00, Organizing committee and organization meeting 20:00-20:30
 
+@ 17:00
+1: Scrutineering open til 20:00
+2: {title}
+3: Pit area open til 23:00, Race administration open til 20:00, Organizing committee and organization meeting 20:00-20:30
+"""
+
+for i in range(10):
+    schedule += f"""
+@ +0:03
+11: GT-30
+12: Drivers
+2: {participants_text["GT-30"]}
+3: <nextat>
+
+@ +0:03
+11: F-125
+12: Drivers
+2: {participants_text["F-125"]}
+3: <nextat>
+
+@ +0:03
+11: OSY-400
+12: Drivers
+2: {participants_text["OSY-400"]}
+3: <nextat>
+
+@ +0:03
+11: GT-15
+12: Drivers
+2: {participants_text["GT-15"]}
+3: <nextat>
+
+@ +0:03
+1: Scrutineering open til 20:00
+2: {title}
+3: Pit area open til 23:00, Race administration open til 20:00, Organizing committee and organization meeting 20:00-20:30
+"""
+
+schedule += f"""
 @ 20:00
 1: Organizing committee and organization meeting
 2: {title}

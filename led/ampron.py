@@ -57,8 +57,8 @@ def make_display(name="192x48"):
                             type="text",
                             align="center",
 			    font="font.ttf",
-                            fontSize=height-2,
-                            fontColor= "255 255 0"
+                            fontSize=height,
+                            fontColor= "255 0 0"
                         ),
                     ),
                     vsplit=OrderedDict(
