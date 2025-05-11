@@ -23,7 +23,8 @@ import analyzer
 badnames = {'/Q':'Q','/T':'T'}
 
 def latexworkingdir():
-    folder = 'cozer_tex_'+time.strftime('%d%b%y',time.localtime())
+    folder = 'cozer_tex_'+(time.strftime('%d%b%y',time.localtime())).replace(' ', '')
+    print("folder=", folder)
     si,i = '',0
     while os.path.exists(folder+si) and not os.path.isdir(folder+si): i = i + 1; si = `i`
     folder = folder + si
