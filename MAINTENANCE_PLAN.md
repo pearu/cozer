@@ -277,8 +277,28 @@ otherwise force us to replicate outdated rules or invalidate the proof).
   sign-off against the rulebook**, logged as an intentional divergence.
 
 **Sequencing:** the clause-by-clause audit runs as the *Rules review* workstream **after
-Phase 2** (so we diverge from a proven baseline). It is on the critical path for the first
-*live* event run on cozer — see the open question on timing.
+Phase 2** (so we diverge from a proven baseline), and must be complete before the first live
+event run on the new `cozer` (see §6.7).
+
+### 6.7 First event (anchor & timeline)
+
+**Event:** F-500 European Championship 2026 + F-250/F-125/OSY-400/F4/F2/GT-30/GT-15 Baltic &
+Estonian (round 2), **Lake Harku, Tallinn**, **24–26 July 2026**; organizer Tallinn Powerboat
+Club / Estonian Powerboat Association; held **under the current (2026) UIM rules**.
+
+**Class race patterns** (for fixtures + the UIM-2026 profile; cozer `CrackRacePattern` form):
+GT-30/F4/F2/F-500 = 8 laps × 1500 m; GT-15 = 8 × 1100 m; OSY-400/F-125/F-250 = 5 × 1500 m;
+qualification heats = 4 laps; **4 heats, all scored**; first-heat grid by time trial;
+restarts per **UIM 311**; max 18 boats on course.
+
+**⚠ TIMELINE RISK:** as of 2026-07-13 this event is **~11 days away**. The full port
+(Phases 0–6, with equivalence proof, GUI, reports, robustness) **cannot be responsibly
+completed and validated** in that window for a live European Championship. **Decision
+required** (see §10): the realistic path is to run this event on **legacy** cozer and target
+the new `cozer` at a later event.
+
+**Decision (2026-07-13):** proceed for now **assuming the new `cozer` can be ready** for this
+event; **revisit this timeline risk ~2026-07-20** with a week of progress to judge against.
 
 ---
 
@@ -456,7 +476,12 @@ python -m cozer            # (entry point available from Phase 5)
 
 ## 10. Risks & open items
 
-- **PySide6/WeasyPrint on py3.13/Windows** — verify builds early (Phase 0); fallbacks noted.
+- **⚠ First-event timeline** — the first event (§6.7) is **24–26 July 2026**, ~11 days from
+  2026-07-13; the full port cannot be finished/validated by then. **Recommended:** run that
+  event on **legacy**; target the new `cozer` at a later event. **Decision 2026-07-13:**
+  proceed assuming new `cozer` can be ready; **revisit ~2026-07-20**.
+- **PySide6/WeasyPrint on py3.13/Windows** — ✅ verified 2026-07-13: env builds on linux-64,
+  the win-64 solve resolves, and CI "create env + import" passed on both Linux and Windows.
 - **WeasyPrint typography vs LaTeX** — mitigated by the Phase 4 sample-first gate; fallback
   to offline TeX Live if quality parity fails.
 - **Unicode handling** — old normalize/denormalize is asymmetric (decode latin-1 / encode
