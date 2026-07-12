@@ -16,4 +16,7 @@ exclude = ["legacy*", "tests*", "tools*", "led*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the repo root on sys.path so `import cozer` works under the bare `pytest`
+# console script (CI), not only under `python -m pytest`.
+pythonpath = ["."]
 addopts = "-ra"
