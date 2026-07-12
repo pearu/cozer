@@ -1,0 +1,13 @@
+name: cozer
+# Modern cross-platform (linux-64 + win-64) environment for the new cozer package.
+# Solve verified 2026-07-13 on both platforms (see MAINTENANCE_PLAN.md §8).
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pyside6       # desktop GUI (Phase 5); Windows + Linux
+  - weasyprint    # HTML/CSS -> PDF report rendering, fully offline
+  - pymupdf       # PDF text extraction for report equivalence tests
+  - pytest
+  - hypothesis    # property-based edge cases for core equivalence
+  - pip

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cozer"
+version = "3.0.0.dev0"
+description = "COZER - COmpetition organiZER (modernized): organize powerboat racing events under U.I.M. Circuit Rules"
+requires-python = ">=3.13"
+authors = [{ name = "Pearu Peterson" }]
+readme = "README.md"
+
+[tool.setuptools.packages.find]
+include = ["cozer*"]
+exclude = ["legacy*", "tests*", "tools*", "led*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

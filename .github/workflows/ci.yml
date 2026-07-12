@@ -1,0 +1,41 @@
+name: CI
+
+# NOTE: this workflow cannot be executed from the dev server; it is verified on
+# the first push to GitHub. Runs the suite on Linux AND Windows from the single
+# environment.yml (Qt in offscreen mode, no display required).
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create env from environment.yml
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+
+      - name: Toolchain sanity
+        run: |
+          python --version
+          python -c "from PySide6 import QtCore; print('Qt', QtCore.qVersion())"
+          python -c "import weasyprint, fitz; print('report toolchain import OK')"
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -ra
