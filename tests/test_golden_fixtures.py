@@ -25,7 +25,13 @@ EXPECTED_EVENTS = {
 
 def _load_all():
     files = sorted(glob.glob(os.path.join(GOLDEN_DIR, "*.json")))
-    return {os.path.splitext(os.path.basename(f))[0]: json.load(open(f)) for f in files}
+    out = {}
+    for f in files:
+        name = os.path.splitext(os.path.basename(f))[0]
+        if name.startswith("_"):   # e.g. _synthetic.json (different schema)
+            continue
+        out[name] = json.load(open(f))
+    return out
 
 
 def test_expected_golden_files_present():

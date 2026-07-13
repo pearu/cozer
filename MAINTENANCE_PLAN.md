@@ -371,12 +371,13 @@ the single-document view; keep the plan as the living design doc.
 - ✅ **Differential proof green**: ported analyzer reproduces the legacy goldens
   byte-for-byte across **all 10 events / 115 class-heat records** (analyze + input
   mutations + resorder + countlaps).
-- ✅ Coverage reporting (`pytest-cov`, branch): _py2compat/records/__main__ ~100%;
-  analyzer 69% (remaining = legacy rule-code branches absent from the 8 real events).
+- ✅ Coverage (`pytest-cov`, branch): **100% of statements, 98% overall** across the ported
+  core. 16 synthetic edge-case fixtures added, validated **through legacy** — the differential
+  proof now covers the rare rule paths (LL/LL2/PL*/DQ/YC/RC/NT/Q/NQ, restart r/R, qualification,
+  time-trial, endurance point tiers) too. Remaining ~2% are benign partial branches
+  (note-dedup / guard fall-throughs); dead legacy branches carry justified `# pragma: no cover`.
 - ☐ Port data-model logic (`CrackRacePattern`, `GetHeats`, `GetAllowedHeats`, predicates)
   and `reports` **content** generation; extend goldens to `sumanalyze`.
-- ☐ Add synthetic edge-case fixtures (validated through legacy) to drive coverage toward
-  ~100% **and** extend the equivalence proof to the rare rule paths.
 - **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
 ### Phase 3 — Robust persistence

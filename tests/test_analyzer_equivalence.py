@@ -87,3 +87,17 @@ def test_event_matches_golden(name, path, gpath):
             assert got == g[key], (name, key)
             checked += 1
     assert checked == len(g), (name, checked, len(g))
+
+
+def test_synthetic_matches_golden():
+    import synthetic_cases
+
+    g = json.load(open(os.path.join(GOLDEN_DIR, "_synthetic.json")))
+    checked = 0
+    for case in synthetic_cases.get_cases():
+        name = case["name"]
+        assert name in g, name
+        got = _norm(_run(case["heat"], (case["info"], case["rec"]), case["scoringsystem"]))
+        assert got == g[name], name
+        checked += 1
+    assert checked == len(g)

@@ -112,8 +112,18 @@ def main():
         n = len(golden['analyze'])
         total += n
         sys.__stdout__.write('  %-45s %3d class/heat records\n' % (name, n))
-    sys.__stdout__.write('Wrote %d golden files (%d records) to %s\n'
-                         % (len(coz_files), total, out_dir))
+    # synthetic edge cases (shared with the differential test)
+    import synthetic_cases
+    syn = {}
+    for case in synthetic_cases.get_cases():
+        syn[case['name']] = run_one((case['info'], case['rec']),
+                                    case['heat'], case['scoringsystem'])
+    f = open(os.path.join(out_dir, '_synthetic.json'), 'w')
+    f.write(golden_io.dumps(syn))
+    f.close()
+    sys.__stdout__.write('  %-45s %3d synthetic cases\n' % ('_synthetic', len(syn)))
+    sys.__stdout__.write('Wrote %d golden files (%d records + %d synthetic) to %s\n'
+                         % (len(coz_files) + 1, total, len(syn), out_dir))
 
 
 if __name__ == '__main__':
