@@ -206,3 +206,56 @@ def get_cases():
     })
 
     return cases
+
+
+def get_model_cases():
+    """Synthetic eventdata exercising race-pattern / heat branches absent from
+    the real events (endurance patterns, /Q and /T classes, multi-term patterns,
+    restart/qual/time heats in the race list)."""
+    return {
+        'endurance_pat': {
+            'classes': [['x', 'END', '40*1500/1']],
+            'races': [[['x', 'END', '1']]],
+        },
+        'endurance_plain': {
+            'classes': [['x', 'END2', '1500/2']],   # no '*' in lap part
+            'races': [],
+        },
+        'multiterm': {
+            'classes': [['x', 'M', '2*(3*1000+2*500):2'],
+                        ['x', 'M2', '3*1000:1'],
+                        ['x', 'M3', '2*3*1000:1']],
+            'races': [],
+        },
+        'restart_races': {
+            'classes': [['x', 'R', '3*(4*1000):2']],
+            'races': [[['x', 'R', '1']], [['x', 'R', '1r']],
+                      [['x', 'R', '1R']], [['x', 'R', '2']]],
+        },
+        'heats_progression': {
+            'classes': [['x', 'A', '3*(4*1000):2'],
+                        ['x', 'A/Q', '2*(2*1000):1'],
+                        ['x', 'A/T', '2*(2*1000):1']],
+            'races': [
+                [['x', 'A', '1'], ['x', 'A/Q', '1q'], ['x', 'A/T', '1t']],
+                [['x', 'A', '2'], ['x', 'A/Q', '2q'], ['x', 'A/T', '2t']],
+                [['x', 'A', '3']],
+            ],
+        },
+        'not_allowed_heat': {
+            'classes': [['x', 'B', '2*(3*1000):1']],
+            'races': [[['x', 'B', '9']]],           # heat 9 not allowed
+        },
+        'edge_patterns': {
+            'classes': [['x', 'C', ''],                 # empty pattern
+                        ['x', 'S', '1000:1'],           # single heat, no '*'
+                        ['x', 'K', '1*(2*3*1000):1'],   # inner 3-factor lap term
+                        ['x', 'N', '3*(4*1000)']],      # no ':' -> sheats fallback
+            'races': [],
+        },
+        'no_classes': {},                               # get_classes / get_heats KeyError
+        'undefined_and_empty_race': {
+            'classes': [['x', 'B', '2*(3*1000):1']],
+            'races': [[['x', '', ''], ['x', 'Z', '1']]],  # empty row + undefined class
+        },
+    }

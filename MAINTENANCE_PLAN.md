@@ -376,8 +376,13 @@ the single-document view; keep the plan as the living design doc.
   proof now covers the rare rule paths (LL/LL2/PL*/DQ/YC/RC/NT/Q/NQ, restart r/R, qualification,
   time-trial, endurance point tiers) too. Remaining ~2% are benign partial branches
   (note-dedup / guard fall-throughs); dead legacy branches carry justified `# pragma: no cover`.
-- ☐ Port data-model logic (`CrackRacePattern`, `GetHeats`, `GetAllowedHeats`, predicates)
-  and `reports` **content** generation; extend goldens to `sumanalyze`.
+- ✅ Ported data-model logic: `cozer/classes.py` (predicates) + `cozer/racepattern.py`
+  (`crack_race_pattern`, `get_classes`, `get_allowed_heats`, `get_heats`) — proven equivalent
+  across all 10 events + 9 synthetic model cases; **100% statements / 99% overall**. Enabled by
+  a **catch-all `wx` shim** so the harness runs the *actual* legacy MainFrame methods headless
+  (analyze goldens verified byte-identical after the shim swap).
+- ☐ Extend goldens to `sumanalyze`/`getsumresorder` (final standings across heats), then
+  `reports` **content** generation.
 - **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
 ### Phase 3 — Robust persistence
@@ -402,6 +407,9 @@ the single-document view; keep the plan as the living design doc.
 ### Phase 5 — GUI (PySide6) + robustness hardening
 - Rebuild the notebook UI (General Information / Timer / Edit Records / Reports / Log) in Qt,
   staying close to today's layout and workflow (improvements welcome).
+- **UX:** provide a friendlier race-pattern editor — the current
+  `NofHeats*(NofLaps*LapLength+..):Scored` syntax is cryptic — while keeping the internal
+  pattern-string representation unchanged (parsed by `crack_race_pattern`).
 - **Safety kernel isolation:** the timing/recording subsystem is separated and guarded so a
   bug in any page/report/action is caught, logged, and surfaced **without crashing the app
   or losing data**. Autosave **on by default**.

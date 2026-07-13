@@ -1,45 +1,52 @@
-"""Minimal fake ``wx`` so the LEGACY cozer core imports and runs headless under
-stock Python 2.7 -- no wxPython 2.8 build required.
+"""Catch-all fake ``wx`` so the LEGACY cozer code -- including the GUI-importing
+package -- imports and its *headless* logic runs under stock Python 2.7 with no
+wxPython build.
 
-Install with::
+Install once, before importing any legacy module::
 
-    import wx_shim; sys.modules['wx'] = wx_shim
+    import wx_shim; wx_shim.install()
 
-Only the symbols the *non-GUI* core (``legacy/cozer/prefs.py`` +
-``analyzer.py``) touches at import/run time are provided. Deliberately does NOT
-define ``USE_UNICODE`` so ``prefs`` falls back to 0 (no str<->unicode
-re-encoding): the scoring results are unaffected by that choice, and strings are
-carried through losslessly as raw bytes (see tools/golden_io.py).
+Every attribute access yields a permissive dummy class (subclassable, callable,
+further attribute-accessible), enough to execute the legacy class definitions
+without a real toolkit. ``USE_UNICODE`` and dunder names raise AttributeError so
+that (a) legacy ``prefs`` falls back to ``USE_UNICODE = 0`` (matching the golden
+string convention, see tools/golden_io.py) and (b) ``from wx import X`` fails
+cleanly instead of treating the shim as a package (which would leak a bogus
+``__path__``).
 """
+import sys
 
 
-def Colour(*args):
-    return ('Colour',) + tuple(args)
-
-
-def Bell(*args, **kwargs):
-    pass
-
-
-def LogMessage(*args, **kwargs):
-    pass
-
-
-class Timer(object):
+class _Dummy(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def Start(self, *args, **kwargs):
-        pass
+    def __call__(self, *args, **kwargs):
+        return _Dummy()
 
-    def Stop(self, *args, **kwargs):
-        pass
+    def __getattr__(self, name):
+        return _Dummy
 
-    def Notify(self, *args, **kwargs):
-        pass
+    def __iter__(self):
+        return iter(())
 
 
-GREEN = Colour(0, 255, 0)
-WHITE = Colour(255, 255, 255)
-BLACK = Colour(0, 0, 0)
-RED = Colour(255, 0, 0)
+class _WxModule(object):
+    def __init__(self, name):
+        self.__name__ = name
+
+    def __getattr__(self, name):
+        if name == 'USE_UNICODE' or (name.startswith('__') and name.endswith('__')):
+            raise AttributeError(name)
+        return _Dummy
+
+
+def install():
+    """Register the wx / wx.grid shims in ``sys.modules`` (idempotent)."""
+    if not isinstance(sys.modules.get('wx'), _WxModule):
+        wx = _WxModule('wx')
+        grid = _WxModule('wx.grid')
+        wx.grid = grid
+        sys.modules['wx'] = wx
+        sys.modules['wx.grid'] = grid
+    return sys.modules['wx']

@@ -304,7 +304,7 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n:
                         notes[k].append(n)
-        if isendurance:
+        if isendurance:  # pragma: no cover - dead in analyze: duration!=None returns analyze_endurance above
             lapsrequired = 10000  # large number
         else:
             lapsrequired = len(course)
@@ -437,16 +437,16 @@ def analyze(heat, record, scoringsystem=[]):
             if laps:
                 if t > 0:
                     avgspeed = round2(3.6 * distcovered / float(t), roundopt)
-                else:
+                else:  # pragma: no cover - a counted lap always has t>0 (0-time lap divides by zero earlier)
                     avgspeed = 0
             if penlapsleft:
                 if t > 0:
                     penlapavgspeed = round2(3.6 * (distcovered - penlapsleft * course[li]) / float(t), roundopt)
-                else:
+                else:  # pragma: no cover - unreachable (see above)
                     penlapavgspeed = 0
             else:
                 penlapavgspeed = avgspeed
-        if isendurance:
+        if isendurance:  # pragma: no cover - dead in analyze (see lapsrequired above)
             lapsleft = 0
         else:
             lapsleft = lapsrequired - laps + penlaps
