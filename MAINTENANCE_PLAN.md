@@ -535,6 +535,15 @@ dependencies:
 Windows package availability is confirmed **without a Windows machine** via cross-platform
 solves. Fallbacks (unlikely needed): py3.12, pip wheels; for reports, offline TeX Live.
 
+**Known setup gotcha — GUI segfault in `libfontconfig` on launch.** `python -m cozer` may crash
+with `Segmentation fault` whose gdb trace bottoms out in `FcCharSetFindLeafForward` /
+`FcCharSetHasChar` (Qt text shaping during `show()`). Cause: conda's `libfontconfig` reading a
+fontconfig cache written by a *different* fontconfig version (the env's `fonts.conf` shares
+`~/.cache/fontconfig` with the system). **Fix (confirmed on the owner's laptop, 2026-07-14):**
+`rm -rf ~/.cache/fontconfig ~/.fontconfig "$CONDA_PREFIX"/var/cache/fontconfig/* && "$CONDA_PREFIX/bin/fc-cache" -rf`.
+Validated fallback: set `FONTCONFIG_FILE` to an env-only config (env fonts + a private cachedir).
+Deferred (not landed): opt-in `COZER_SAFE_FONTS=1` launcher + `faulthandler` in the entry point.
+
 ### 8.1 Development & testing topology
 
 | Where | Runs | Purpose |
