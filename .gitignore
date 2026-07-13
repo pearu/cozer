@@ -11,6 +11,9 @@ dist/
 htmlcov/
 coverage.xml
 
+# report preview scratch
+review/
+
 # cozer runtime artifacts
 log/
 cozer_tex_*/

@@ -405,15 +405,20 @@ the single-document view; keep the plan as the living design doc.
   each lap/mark/edit as it happens.
 - **Deliverable (met at the library level):** power loss at any instant ⇒ all journaled data recovers.
 
-### Phase 4 — Portable report rendering (offline)
-- Rewrite the 9 reports as **HTML/CSS**, render to PDF with **WeasyPrint** (fully offline).
-- `@page { size: A4 landscape|portrait }` preserves per-report orientation (Section 2 table).
-- Replace `os.popen4`/threads/viewers with `subprocess` + OS default opener.
-- **Gate:** rebuild the **hardest report first** (landscape Full Final / Endurance Final:
-  multi-column heats + footnote legend + headers), render to PDF, owner reviews a sample
-  for **high quality + information parity** before converting the rest.
-- **Tests:** rendered-PDF **text/info** matches golden content; **orientation asserted** per report.
-- **Deliverable:** all 9 reports render offline at approved quality.
+### Phase 4 — Portable report rendering (offline)  *(pipeline + Full Final done)*
+- ✅ Offline HTML/CSS → PDF pipeline (`cozer/reports/render.py`, WeasyPrint); per-report
+  `@page` orientation; `table-layout:fixed` + a colgroup summing to 100% so tables always fit
+  the page width (numbers never split — a `&#8203;` break point only at the `/`).
+- ✅ `cozer/reports/latexish.py`: decodes legacy LaTeX in free text (accents like `\v{c}`→č,
+  `\\`→line break, `_`/`^`→sub/sup, `~`→nbsp) to safe HTML — real `.coz` files carry LaTeX.
+- ✅ **Full Final** (landscape) built from the proven core (`build_full_final`), **owner-signed-off
+  on quality**; tests: LaTeX decoder, result formatting / break-at-slash, model assembly vs
+  `sumanalyze`/`getsumresorder`, landscape + page-fit rendering.
+- ☐ Remaining reports: Participants, Intermediate, Short Final, Endurance Full Final, Check
+  List, Laps Protocol, Info/Registration letters; localized labels (en/et from the legacy
+  `data/*_cozer.tex`).
+- ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener for the produced PDF.
+- **Gate:** hardest report (Full Final) signed off ✅ → converting the rest.
 
 ### Phase 5 — GUI (PySide6) + robustness hardening
 - Rebuild the notebook UI (General Information / Timer / Edit Records / Reports / Log) in Qt,
