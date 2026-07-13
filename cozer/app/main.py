@@ -21,8 +21,19 @@ from PySide6.QtWidgets import (
 
 from cozer import reports as R
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
+from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, read_legacy_coz
+
+# App-wide light color scheme; editable inputs get the legacy tan tint (edit_bg).
+APP_QSS = (
+    "QMainWindow, QWidget { background: #f4f3ee; }"
+    " QLineEdit, QTableView, QListWidget { background: #fbf7e6; }"
+    " QHeaderView::section { background: #e6e2d3; padding: 3px; border: 0; }"
+    " QPushButton { padding: 4px 10px; }"
+    " QGroupBox { font-weight: bold; margin-top: 6px; }"
+    " QTabBar::tab { padding: 5px 12px; }"
+)
 
 DEFAULT_EVENT = {
     "title": "", "venue": "", "date": "", "officer": "", "secretary": "",
@@ -62,11 +73,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.store = None
         self.eventdata = eventdata if eventdata is not None else copy.deepcopy(DEFAULT_EVENT)
-        self.resize(900, 600)
+        self.resize(980, 640)
+        self.setStyleSheet(APP_QSS)
         self._build_menu()
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
         self.tabs.addTab(self._build_geninfo_tab(), "General Information")
+        self.timer_panel = TimerPanel(self)
+        self.tabs.addTab(self.timer_panel, "Timer")
         self.tabs.addTab(self._build_reports_tab(), "Reports")
         self.statusBar().showMessage("Ready")
         self._reload_forms()
@@ -188,6 +202,7 @@ class MainWindow(QMainWindow):
         self.rules_grid.set_data(self.eventdata["rules"])
         self.scoring_edit.setText(" ".join(str(x) for x in self.eventdata["scoringsystem"]))
         self._reload_classes()
+        self.timer_panel.reload()
 
     # ---- reports tab ----
     def _build_reports_tab(self):

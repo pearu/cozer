@@ -143,3 +143,66 @@ def test_parse_scoring_unit():
     from cozer.app.grids import parse_scoring
     assert parse_scoring("10 5 2.5 abc") == [10, 5, 2.5]
     assert parse_scoring("") == []
+
+
+def _timer_event():
+    return {
+        "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
+        "scoringsystem": [10, 5, 3],
+        "classes": [["x", "GT", "1*(3*1000):1"]],
+        "participants": [["x", "A", "One", "EST", "GT", "1"],
+                         ["x", "B", "Two", "FIN", "GT", "2"]],
+        "races": [[["x", "GT", "1"]]],
+        "record": {}, "configure": {"language": "English"},
+    }
+
+
+def _save_as(w, path, monkeypatch):
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (path, "")))
+    w.on_save_as()
+
+
+def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clock = [1000.0]
+    tp._clock = lambda: clock[0]
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    assert tp._started and ("GT", "1", "1") in tp._buttons
+    for t in (1020.0, 1041.0, 1063.0):
+        clock[0] = t
+        tp.record_lap("GT", "1", "1")
+    marks = w.eventdata["record"]["GT"]["1"][1]["1"]
+    assert [m[0] for m in marks] == [1, 1, 1]
+    assert [m[1] for m in marks] == [20.0, 21.0, 22.0]
+    assert os.path.getsize(str(tmp_path / "e.cozj.journal")) > 0     # journaled + fsync'd
+    import copy
+    from cozer.analyzer import analyze
+    res = analyze("1", copy.deepcopy(w.eventdata["record"]["GT"]["1"]), [10, 5, 3])
+    assert "1" in res and "2" in res
+
+
+def test_timer_record_before_start_is_noop():
+    _app()
+    w = MainWindow(_timer_event())
+    w.timer_panel.record_lap("GT", "1", "1")     # not started -> no-op, no crash
+
+
+def test_timer_reload_stop_autosave(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    assert tp.race_combo.count() == 1
+    tp._clock = lambda: 100.0
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    assert tp._started
+    tp.on_stop()
+    assert not tp._started
+    tp.autosave_cb.setChecked(True)
+    tp.autosave_cb.setChecked(False)             # exercise autosave toggle both ways

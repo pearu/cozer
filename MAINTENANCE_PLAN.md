@@ -436,8 +436,10 @@ the single-document view; keep the plan as the living design doc.
 - ✅ **5b:** data-entry grids under the General Information tab — Classes / Participants /
   Rules (editable Qt tables, add/delete rows) + nested Races (race list + class/heat grid) +
   scoring-system field. Edits are made in place on eventdata; Save snapshots via the store.
-- ☐ **5c:** live **Timer** (lap recording) wired to the store journal (every click fsync'd),
-  autosave on by default — the safety kernel.
+- ✅ **5c:** live **Timer** — race selector + per-boat buttons; each click records a lap
+  through the store (append + **fsync to the journal immediately**), so a power loss loses
+  nothing; autosave toggle; button colors carry state (white=idle / green=in-progress /
+  magenta=finished). Verified: the recorded data feeds the proven analyzer.
 - ☐ **5d:** graphical **record editor** (Edit Records) + Log pane.
 - **UX:** provide a friendlier race-pattern editor — the current
   `NofHeats*(NofLaps*LapLength+..):Scored` syntax is cryptic — while keeping the internal
@@ -446,7 +448,8 @@ the single-document view; keep the plan as the living design doc.
   legacy palette from `legacy/cozer/prefs.py` — `edit_bg`/`warning_bg`/`disableedit_bg` for
   cells, and `mycolors`/`reccodecolours` for the Timer button states (waiting/coming/late/
   finish) and record-mark colors — via a Qt stylesheet, so the UI is familiar and the timing
-  colors stay information-carrying. *(Owner requested; do with the Timer in 5c.)*
+  colors stay information-carrying. *(Owner requested; applied in 5c — app-wide tint +
+  Timer button states; further polish/record-editor colors possible.)*
 - **Safety kernel isolation:** the timing/recording subsystem is separated and guarded so a
   bug in any page/report/action is caught, logged, and surfaced **without crashing the app
   or losing data**. Autosave **on by default**.
