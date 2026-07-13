@@ -6,6 +6,10 @@ build/
 dist/
 .eggs/
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # cozer runtime artifacts
 log/

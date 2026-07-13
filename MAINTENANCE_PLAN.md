@@ -317,6 +317,24 @@ Confirmed during Phase 1; the port (Phase 2) must reproduce legacy behavior exac
 - **Dict ordering**: legacy sorts wherever order is user-visible; goldens canonicalize with
   sorted keys, so py2/py3 dict-iteration differences don't affect comparison.
 
+### 6.9 Future: retiring `cozer/_py2compat.py` for py3-native semantics
+
+`_py2compat` is the equivalence anchor — it reproduces Python-2 numeric/ordering behavior so
+the port matches legacy exactly. Elimination cost differs by part:
+
+- **`round2`** (round-half-away-from-zero): replacing with py3-native `round()`/Decimal changes
+  results only for *exact half* cases — a **deliberate divergence**. Measurable: scan all
+  real+synthetic golden values for where the two rounding rules differ (likely few/none).
+- **`py2_cmp` / `py2_sorted`** (mixed int/str ordering): reducible to a small explicit py3-native
+  **sort key** (numbers-before-strings, matching py2) with *no* behavior change (tests stay
+  green), or removed by normalizing ids to one type (a divergence).
+
+**Plan:** keep `_py2compat` through the equivalence baseline; once coverage is ~100% and the
+synthetic corpus exists, produce an **effort/impact report** quantifying exactly which results
+would change under native semantics, then decide per the versioned-profile model (§6.6):
+legacy profile stays faithful, a modern profile may adopt native semantics.
+*(Owner asked to understand this effort — revisit after the Phase 2 coverage work.)*
+
 ---
 
 ## 7. Phased plan
@@ -345,12 +363,21 @@ the single-document view; keep the plan as the living design doc.
   cases (interruption / restart / qualification / time-trial / endurance thresholds).
 - **Deliverable:** frozen equivalence baseline (analyzer core done; extensions pending).
 
-### Phase 2 — Port headless core to cozer
-- Port to Python 3 (no wx): headless `prefs` helpers, `analyzer`, data-model logic
-  (`CrackRacePattern`, `GetHeats`, `GetAllowedHeats`, `gettimes`, `insertmark`, predicates),
-  and `reports` **content** generation.
-- Legacy `.coz` reader (`pickle.load(..., encoding='latin-1')`) + normalization.
-- **Deliverable:** differential tests green ⇒ **core equivalence proven & automated.**
+### Phase 2 — Port headless core to cozer  *(in progress)*
+- ✅ `cozer/_py2compat.py` (round2, py2_cmp/py2_sorted), `cozer/records.py`
+  (codes + insertmark + gettimes), `cozer/analyzer.py` (analyze / analyze_endurance /
+  countlaps / getresorder / get_racetime / transpose / ceil).
+- ✅ Legacy `.coz` read in py3 via `pickle.load(..., encoding='latin-1')`.
+- ✅ **Differential proof green**: ported analyzer reproduces the legacy goldens
+  byte-for-byte across **all 10 events / 115 class-heat records** (analyze + input
+  mutations + resorder + countlaps).
+- ✅ Coverage reporting (`pytest-cov`, branch): _py2compat/records/__main__ ~100%;
+  analyzer 69% (remaining = legacy rule-code branches absent from the 8 real events).
+- ☐ Port data-model logic (`CrackRacePattern`, `GetHeats`, `GetAllowedHeats`, predicates)
+  and `reports` **content** generation; extend goldens to `sumanalyze`.
+- ☐ Add synthetic edge-case fixtures (validated through legacy) to drive coverage toward
+  ~100% **and** extend the equivalence proof to the rare rule paths.
+- **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
 ### Phase 3 — Robust persistence
 - **Atomic writes** (`tmp` + `fsync` + `os.replace`; atomic on Win + Linux).

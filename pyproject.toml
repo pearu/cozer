@@ -19,4 +19,15 @@ testpaths = ["tests"]
 # Put the repo root on sys.path so `import cozer` works under the bare `pytest`
 # console script (CI), not only under `python -m pytest`.
 pythonpath = ["."]
-addopts = "-ra"
+addopts = "-ra --cov=cozer --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["cozer"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

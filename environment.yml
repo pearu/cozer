@@ -9,5 +9,6 @@ dependencies:
   - weasyprint    # HTML/CSS -> PDF report rendering, fully offline
   - pymupdf       # PDF text extraction for report equivalence tests
   - pytest
+  - pytest-cov    # coverage reporting for the new cozer package
   - hypothesis    # property-based edge cases for core equivalence
   - pip
