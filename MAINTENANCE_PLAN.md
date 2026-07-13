@@ -381,8 +381,11 @@ the single-document view; keep the plan as the living design doc.
   across all 10 events + 9 synthetic model cases; **100% statements / 99% overall**. Enabled by
   a **catch-all `wx` shim** so the harness runs the *actual* legacy MainFrame methods headless
   (analyze goldens verified byte-identical after the shim swap).
-- ☐ Extend goldens to `sumanalyze`/`getsumresorder` (final standings across heats), then
-  `reports` **content** generation.
+- ✅ Ported `sumanalyze`/`getsumresorder` (final standings across heats) — proven equivalent
+  across all events, incl. the empty-scoring-system crash path (a `.keys()` faithfulness fix
+  the differential test caught). **Headless scoring + race-model core is now fully ported and
+  proven; 100% statements / 99% overall, 42 tests.**
+- ☐ `reports` **content** generation (HTML/CSS templates arrive in Phase 4).
 - **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
 ### Phase 3 — Robust persistence

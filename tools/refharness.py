@@ -86,13 +86,38 @@ def run_one(record_ch, heat, scoringsystem):
     return out
 
 
-def process_analyze(data):
-    scoringsystem = data.get('scoringsystem', [])
+def _sheats_for(mf, data, cl, default):
+    for l in data.get('classes', []):
+        if len(l) > 2 and l[1] and l[2] and l[1] == cl:
+            try:
+                return mf.CrackRacePattern(l[2], cl)[1]
+            except Exception:
+                return default
+    return default
+
+
+def process_analyze(data, mf):
+    ss = data.get('scoringsystem', [])
     record = data.get('record', {}) or {}
-    out = {'scoringsystem': scoringsystem, 'analyze': {}}
+    out = {'scoringsystem': ss, 'analyze': {}, 'sum': {}}
     for cl in sorted(record.keys()):
-        for h in sorted(record[cl].keys()):
-            out['analyze'][u'%s||%s' % (cl, h)] = run_one(record[cl][h], h, scoringsystem)
+        heat_map = sorted(record[cl].keys())
+        res = {}
+        for h in heat_map:
+            out['analyze'][u'%s||%s' % (cl, h)] = run_one(record[cl][h], h, ss)
+            try:
+                res[h] = analyzer.analyze(h, copy.deepcopy(record[cl][h]), ss)
+            except Exception:
+                res[h] = None
+        sheats = _sheats_for(mf, data, cl, len(heat_map))
+        s = {'heats': heat_map, 'sheats': sheats}
+        try:
+            sa = analyzer.sumanalyze(heat_map, res, sheats)
+            s['sumanalyze'] = sa
+            s['getsumresorder'] = analyzer.getsumresorder(sa)
+        except Exception as e:
+            s['sumanalyze'] = _err(e)
+        out['sum'][cl] = s
     return out
 
 
@@ -145,7 +170,7 @@ def main():
     for path in coz_files:
         name = os.path.splitext(os.path.basename(path))[0]
         data = load_coz(path)
-        ag = process_analyze(data)
+        ag = process_analyze(data, mf)
         ag['event'] = os.path.basename(path)
         _write(os.path.join(a_dir, name + '.json'), golden_io.dumps(ag))
         mg = process_model(data, mf)

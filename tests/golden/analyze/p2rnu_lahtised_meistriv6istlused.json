@@ -265,5 +265,34 @@
     }
   }, 
   "event": "p2rnu_lahtised_meistriv6istlused.coz", 
-  "scoringsystem": []
+  "scoringsystem": [], 
+  "sum": {
+    "JT-250": {
+      "heats": [
+        "1"
+      ], 
+      "sheats": 2, 
+      "sumanalyze": {
+        "__error__": "AttributeError: 'NoneType' object has no attribute 'keys'"
+      }
+    }, 
+    "OSY-400": {
+      "heats": [
+        "1"
+      ], 
+      "sheats": 2, 
+      "sumanalyze": {
+        "__error__": "AttributeError: 'NoneType' object has no attribute 'keys'"
+      }
+    }, 
+    "S-550": {
+      "heats": [
+        "1"
+      ], 
+      "sheats": 2, 
+      "sumanalyze": {
+        "__error__": "AttributeError: 'NoneType' object has no attribute 'keys'"
+      }
+    }
+  }
 }

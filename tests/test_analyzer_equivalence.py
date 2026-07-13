@@ -76,7 +76,8 @@ def test_event_matches_golden(name, path, gpath):
         data = pickle.load(f, encoding="latin-1")
     scoringsystem = data.get("scoringsystem", [])
     record = data.get("record", {}) or {}
-    g = json.load(open(gpath))["analyze"]
+    full = json.load(open(gpath))
+    g = full["analyze"]
 
     checked = 0
     for cl in sorted(record.keys()):
@@ -87,6 +88,25 @@ def test_event_matches_golden(name, path, gpath):
             assert got == g[key], (name, key)
             checked += 1
     assert checked == len(g), (name, checked, len(g))
+
+    # sum: final standings across heats (mirrors refharness.process_analyze).
+    for cl, sinfo in full.get("sum", {}).items():
+        heats = sinfo["heats"]
+        sheats = sinfo["sheats"]
+        res = {}
+        for h in heats:
+            try:
+                res[h] = analyzer.analyze(h, copy.deepcopy(record[cl][h]), scoringsystem)
+            except Exception:
+                res[h] = None
+        got = {"heats": heats, "sheats": sheats}
+        try:
+            sa = analyzer.sumanalyze(heats, res, sheats)
+            got["sumanalyze"] = sa
+            got["getsumresorder"] = analyzer.getsumresorder(sa)
+        except Exception as e:
+            got["sumanalyze"] = _err(e)
+        assert _norm(got) == sinfo, (name, cl, "sum")
 
 
 def test_synthetic_matches_golden():

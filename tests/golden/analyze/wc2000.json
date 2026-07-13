@@ -13961,5 +13961,472 @@
     2, 
     1, 
     0
-  ]
+  ], 
+  "sum": {
+    "O-125": {
+      "getsumresorder": [
+        9, 
+        36, 
+        7, 
+        "F22", 
+        2, 
+        75, 
+        25, 
+        12, 
+        5
+      ], 
+      "heats": [
+        "1", 
+        "2", 
+        "3", 
+        "4"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "12": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "2": {
+          "avgspeed": 61.95, 
+          "maxlapspeed": 66.41, 
+          "place": 5, 
+          "points": 338
+        }, 
+        "25": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "36": {
+          "avgspeed": 73.11, 
+          "maxlapspeed": 78.16, 
+          "place": 2, 
+          "points": 925
+        }, 
+        "5": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "7": {
+          "avgspeed": 71.48, 
+          "maxlapspeed": 80.62, 
+          "place": 3, 
+          "points": 825
+        }, 
+        "75": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "9": {
+          "avgspeed": 81.32, 
+          "maxlapspeed": 89.85, 
+          "place": 1, 
+          "points": 1100
+        }, 
+        "F22": {
+          "avgspeed": 78.25, 
+          "maxlapspeed": 82.82, 
+          "place": 4, 
+          "points": 752
+        }
+      }
+    }, 
+    "O-250": {
+      "getsumresorder": [
+        47, 
+        28, 
+        71, 
+        77, 
+        2, 
+        99
+      ], 
+      "heats": [
+        "1", 
+        "2"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "2": {
+          "avgspeed": 38.56, 
+          "maxlapspeed": 39.34, 
+          "place": 5, 
+          "points": 0
+        }, 
+        "28": {
+          "avgspeed": 97.99, 
+          "maxlapspeed": 103.13, 
+          "place": 2, 
+          "points": 400
+        }, 
+        "47": {
+          "avgspeed": 85.28, 
+          "maxlapspeed": 88.74, 
+          "place": 1, 
+          "points": 700
+        }, 
+        "71": {
+          "avgspeed": 78.9, 
+          "maxlapspeed": 86.67, 
+          "place": 3, 
+          "points": 225
+        }, 
+        "77": {
+          "avgspeed": 78.1, 
+          "maxlapspeed": 85.44, 
+          "place": 4, 
+          "points": 169
+        }, 
+        "99": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }
+      }
+    }, 
+    "O-500": {
+      "getsumresorder": [
+        53, 
+        55, 
+        29, 
+        2, 
+        8, 
+        12, 
+        4, 
+        911, 
+        78, 
+        17, 
+        51, 
+        62, 
+        21, 
+        82, 
+        9, 
+        5, 
+        75, 
+        73
+      ], 
+      "heats": [
+        "1", 
+        "2", 
+        "2r", 
+        "3", 
+        "3r", 
+        "4"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "12": {
+          "avgspeed": 103.56, 
+          "maxlapspeed": 108.08, 
+          "place": 6, 
+          "points": 489
+        }, 
+        "17": {
+          "avgspeed": 99.43, 
+          "maxlapspeed": 103.93, 
+          "place": 10, 
+          "points": 164
+        }, 
+        "2": {
+          "avgspeed": 106.65, 
+          "maxlapspeed": 106.65, 
+          "place": 4, 
+          "points": 727
+        }, 
+        "21": {
+          "avgspeed": 99.19, 
+          "maxlapspeed": 102.92, 
+          "place": 13, 
+          "points": 71
+        }, 
+        "29": {
+          "avgspeed": 108.87, 
+          "maxlapspeed": 112.45, 
+          "place": 3, 
+          "points": 900
+        }, 
+        "4": {
+          "avgspeed": 106.02, 
+          "maxlapspeed": 109.45, 
+          "place": 7, 
+          "points": 479
+        }, 
+        "5": {
+          "avgspeed": 87.49, 
+          "maxlapspeed": 98.48, 
+          "place": 16, 
+          "points": 47
+        }, 
+        "51": {
+          "avgspeed": 97.52, 
+          "maxlapspeed": 101.52, 
+          "place": 11, 
+          "points": 123
+        }, 
+        "53": {
+          "avgspeed": 110.55, 
+          "maxlapspeed": 118.55, 
+          "place": 1, 
+          "points": 1200
+        }, 
+        "55": {
+          "avgspeed": 111.0, 
+          "maxlapspeed": 113.34, 
+          "place": 2, 
+          "points": 1100
+        }, 
+        "62": {
+          "avgspeed": 95.46, 
+          "maxlapspeed": 95.46, 
+          "place": 12, 
+          "points": 95
+        }, 
+        "73": {
+          "avgspeed": 84.88, 
+          "maxlapspeed": 84.88, 
+          "place": 18, 
+          "points": 22
+        }, 
+        "75": {
+          "avgspeed": 95.5, 
+          "maxlapspeed": 99.6, 
+          "place": 17, 
+          "points": 40
+        }, 
+        "78": {
+          "avgspeed": 98.85, 
+          "maxlapspeed": 103.41, 
+          "place": 9, 
+          "points": 219
+        }, 
+        "8": {
+          "avgspeed": 105.0, 
+          "maxlapspeed": 109.54, 
+          "place": 5, 
+          "points": 507
+        }, 
+        "82": {
+          "avgspeed": 92.46, 
+          "maxlapspeed": 97.37, 
+          "place": 14, 
+          "points": 69
+        }, 
+        "9": {
+          "avgspeed": 97.25, 
+          "maxlapspeed": 102.27, 
+          "place": 15, 
+          "points": 53
+        }, 
+        "911": {
+          "avgspeed": 104.61, 
+          "maxlapspeed": 108.48, 
+          "place": 8, 
+          "points": 423
+        }
+      }
+    }, 
+    "OSY-400": {
+      "getsumresorder": [
+        18, 
+        48, 
+        3, 
+        8, 
+        72, 
+        13, 
+        6
+      ], 
+      "heats": [
+        "1", 
+        "2"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "13": {
+          "avgspeed": 71.53, 
+          "maxlapspeed": 74.68, 
+          "place": 6, 
+          "points": 127
+        }, 
+        "18": {
+          "avgspeed": 77.06, 
+          "maxlapspeed": 77.98, 
+          "place": 1, 
+          "points": 700
+        }, 
+        "3": {
+          "avgspeed": 73.3, 
+          "maxlapspeed": 76.06, 
+          "place": 3, 
+          "points": 394
+        }, 
+        "48": {
+          "avgspeed": 76.22, 
+          "maxlapspeed": 77.81, 
+          "place": 2, 
+          "points": 700
+        }, 
+        "6": {
+          "avgspeed": 66.96, 
+          "maxlapspeed": 68.73, 
+          "place": 7, 
+          "points": 127
+        }, 
+        "72": {
+          "avgspeed": 69.73, 
+          "maxlapspeed": 71.2, 
+          "place": 5, 
+          "points": 190
+        }, 
+        "8": {
+          "avgspeed": 71.68, 
+          "maxlapspeed": 73.58, 
+          "place": 4, 
+          "points": 394
+        }
+      }
+    }, 
+    "S-250": {
+      "getsumresorder": [
+        4, 
+        11, 
+        7, 
+        21, 
+        25, 
+        5, 
+        90, 
+        51
+      ], 
+      "heats": [
+        "1", 
+        "2"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "11": {
+          "avgspeed": 56.3, 
+          "maxlapspeed": 58.86, 
+          "place": 2, 
+          "points": 495
+        }, 
+        "21": {
+          "avgspeed": 52.88, 
+          "maxlapspeed": 54.64, 
+          "place": 4, 
+          "points": 394
+        }, 
+        "25": {
+          "avgspeed": 52.34, 
+          "maxlapspeed": 52.87, 
+          "place": 5, 
+          "points": 352
+        }, 
+        "4": {
+          "avgspeed": 56.12, 
+          "maxlapspeed": 57.02, 
+          "place": 1, 
+          "points": 700
+        }, 
+        "5": {
+          "avgspeed": 45.45, 
+          "maxlapspeed": 48.03, 
+          "place": 6, 
+          "points": 222
+        }, 
+        "51": {
+          "avgspeed": 44.16, 
+          "maxlapspeed": 44.85, 
+          "place": 8, 
+          "points": 71
+        }, 
+        "7": {
+          "avgspeed": 52.6, 
+          "maxlapspeed": 53.63, 
+          "place": 3, 
+          "points": 469
+        }, 
+        "90": {
+          "avgspeed": 41.53, 
+          "maxlapspeed": 42.35, 
+          "place": 7, 
+          "points": 124
+        }
+      }
+    }, 
+    "T-400": {
+      "getsumresorder": [
+        24, 
+        25, 
+        90, 
+        17, 
+        51, 
+        14, 
+        4, 
+        1
+      ], 
+      "heats": [
+        "1", 
+        "2", 
+        "2r"
+      ], 
+      "sheats": 3, 
+      "sumanalyze": {
+        "1": {
+          "avgspeed": 53.66, 
+          "maxlapspeed": 55.34, 
+          "place": 8, 
+          "points": 169
+        }, 
+        "14": {
+          "avgspeed": 52.05, 
+          "maxlapspeed": 54.54, 
+          "place": 6, 
+          "points": 264
+        }, 
+        "17": {
+          "avgspeed": 46.97, 
+          "maxlapspeed": 48.82, 
+          "place": 4, 
+          "points": 367
+        }, 
+        "24": {
+          "avgspeed": 59.36, 
+          "maxlapspeed": 60.56, 
+          "place": 1, 
+          "points": 700
+        }, 
+        "25": {
+          "avgspeed": 56.61, 
+          "maxlapspeed": 56.86, 
+          "place": 2, 
+          "points": 700
+        }, 
+        "4": {
+          "avgspeed": 41.57, 
+          "maxlapspeed": 41.57, 
+          "place": 7, 
+          "points": 225
+        }, 
+        "51": {
+          "avgspeed": 53.73, 
+          "maxlapspeed": 56.61, 
+          "place": 5, 
+          "points": 352
+        }, 
+        "90": {
+          "avgspeed": 55.06, 
+          "maxlapspeed": 56.31, 
+          "place": 3, 
+          "points": 652
+        }
+      }
+    }
+  }
 }

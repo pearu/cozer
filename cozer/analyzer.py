@@ -36,6 +36,52 @@ def getresorder(res):
     return [i[1] for i in rks]
 
 
+def getsumresorder(res):
+    ids = []
+    for pid in res.keys():
+        ids.append([res[pid]['points'], res[pid]['avgspeed'], res[pid]['maxlapspeed'], pid])
+    ids = py2_sorted(ids)
+    ids.reverse()
+    return [i[3] for i in ids]
+
+
+def sumanalyze(heats, res, sheats):
+    """Final standings across ``heats``: each competitor's best ``sheats`` heat
+    scores summed; placed by (sumpoints, best avg/max speed). Port of legacy
+    ``analyzer.sumanalyze``."""
+    invres = {}
+    for h in heats:
+        for pid in res[h].keys():   # legacy uses .keys() -> None.keys() raises AttributeError
+            if pid not in invres:
+                invres[pid] = {}
+            invres[pid][h] = res[h][pid]
+    sumres = {}
+    for pid in invres.keys():
+        points = []
+        bestavg = -1
+        bestmax = -1
+        for h in heats:
+            r = invres[pid][h]
+            if r['place'] > 0:
+                points.append(r['points'])
+                bestavg = max(bestavg, r['avgspeed'])
+                bestmax = max(bestmax, r['maxlapspeed'])
+        sumpoints = -1
+        if points:
+            points.sort()
+            points.reverse()
+            sumpoints = sum(points[:sheats])
+        sumres[pid] = {'points': sumpoints, 'avgspeed': bestavg, 'maxlapspeed': bestmax}
+    i = 0
+    for pid in getsumresorder(sumres):
+        if sumres[pid]['points'] >= 0:
+            i = i + 1
+            sumres[pid]['place'] = i
+        else:
+            sumres[pid]['place'] = -1
+    return sumres
+
+
 def get_racetime(record):
     info, rec = record
     info['course']  # (referenced in legacy; kept for parity)
