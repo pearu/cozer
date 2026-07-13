@@ -72,9 +72,11 @@ def _header_and_cols(L, multi, istt):
                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]), esc(L["LapTime"])))
         return head, cols, 5
     if multi:
-        cols = ['<col style="width:7%">', '<col style="width:31%">', '<col style="width:14%">',
-                '<col style="width:8%">', '<col style="width:16%">', '<col style="width:8%">',
-                '<col style="width:11%">', '<col style="width:5%">']
+        # Place, Name, From, No, cur-Res, cur-Pts, total-Res, total-Pts — the summary
+        # (total) Res/Pts need the same room as the current-heat ones to avoid wrapping.
+        cols = ['<col style="width:6%">', '<col style="width:27%">', '<col style="width:12%">',
+                '<col style="width:7%">', '<col style="width:16%">', '<col style="width:8%">',
+                '<col style="width:16%">', '<col style="width:8%">']
         head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
                 '<th class="num">%s</th><th class="num">%s</th>'
                 '<th class="num">%s</th><th class="num">%s</th></tr>'

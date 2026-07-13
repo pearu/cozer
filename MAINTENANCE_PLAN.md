@@ -419,10 +419,11 @@ the single-document view; keep the plan as the living design doc.
   shared helpers (`cozer/reports/common.py`).
 - ✅ Intermediate (portrait), Laps Counter Protocol (portrait), Endurance Full Final
   (landscape). Coverage swept — 77 tests, 97% overall (reports modules 90–100%, core 98–100%).
-- ☐ Info Letter + Registration Letter (static text ported from the legacy
-  `\cozerinfoletter` / `\cozerregistrationletter` macros).
-- ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener for the produced PDF.
-- **Gate:** hardest report (Full Final) signed off ✅ → converting the rest.
+- ✅ Info Letter (localized bio form) + Registration Letter (bilingual EN/ET entry form),
+  ported from the legacy letter macros. **All 9 reports done** (78 tests, 96% overall).
+- ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener (open the produced PDF)
+  — belongs with the Phase 5 GUI action wiring.
+- **Gate:** hardest report (Full Final) signed off ✅ → the rest built on the same pipeline.
 
 ### Phase 5 — GUI (PySide6) + robustness hardening
 - Rebuild the notebook UI (General Information / Timer / Edit Records / Reports / Log) in Qt,

@@ -21,6 +21,10 @@ from cozer.reports.laps import (
 from cozer.reports.endurance import (
     build_endurance_final, endurance_final_html, render_endurance_final,
 )
+from cozer.reports.letters import (
+    build_info_letter, info_letter_html, render_info_letter,
+    build_registration_letter, registration_letter_html, render_registration_letter,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
@@ -30,4 +34,6 @@ __all__ = [
     "build_intermediate", "intermediate_html", "render_intermediate",
     "build_laps_protocol", "laps_protocol_html", "render_laps_protocol",
     "build_endurance_final", "endurance_final_html", "render_endurance_final",
+    "build_info_letter", "info_letter_html", "render_info_letter",
+    "build_registration_letter", "registration_letter_html", "render_registration_letter",
 ]

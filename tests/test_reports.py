@@ -211,6 +211,23 @@ def test_get_labels_bad_input():
     assert get_labels({"configure": {"language": "Klingon"}})["Place"] == "Place"
 
 
+def test_letters():
+    from cozer.reports.letters import (
+        build_info_letter, info_letter_html, registration_letter_html, build_registration_letter,
+    )
+    ed = read_legacy_coz(EVENT)
+    # info letter (English)
+    text = _fits_portrait(render_pdf_bytes(info_letter_html(build_info_letter(ed))))
+    assert "Dear Competitor" in text and "Other Information" in text
+    # info letter (Estonian)
+    et = dict(ed, configure={"language": "Estonian"})
+    et_html = info_letter_html(build_info_letter(et))
+    assert "Lugupeetud" in et_html and "Muu informatsioon" in et_html
+    # registration letter (bilingual entry form)
+    reg = _fits_portrait(render_pdf_bytes(registration_letter_html(build_registration_letter(ed))))
+    assert "ENTRY" in reg and "DRIVER" in reg and "Perekonnanimi" in reg
+
+
 def test_intermediate_timetrial_and_multidriver():
     from cozer.reports.intermediate import build_intermediate, intermediate_html
     ed = {
