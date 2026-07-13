@@ -317,7 +317,7 @@ Confirmed during Phase 1; the port (Phase 2) must reproduce legacy behavior exac
 - **Dict ordering**: legacy sorts wherever order is user-visible; goldens canonicalize with
   sorted keys, so py2/py3 dict-iteration differences don't affect comparison.
 
-### 6.9 Future: retiring `cozer/_py2compat.py` for py3-native semantics
+### 6.9 Future: adopting py3-native idioms (retiring `_py2compat.py`, `.keys()`, …)
 
 `_py2compat` is the equivalence anchor — it reproduces Python-2 numeric/ordering behavior so
 the port matches legacy exactly. Elimination cost differs by part:
@@ -328,6 +328,10 @@ the port matches legacy exactly. Elimination cost differs by part:
 - **`py2_cmp` / `py2_sorted`** (mixed int/str ordering): reducible to a small explicit py3-native
   **sort key** (numbers-before-strings, matching py2) with *no* behavior change (tests stay
   green), or removed by normalizing ids to one type (a divergence).
+- **`.keys()` iterations**: some are redundant (`for k in d.keys()` ≡ `for k in d`) and can be
+  dropped freely (tests stay green); others exist only for legacy error-parity (e.g.
+  `sumanalyze` uses `res[h].keys()` so a `None` heat raises `AttributeError` like legacy rather
+  than `TypeError`) — removing those is a deliberate divergence, like the items above.
 
 **Plan:** keep `_py2compat` through the equivalence baseline; once coverage is ~100% and the
 synthetic corpus exists, produce an **effort/impact report** quantifying exactly which results
