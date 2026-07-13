@@ -425,7 +425,7 @@ the single-document view; keep the plan as the living design doc.
   — belongs with the Phase 5 GUI action wiring.
 - **Gate:** hardest report (Full Final) signed off ✅ → the rest built on the same pipeline.
 
-### Phase 5 — GUI (PySide6) + robustness hardening  *(5a done)*
+### Phase 5 — GUI (PySide6) + robustness hardening  *(done)*
 - Rebuild the notebook UI (General Information / Timer / Edit Records / Reports / Log) in Qt,
   staying close to today's layout and workflow (improvements welcome).
 - ✅ **5a (foundation):** `cozer/app/` PySide6 main window backed by the crash-safe store
@@ -440,7 +440,9 @@ the single-document view; keep the plan as the living design doc.
   through the store (append + **fsync to the journal immediately**), so a power loss loses
   nothing; autosave toggle; button colors carry state (white=idle / green=in-progress /
   magenta=finished). Verified: the recorded data feeds the proven analyzer.
-- ☐ **5d:** graphical **record editor** (Edit Records) + Log pane.
+- ✅ **5d:** **Edit Records** — per-heat marks table + live results preview; insert /
+  enable-disable / delete marks and set the race time, each committed through the store
+  (journaled). **Log** pane captures status messages. **GUI complete: 96 tests, 94%.**
 - **UX:** provide a friendlier race-pattern editor — the current
   `NofHeats*(NofLaps*LapLength+..):Scored` syntax is cryptic — while keeping the internal
   pattern-string representation unchanged (parsed by `crack_race_pattern`).

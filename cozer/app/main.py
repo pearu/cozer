@@ -16,10 +16,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMessageBox,
-    QPushButton, QTabWidget, QVBoxLayout, QWidget,
+    QPlainTextEdit, QPushButton, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from cozer import reports as R
+from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
@@ -81,10 +82,13 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self._build_geninfo_tab(), "General Information")
         self.timer_panel = TimerPanel(self)
         self.tabs.addTab(self.timer_panel, "Timer")
+        self.editor_panel = EditRecordsPanel(self)
+        self.tabs.addTab(self.editor_panel, "Edit Records")
         self.tabs.addTab(self._build_reports_tab(), "Reports")
-        self.statusBar().showMessage("Ready")
+        self.tabs.addTab(self._build_log_tab(), "Log")
         self._reload_forms()
         self._refresh_title()
+        self.log("Ready")
 
     # ---- menu / file operations ----
     def _build_menu(self):
@@ -103,7 +107,7 @@ class MainWindow(QMainWindow):
         self.store = None
         self._reload_forms()
         self._refresh_title()
-        self.statusBar().showMessage("New event")
+        self.log("New event")
 
     def on_open(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open event", "", "Cozer events (*.cozj *.coz)")
@@ -119,7 +123,7 @@ class MainWindow(QMainWindow):
             self.eventdata = self.store.eventdata
         self._reload_forms()
         self._refresh_title()
-        self.statusBar().showMessage("Opened %s" % path)
+        self.log("Opened %s" % path)
 
     def on_import(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import legacy .coz", "", "Legacy events (*.coz)")
@@ -128,14 +132,14 @@ class MainWindow(QMainWindow):
             self.store = None
             self._reload_forms()
             self._refresh_title()
-            self.statusBar().showMessage("Imported %s — Save As to persist as .cozj" % path)
+            self.log("Imported %s — Save As to persist as .cozj" % path)
 
     def on_save(self):
         if self.store is None:
             return self.on_save_as()
         self.store.eventdata = self.eventdata
         self.store.snapshot()
-        self.statusBar().showMessage("Saved %s" % self.store.path)
+        self.log("Saved %s" % self.store.path)
 
     def on_save_as(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save event as", "", "Cozer events (*.cozj)")
@@ -146,7 +150,7 @@ class MainWindow(QMainWindow):
         self.store = EventStore(path, self.eventdata)
         self.store.snapshot()
         self._refresh_title()
-        self.statusBar().showMessage("Saved %s" % path)
+        self.log("Saved %s" % path)
 
     # ---- general information tab (event fields + data grids) ----
     def _build_geninfo_tab(self):
@@ -203,6 +207,17 @@ class MainWindow(QMainWindow):
         self.scoring_edit.setText(" ".join(str(x) for x in self.eventdata["scoringsystem"]))
         self._reload_classes()
         self.timer_panel.reload()
+        self.editor_panel.reload()
+
+    # ---- log tab ----
+    def _build_log_tab(self):
+        self.log_view = QPlainTextEdit()
+        self.log_view.setReadOnly(True)
+        return self.log_view
+
+    def log(self, msg):
+        self.log_view.appendPlainText(msg)
+        self.statusBar().showMessage(msg)
 
     # ---- reports tab ----
     def _build_reports_tab(self):
@@ -253,7 +268,7 @@ class MainWindow(QMainWindow):
         except Exception as e:      # pragma: no cover - surfaced to the user, never crashes
             QMessageBox.critical(self, "Report error", "%s: %s" % (type(e).__name__, e))
             return
-        self.statusBar().showMessage("Wrote %s" % path)
+        self.log("Wrote %s" % path)
         open_in_viewer(path)
 
     def _refresh_title(self):

@@ -206,3 +206,69 @@ def test_timer_reload_stop_autosave(tmp_path, monkeypatch):
     assert not tp._started
     tp.autosave_cb.setChecked(True)
     tp.autosave_cb.setChecked(False)             # exercise autosave toggle both ways
+
+
+def _recorded_event():
+    return {
+        "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
+        "scoringsystem": [10, 5, 3],
+        "classes": [["x", "GT", "1*(3*1000):1"]],
+        "participants": [["x", "A", "One", "EST", "GT", "1"],
+                         ["x", "B", "Two", "FIN", "GT", "2"]],
+        "races": [[["x", "GT", "1"]]],
+        "record": {"GT": {"1": [
+            {"course": [1000, 1000, 1000], "racetime": 100.0, "sheats": 1, "duration": None},
+            {"1": [[1, 20.0], [1, 21.0], [1, 22.0]], "2": [[1, 25.0], [1, 26.0], [1, 27.0]]},
+        ]}},
+        "configure": {"language": "English"},
+    }
+
+
+def test_editor_reload_and_edits(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    assert ep.heat_combo.count() == 1
+    assert [ep.boat_combo.itemText(i) for i in range(ep.boat_combo.count())] == ["1", "2"]
+    assert ep.marks.rowCount() == 3
+    rec = w.eventdata["record"]["GT"]["1"]
+    jpath = str(tmp_path / "e.cozj.journal")
+    ep.insert_mark("GT", "1", "1", 12, 5.0, "foul")     # 12 = DQ
+    assert any(m[0] == 12 for m in rec[1]["1"])
+    ep.toggle_mark("GT", "1", "1", 0)
+    assert rec[1]["1"][0][0] < 0                          # disabled
+    n = len(rec[1]["1"])
+    ep.delete_mark("GT", "1", "1", 0)
+    assert len(rec[1]["1"]) == n - 1
+    ep.set_racetime("GT", "1", 90.0)
+    assert rec[0]["racetime"] == 90.0
+    assert os.path.getsize(jpath) > 0                     # every edit journaled + fsync'd
+    assert ep.results.toPlainText()                       # live results preview
+
+
+def test_code_label():
+    from cozer.app.editor import code_label
+    assert code_label(1) == "lap" and code_label(-1) == "(off) lap"
+    assert code_label(2) == "ins. lap"
+    assert code_label(12) == "DQ" and code_label(-12) == "(off) DQ"
+
+
+def test_insert_mark_dialog_values():
+    _app()
+    from cozer.app.editor import InsertMarkDialog
+    from cozer.records import reccodemap
+    dlg = InsertMarkDialog()
+    dlg.code.setCurrentText("DQ")
+    dlg.time.setValue(12.5)
+    dlg.note.setText("x")
+    code, ct, note = dlg.values()
+    assert code == reccodemap["DQ"] and ct == 12.5 and note == "x"
+
+
+def test_log_pane_records_messages():
+    _app()
+    w = MainWindow(_recorded_event())
+    w.log("hello world")
+    assert "hello world" in w.log_view.toPlainText()
