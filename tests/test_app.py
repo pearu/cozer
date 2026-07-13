@@ -100,3 +100,46 @@ def test_generate_cancelled_dialog_is_noop(monkeypatch):
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: ("", "")))
     w.on_generate()                                        # cancelled -> returns, no error
+
+
+def test_data_grids_populate_and_edit():
+    _app()
+    ed = read_legacy_coz(EVENT)
+    w = MainWindow(ed)
+    cm = w.classes_grid.model
+    assert cm.rowCount() == len(ed["classes"]) and cm.columnCount() == 2
+    cm.setData(cm.index(0, 1), "9*(2*1000):3")     # col 1 = pattern -> row index 2
+    assert ed["classes"][0][2] == "9*(2*1000):3"
+    n = cm.rowCount()
+    cm.add_row()
+    assert cm.rowCount() == n + 1
+    cm.delete_row(n)
+    assert cm.rowCount() == n
+    assert w.participants_grid.model.rowCount() == len(ed["participants"])
+    assert w.rules_grid.model.rowCount() == len(ed["rules"])
+
+
+def test_races_tab():
+    _app()
+    ed = read_legacy_coz(EVENT)
+    w = MainWindow(ed)
+    rt = w.races_tab
+    assert rt.race_list.count() == len(ed["races"])
+    before = len(ed["races"])
+    rt._add_race()
+    assert len(ed["races"]) == before + 1 and rt.race_list.count() == before + 1
+    rt._delete_race()
+    assert len(ed["races"]) == before
+
+
+def test_scoring_field_parses():
+    _app()
+    w = MainWindow()
+    w.scoring_edit.setText("400 300 225 0.5 x")
+    assert w.eventdata["scoringsystem"] == [400, 300, 225, 0.5]
+
+
+def test_parse_scoring_unit():
+    from cozer.app.grids import parse_scoring
+    assert parse_scoring("10 5 2.5 abc") == [10, 5, 2.5]
+    assert parse_scoring("") == []

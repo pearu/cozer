@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer import reports as R
+from cozer.app.grids import GridTab, RacesTab, parse_scoring
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, read_legacy_coz
 
@@ -65,7 +66,7 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
-        self.tabs.addTab(self._build_event_tab(), "Event")
+        self.tabs.addTab(self._build_geninfo_tab(), "General Information")
         self.tabs.addTab(self._build_reports_tab(), "Reports")
         self.statusBar().showMessage("Ready")
         self._reload_forms()
@@ -133,21 +134,59 @@ class MainWindow(QMainWindow):
         self._refresh_title()
         self.statusBar().showMessage("Saved %s" % path)
 
-    # ---- event tab ----
-    def _build_event_tab(self):
+    # ---- general information tab (event fields + data grids) ----
+    def _build_geninfo_tab(self):
         w = QWidget()
-        form = QFormLayout(w)
+        v = QVBoxLayout(w)
+
+        form_w = QWidget()
+        form = QFormLayout(form_w)
         self._fields = {}
         for key, label in _EVENT_FIELDS:
             edit = QLineEdit()
             edit.textChanged.connect(lambda text, k=key: self.eventdata.__setitem__(k, text))
             self._fields[key] = edit
             form.addRow(label + ":", edit)
+        v.addWidget(form_w)
+
+        sub = QTabWidget()
+        self.classes_grid = GridTab([(1, "Class"), (2, "Race pattern")], 3)
+        self.participants_grid = GridTab(
+            [(1, "Name"), (2, "Surname"), (3, "From"), (4, "Class"), (5, "Id")], 6)
+        self.races_tab = RacesTab()
+
+        rules_w = QWidget()
+        rv = QVBoxLayout(rules_w)
+        srow = QHBoxLayout()
+        srow.addWidget(QLabel("Scoring system:"))
+        self.scoring_edit = QLineEdit()
+        self.scoring_edit.textChanged.connect(
+            lambda text: self.eventdata.__setitem__("scoringsystem", parse_scoring(text)))
+        srow.addWidget(self.scoring_edit)
+        rv.addLayout(srow)
+        self.rules_grid = GridTab([(1, "Action"), (2, "Paragraph"), (3, "Description")], 4)
+        rv.addWidget(self.rules_grid)
+
+        sub.addTab(self.classes_grid, "Classes")
+        sub.addTab(self.participants_grid, "Participants")
+        sub.addTab(self.races_tab, "Races")
+        sub.addTab(rules_w, "Rules")
+        v.addWidget(sub)
         return w
 
+    def _ensure_keys(self):
+        for key in ("classes", "participants", "races", "rules", "scoringsystem"):
+            self.eventdata.setdefault(key, [])
+
     def _reload_forms(self):
+        self._ensure_keys()
         for key, _ in _EVENT_FIELDS:
             self._fields[key].setText(str(self.eventdata.get(key, "")))
+        self.classes_grid.set_data(self.eventdata["classes"])
+        self.participants_grid.set_data(self.eventdata["participants"])
+        self.races_tab.set_data(self.eventdata["races"])
+        self.rules_grid.set_data(self.eventdata["rules"])
+        self.scoring_edit.setText(" ".join(str(x) for x in self.eventdata["scoringsystem"]))
         self._reload_classes()
 
     # ---- reports tab ----
