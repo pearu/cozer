@@ -1,0 +1,89 @@
+"""Shared helpers for building and rendering cozer reports."""
+from cozer.racepattern import crack_race_pattern
+from cozer.reports.labels import get_labels
+from cozer.reports.latexish import latex_to_html
+from cozer.reports.render import TABLE_CSS, page_css
+
+
+def esc(s):
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def display(s):
+    """Render a free-text field (may contain LaTeX) as a safe HTML fragment."""
+    return latex_to_html(s)
+
+
+def get_fullname(first, last):
+    """Combine first/last, supporting ';'-separated multi-driver boats
+    (faithful port of legacy reports.get_fullname)."""
+    first, last = str(first), str(last)
+    if ";" in first and first.count(";") > last.count(";"):
+        last += ";" * (first.count(";") - last.count(";"))
+    if ";" in last and first.count(";") < last.count(";"):
+        first += ";" * (last.count(";") - first.count(";"))
+    if ";" in first and first.count(";") == last.count(";"):
+        return "; ".join("%s %s" % (f, l) for f, l in zip(first.split(";"), last.split(";")))
+    return "%s %s" % (first, last)
+
+
+def participants_index(eventdata):
+    """(class, str(id)) -> (first, last, club), incl. /Q and /T variants."""
+    parts = {}
+    for p in eventdata.get("participants", []):
+        if len(p) < 6:
+            continue
+        first, last, club, cls, pid = p[1], p[2], p[3], p[4], p[5]
+        for c in (cls, cls + "/Q", cls + "/T"):
+            parts[(c, str(pid))] = (first, last, club)
+    return parts
+
+
+def participants_by_class(eventdata):
+    """class -> list of (sortkey, first, last, club, id) sorted by race number."""
+    by_cls = {}
+    for p in eventdata.get("participants", []):
+        if len(p) < 6:
+            continue
+        first, last, club, cls, pid = p[1], p[2], p[3], p[4], p[5]
+        if not cls:
+            continue
+        try:
+            key = int(pid)
+        except (ValueError, TypeError):
+            key = pid
+        by_cls.setdefault(cls, []).append((key, first, last, club, str(pid)))
+    for cls in by_cls:
+        by_cls[cls].sort(key=lambda t: (isinstance(t[0], str), t[0]))
+    return by_cls
+
+
+def sheats_for(eventdata, cl, default):
+    for l in eventdata.get("classes", []):
+        if len(l) > 2 and l[1] == cl and l[2]:
+            try:
+                return crack_race_pattern(l[2], cl)[1]
+            except Exception:
+                return default
+    return default
+
+
+def meta_of(eventdata):
+    return {k: eventdata.get(k, "") for k in ("title", "venue", "date", "officer", "secretary")}
+
+
+def document_html(orientation, labels, meta, heading, body_parts):
+    """Wrap report body (a list of HTML fragments) in a full styled document."""
+    css = page_css(
+        orientation,
+        footer_left="%s  /%s/" % (meta["officer"], labels["OfficeroftheDay"]),
+        footer_center=labels["Page"],
+        footer_right="%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"]),
+    )
+    parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
+    parts.append('<h1 class="event-title">%s</h1>' % display(meta["title"]))
+    parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
+                 % (display(meta["venue"]), display(meta["date"])))
+    parts.append('<h2 class="report-heading">%s</h2>' % display(heading))
+    parts.extend(body_parts)
+    return "\n".join(parts)

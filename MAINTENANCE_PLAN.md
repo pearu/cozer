@@ -414,9 +414,11 @@ the single-document view; keep the plan as the living design doc.
 - ✅ **Full Final** (landscape) built from the proven core (`build_full_final`), **owner-signed-off
   on quality**; tests: LaTeX decoder, result formatting / break-at-slash, model assembly vs
   `sumanalyze`/`getsumresorder`, landscape + page-fit rendering.
-- ☐ Remaining reports: Participants, Intermediate, Short Final, Endurance Full Final, Check
-  List, Laps Protocol, Info/Registration letters; localized labels (en/et from the legacy
-  `data/*_cozer.tex`).
+- ✅ Short Final (portrait), Participants + Drivers-Meeting Check List — with **localized
+  labels** (en/et, `cozer/reports/labels.py`, extracted from the legacy `*_cozer.tex`) and
+  shared helpers (`cozer/reports/common.py`).
+- ☐ Remaining reports: Intermediate, Endurance Full Final, Laps Protocol, Info/Registration
+  letters. Then a coverage sweep to ~100% across the reports package.
 - ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener for the produced PDF.
 - **Gate:** hardest report (Full Final) signed off ✅ → converting the rest.
 

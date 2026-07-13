@@ -15,8 +15,22 @@ from cozer.analyzer import analyze, sumanalyze, getsumresorder  # noqa: E402
 from cozer.reports.latexish import latex_to_html  # noqa: E402
 from cozer.reports.final import (  # noqa: E402
     build_full_final, full_final_html, _result_text, _sheats,
+    build_short_final, short_final_html,
 )
+from cozer.reports import participants as P  # noqa: E402
+from cozer.reports.common import participants_by_class  # noqa: E402
+from cozer.reports.labels import get_labels  # noqa: E402
 from cozer.reports.render import render_pdf_bytes  # noqa: E402
+
+
+def _fits_portrait(pdf):
+    doc = fitz.open(stream=pdf, filetype="pdf")
+    for pg in doc:
+        assert pg.rect.height > pg.rect.width
+        maxx = max((ln["bbox"][2] for b in pg.get_text("dict")["blocks"]
+                    for ln in b.get("lines", [])), default=0.0)
+        assert maxx <= pg.rect.width - 5
+    return "".join(pg.get_text() for pg in doc)
 
 EVENT = os.path.join(REPO, "legacy", "events", "wc2000.coz")
 
@@ -79,3 +93,37 @@ def test_full_final_renders_landscape_and_fits():
                     for ln in b.get("lines", [])), default=0.0)
         assert maxx <= pg.rect.width - 5                # nothing overflows the page
     assert "Final Results" in "".join(pg.get_text() for pg in doc)
+
+
+def test_short_final_portrait_and_fits():
+    ed = read_legacy_coz(EVENT)
+    model = build_short_final(ed)
+    assert model["orientation"] == "portrait" and model["full"] is False
+    text = _fits_portrait(render_pdf_bytes(short_final_html(model)))
+    assert "Final Results" in text
+
+
+def test_participants_report():
+    ed = read_legacy_coz(EVENT)
+    model = P.build_participants(ed)
+    by = participants_by_class(ed)
+    assert model["tables"] and all(len(t["rows"]) == len(by[t["class"]]) for t in model["tables"])
+    text = _fits_portrait(render_pdf_bytes(P.participants_html(model)))
+    assert "Dubinin" in text and "Registered competitors" in text
+
+
+def test_checklist_landscape():
+    ed = read_legacy_coz(EVENT)
+    model = P.build_checklist(ed)
+    assert model["orientation"] == "landscape"
+    doc = fitz.open(stream=render_pdf_bytes(P.checklist_html(model)), filetype="pdf")
+    assert doc[0].rect.width > doc[0].rect.height
+    assert "Meeting" in "".join(pg.get_text() for pg in doc)
+
+
+def test_localization():
+    assert get_labels({})["FinalResults"] == "Final Results"
+    et = {"configure": {"language": "Estonian"}, "record": {}, "classes": [],
+          "participants": [], "scoringsystem": []}
+    assert get_labels(et)["FinalResults"] == "Tulemused"
+    assert build_short_final(et)["heading"] == "Tulemused"

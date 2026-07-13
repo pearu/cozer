@@ -1,60 +1,16 @@
-"""Full Final results report.
-
-Builds a structured report model from ``eventdata`` and the proven scoring core
-(``analyze`` + ``sumanalyze``), then renders print-quality HTML/PDF. The model
-values come entirely from equivalence-proven functions; only the assembly and
-presentation are new (see MAINTENANCE_PLAN.md Phase 4).
-"""
+"""Full Final (landscape, per-heat + summary) and Short Final (portrait,
+summary only) results reports, built from the proven scoring core."""
 import copy
 
 from cozer.analyzer import analyze, sumanalyze, getsumresorder
 from cozer.classes import getclass
-from cozer.racepattern import crack_race_pattern, get_classes
-from cozer.reports.render import TABLE_CSS, page_css, render_pdf
-from cozer.reports.latexish import latex_to_html
-
-
-def _esc(s):
-    return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
-
-
-def _display(s):
-    """Render a free-text field (may contain LaTeX) as a safe HTML fragment."""
-    return latex_to_html(s)
-
-
-def get_fullname(first, last):
-    """Combine first/last, supporting ';'-separated multi-driver boats
-    (faithful port of legacy reports.get_fullname)."""
-    first, last = str(first), str(last)
-    if ";" in first and first.count(";") > last.count(";"):
-        last += ";" * (first.count(";") - last.count(";"))
-    if ";" in last and first.count(";") < last.count(";"):
-        first += ";" * (last.count(";") - first.count(";"))
-    if ";" in first and first.count(";") == last.count(";"):
-        return "; ".join("%s %s" % (f, l) for f, l in zip(first.split(";"), last.split(";")))
-    return "%s %s" % (first, last)
-
-
-def _participants_index(eventdata):
-    parts = {}
-    for p in eventdata.get("participants", []):
-        if len(p) < 6:
-            continue
-        first, last, club, cls, pid = p[1], p[2], p[3], p[4], p[5]
-        for c in (cls, cls + "/Q", cls + "/T"):
-            parts[(c, str(pid))] = (first, last, club)
-    return parts
-
-
-def _sheats(eventdata, cl, default):
-    for l in eventdata.get("classes", []):
-        if len(l) > 2 and l[1] == cl and l[2]:
-            try:
-                return crack_race_pattern(l[2], cl)[1]
-            except Exception:
-                return default
-    return default
+from cozer.racepattern import get_classes
+from cozer.reports.common import (
+    esc, display, get_fullname, participants_index, sheats_for as _sheats,
+    meta_of, document_html,
+)
+from cozer.reports.labels import get_labels, LABELS, RECCODE_LABEL
+from cozer.reports.render import render_pdf
 
 
 def _legend_index(legend, code, rules):
@@ -65,8 +21,8 @@ def _legend_index(legend, code, rules):
 
 
 def _result_text(r, legend):
-    """Per-heat result cell (adapted from legacy res2latex): speeds and any
-    note codes with footnote references. Same information, HTML presentation."""
+    """Per-heat result cell (adapted from legacy res2latex): speeds + note codes
+    with footnote references. Numbers break only at the slash."""
     laps, penlapsleft, lapsleft = r["lapinfo"]
     text = ""
     if r["points"] >= 0:
@@ -82,20 +38,34 @@ def _result_text(r, legend):
     for code in notes:
         rules = notes[code]
         if not rules:
-            parts.append(_esc(code))
+            parts.append(esc(code))
         else:
-            parts.append("%s<sup>%s</sup>" % (_esc(code), _legend_index(legend, code, rules)))
+            parts.append("%s<sup>%s</sup>" % (esc(code), _legend_index(legend, code, rules)))
     return " ".join(parts).strip() or "-"
 
 
-def build_full_final(eventdata, classes=None, heat_map=None):
-    """Return a report model: title/meta + one table per class with per-heat
-    results and summary standings, ordered by ``getsumresorder``."""
+def _legend_html(legend, labels):
+    """Footnotes (¹ rule-text) + code glossary (DQ = Disqualif.) + result note."""
+    foot, codes = [], []
+    for (code, rules), idx in sorted(legend.items(), key=lambda kv: kv[1]):
+        foot.append("<sup>%s</sup> %s" % (idx, display(rules)))
+        if code not in codes:
+            codes.append(code)
+    bits = [esc(labels["ResNote"])] + foot
+    for code in codes:
+        lab = labels.get(RECCODE_LABEL.get(code, ""))
+        if lab:
+            bits.append("%s = %s" % (esc(code), esc(lab)))
+    return "; ".join(bits)
+
+
+def _build(eventdata, classes, heat_map, orientation, full):
     record = eventdata.get("record", {})
     ss = eventdata.get("scoringsystem", [])
+    labels = get_labels(eventdata)
     if classes is None:
         classes = [c for c in get_classes(eventdata) if c in record]
-    parts = _participants_index(eventdata)
+    parts = participants_index(eventdata)
     tables = []
     for cl in classes:
         if cl not in record:
@@ -113,13 +83,9 @@ def build_full_final(eventdata, classes=None, heat_map=None):
             names = get_fullname(first, last).split(";")
             sr = sumres[pid]
             scored = sr["place"] > 0
-            heatcells = []
-            for h in heats:
-                r = res[h][pid]
-                heatcells.append({
-                    "result": _result_text(r, legend),
-                    "points": str(r["points"]) if r["place"] > 0 else "-",
-                })
+            heatcells = [{"result": _result_text(res[h][pid], legend),
+                          "points": str(res[h][pid]["points"]) if res[h][pid]["place"] > 0 else "-"}
+                         for h in heats]
             rows.append({
                 "place": str(sr["place"]) if scored else "",
                 "name": names[0].strip(),
@@ -130,84 +96,94 @@ def build_full_final(eventdata, classes=None, heat_map=None):
                 "best": ("%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if scored else "-",
                 "sumpoints": str(sr["points"]) if scored else "-",
             })
-        tables.append({
-            "class": getclass(cl),
-            "heats": heats,
-            "rows": rows,
-            "legend": [{"index": i, "code": k[0], "rules": k[1]}
-                       for k, i in sorted(legend.items(), key=lambda kv: kv[1])],
-        })
-    return {
-        "title": eventdata.get("title", ""),
-        "venue": eventdata.get("venue", ""),
-        "date": eventdata.get("date", ""),
-        "officer": eventdata.get("officer", ""),
-        "secretary": eventdata.get("secretary", ""),
-        "heading": "Final Results",
-        "orientation": "landscape",
-        "tables": tables,
-    }
+        tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
+                       "legend": _legend_html(legend, labels)})
+    return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
+            "full": full, "heading": labels["FinalResults"], "tables": tables}
 
 
-def _table_html(t):
+def build_full_final(eventdata, classes=None, heat_map=None):
+    return _build(eventdata, classes, heat_map, "landscape", True)
+
+
+def build_short_final(eventdata, classes=None, heat_map=None):
+    return _build(eventdata, classes, heat_map, "portrait", False)
+
+
+def _table_html(t, labels, full):
+    L = labels
     heats = t["heats"]
-    ncols = 4 + 2 * len(heats) + 2
-    head1 = '<tr><th colspan="4"></th>'
-    for h in heats:
-        head1 += '<th class="num" colspan="2">Heat %s</th>' % _esc(h)
-    head1 += '<th class="num" colspan="2">Summary</th></tr>'
-    head2 = ('<tr><th class="num">Pl</th><th>Name</th><th>From</th><th class="num">No</th>'
-             + '<th class="num">Res</th><th class="num">Pts</th>' * len(heats)
-             + '<th class="num">Res</th><th class="num">Pts</th></tr>')
+    if full:
+        pair = 57.0 / len(heats) if heats else 57.0
+        cols = ['<col style="width:4%">', '<col style="width:15%">',
+                '<col style="width:8%">', '<col style="width:4.5%">']
+        for _h in heats:
+            cols.append('<col style="width:%.2f%%">' % (pair * 0.58))
+            cols.append('<col style="width:%.2f%%">' % (pair * 0.42))
+        cols += ['<col style="width:7%">', '<col style="width:5%">']
+        head1 = ('<tr><th colspan="4"></th>'
+                 + "".join('<th class="num" colspan="2">%s %s</th>' % (esc(L["Heat"]), esc(h)) for h in heats)
+                 + '<th class="num" colspan="2">%s</th></tr>' % esc(L["Summary"]))
+        head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
+                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]))
+                 + ('<th class="num">%s</th><th class="num">%s</th>' % (esc(L["Res"]), esc(L["Pts"]))) * len(heats)
+                 + '<th class="num">%s</th><th class="num">%s</th></tr>' % (esc(L["Res"]), esc(L["Pts"])))
+        fs = max(6.5, 9.0 - 0.45 * max(0, len(heats) - 3))
+    else:
+        cols = ['<col style="width:8%">', '<col style="width:44%">',
+                '<col style="width:20%">', '<col style="width:8%">',
+                '<col style="width:12%">', '<col style="width:8%">']
+        head1 = ""
+        head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
+                 '<th class="num">%s</th><th class="num">%s</th></tr>'
+                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
+                    esc(L["Results"]), esc(L["Points"])))
+        fs = 9.0
+    ncols = (4 + 2 * len(heats) + 2) if full else 6
     body = []
     for row in t["rows"]:
         cells = ('<td class="num">%s</td><td class="name">%s</td><td>%s</td><td class="num">%s</td>'
-                 % (_esc(row["place"]), _display(row["name"]), _display(row["from"]), _esc(row["id"])))
-        for hc in row["heats"]:
-            cells += '<td class="num">%s</td><td class="num">%s</td>' % (hc["result"], _esc(hc["points"]))
+                 % (esc(row["place"]), display(row["name"]), display(row["from"]), esc(row["id"])))
+        if full:
+            for hc in row["heats"]:
+                cells += '<td class="num">%s</td><td class="num">%s</td>' % (hc["result"], esc(hc["points"]))
         cells += ('<td class="num summary">%s</td><td class="num summary">%s</td>'
-                  % (_esc(row["best"]), _esc(row["sumpoints"])))
+                  % (esc(row["best"]), esc(row["sumpoints"])))
         body.append("<tr>%s</tr>" % cells)
         for extra in row["extra"]:
             body.append('<tr class="sub"><td></td><td class="name">%s</td><td colspan="%d"></td></tr>'
-                        % (_display(extra), ncols - 2))
-    # colgroup widths (sum ~100%) so table-layout:fixed always fits the page width
-    pair = 57.0 / len(heats) if heats else 57.0
-    cols = ['<col style="width:3.5%">', '<col style="width:15%">',
-            '<col style="width:8%">', '<col style="width:4.5%">']
-    for _h in heats:
-        cols.append('<col style="width:%.2f%%">' % (pair * 0.58))
-        cols.append('<col style="width:%.2f%%">' % (pair * 0.42))
-    cols += ['<col style="width:7%">', '<col style="width:5%">']
+                        % (display(extra), ncols - 2))
     colgroup = "<colgroup>%s</colgroup>" % "".join(cols)
-    fs = max(6.5, 9.0 - 0.45 * max(0, len(heats) - 3))   # shrink many-heat tables
-    html = '<h3 class="class-heading">Class %s</h3>' % _display(t["class"])
+    html = '<h3 class="class-heading">%s %s</h3>' % (esc(L["Class"]), display(t["class"]))
     html += ('<table class="results" style="font-size:%.1fpt">%s<thead>%s%s</thead>'
              '<tbody>%s</tbody></table>' % (fs, colgroup, head1, head2, "".join(body)))
     if t["legend"]:
-        leg = "; ".join('<sup>%d</sup> %s = %s' % (e["index"], _esc(e["code"]), _display(e["rules"]))
-                        for e in t["legend"])
-        html += '<div class="legend">%s</div>' % leg
+        html += '<div class="legend">%s</div>' % t["legend"]
     return html
 
 
+def _results_html(model):
+    body = [_table_html(t, model["labels"], model["full"]) for t in model["tables"]]
+    return document_html(model["orientation"], model["labels"], model["meta"], model["heading"], body)
+
+
 def full_final_html(model):
-    css = page_css(model["orientation"],
-                   footer_left="%s  /Officer of the Day/" % model["officer"],
-                   footer_center="Page",
-                   footer_right="%s  /Secretary/" % model["secretary"])
-    parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
-    parts.append('<h1 class="event-title">%s</h1>' % _display(model["title"]))
-    parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
-                 % (_display(model["venue"]), _display(model["date"])))
-    parts.append('<h2 class="report-heading">%s</h2>' % _display(model["heading"]))
-    for t in model["tables"]:
-        parts.append(_table_html(t))
-    return "\n".join(parts)
+    return _results_html(model)
+
+
+def short_final_html(model):
+    return _results_html(model)
 
 
 def render_full_final(eventdata, out_path, classes=None, heat_map=None):
     model = build_full_final(eventdata, classes, heat_map)
     html = full_final_html(model)
+    render_pdf(html, out_path)
+    return model, html
+
+
+def render_short_final(eventdata, out_path, classes=None, heat_map=None):
+    model = build_short_final(eventdata, classes, heat_map)
+    html = short_final_html(model)
     render_pdf(html, out_path)
     return model, html

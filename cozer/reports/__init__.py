@@ -4,6 +4,18 @@ and render them to print-quality PDF via HTML/CSS (WeasyPrint, offline).
 The same HTML templates are intended to feed the online/live view later
 (Phase 7), so report content and live output share one source.
 """
-from cozer.reports.final import build_full_final, full_final_html, render_full_final
+from cozer.reports.final import (
+    build_full_final, full_final_html, render_full_final,
+    build_short_final, short_final_html, render_short_final,
+)
+from cozer.reports.participants import (
+    build_participants, participants_html, render_participants,
+    build_checklist, checklist_html, render_checklist,
+)
 
-__all__ = ["build_full_final", "full_final_html", "render_full_final"]
+__all__ = [
+    "build_full_final", "full_final_html", "render_full_final",
+    "build_short_final", "short_final_html", "render_short_final",
+    "build_participants", "participants_html", "render_participants",
+    "build_checklist", "checklist_html", "render_checklist",
+]
