@@ -392,14 +392,18 @@ the single-document view; keep the plan as the living design doc.
 - ☐ `reports` **content** generation (HTML/CSS templates arrive in Phase 4).
 - **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
-### Phase 3 — Robust persistence
-- **Atomic writes** (`tmp` + `fsync` + `os.replace`; atomic on Win + Linux).
-- **Append-only journal (WAL)** during timing: every recorded click/mark/edit is appended
-  and fsync'd; **crash-replay recovery** rebuilds state to the last consistent point.
-- **Rotating backups** + periodic full snapshots; **JSON** as the inspectable canonical form.
-- Keep reading/writing legacy `.coz` for interop with old cozer.
-- **Tests:** kill-during-write fuzz, journal replay, simulated power loss, backup rotation.
-- **Deliverable:** "power loss at any instant ⇒ recover all recorded data."
+### Phase 3 — Robust persistence  *(library core done)*
+- ✅ `cozer/store.py`: atomic snapshot writes (`tmp` + `fsync` + `os.replace`; atomic on
+  Win + Linux) with rotating backups; append-only **journal** fsync'd per recorded mutation;
+  **crash-replay recovery** on open (snapshot + journal), tolerant of a torn final line;
+  human-readable JSON snapshot; legacy `.coz` import + lossless JSON codec. It is the *safety
+  kernel* — recording durability does not depend on analysis/reports/GUI.
+- ✅ **Tests (55 total; `store.py` 100%):** codec round-trip + analyze-through-store
+  equivalence, atomic-write failure (original preserved, no temp leak), **power-loss journal
+  replay**, truncated-journal tolerance, backup rotation.
+- ☐ Wire the store into the recording path (Phase 5 GUI): autosave on by default, journal
+  each lap/mark/edit as it happens.
+- **Deliverable (met at the library level):** power loss at any instant ⇒ all journaled data recovers.
 
 ### Phase 4 — Portable report rendering (offline)
 - Rewrite the 9 reports as **HTML/CSS**, render to PDF with **WeasyPrint** (fully offline).
