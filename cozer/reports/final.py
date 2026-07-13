@@ -130,9 +130,10 @@ def _table_html(t, labels, full):
                  + '<th class="num">%s</th><th class="num">%s</th></tr>' % (esc(L["Res"]), esc(L["Pts"])))
         fs = max(6.5, 9.0 - 0.45 * max(0, len(heats) - 3))
     else:
-        cols = ['<col style="width:8%">', '<col style="width:44%">',
-                '<col style="width:20%">', '<col style="width:8%">',
-                '<col style="width:12%">', '<col style="width:8%">']
+        # Place, Name, From, No, Results, Points — Results needs room for "45.6/48.2".
+        cols = ['<col style="width:7%">', '<col style="width:38%">',
+                '<col style="width:15%">', '<col style="width:8%">',
+                '<col style="width:20%">', '<col style="width:12%">']
         head1 = ""
         head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
                  '<th class="num">%s</th><th class="num">%s</th></tr>'

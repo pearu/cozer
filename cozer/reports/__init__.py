@@ -12,10 +12,22 @@ from cozer.reports.participants import (
     build_participants, participants_html, render_participants,
     build_checklist, checklist_html, render_checklist,
 )
+from cozer.reports.intermediate import (
+    build_intermediate, intermediate_html, render_intermediate,
+)
+from cozer.reports.laps import (
+    build_laps_protocol, laps_protocol_html, render_laps_protocol,
+)
+from cozer.reports.endurance import (
+    build_endurance_final, endurance_final_html, render_endurance_final,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
     "build_short_final", "short_final_html", "render_short_final",
     "build_participants", "participants_html", "render_participants",
     "build_checklist", "checklist_html", "render_checklist",
+    "build_intermediate", "intermediate_html", "render_intermediate",
+    "build_laps_protocol", "laps_protocol_html", "render_laps_protocol",
+    "build_endurance_final", "endurance_final_html", "render_endurance_final",
 ]

@@ -417,8 +417,10 @@ the single-document view; keep the plan as the living design doc.
 - ✅ Short Final (portrait), Participants + Drivers-Meeting Check List — with **localized
   labels** (en/et, `cozer/reports/labels.py`, extracted from the legacy `*_cozer.tex`) and
   shared helpers (`cozer/reports/common.py`).
-- ☐ Remaining reports: Intermediate, Endurance Full Final, Laps Protocol, Info/Registration
-  letters. Then a coverage sweep to ~100% across the reports package.
+- ✅ Intermediate (portrait), Laps Counter Protocol (portrait), Endurance Full Final
+  (landscape). Coverage swept — 77 tests, 97% overall (reports modules 90–100%, core 98–100%).
+- ☐ Info Letter + Registration Letter (static text ported from the legacy
+  `\cozerinfoletter` / `\cozerregistrationletter` macros).
 - ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener for the produced PDF.
 - **Gate:** hardest report (Full Final) signed off ✅ → converting the rest.
 

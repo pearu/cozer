@@ -6,6 +6,7 @@ import os
 import sys
 
 import fitz
+import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -127,3 +128,99 @@ def test_localization():
           "participants": [], "scoringsystem": []}
     assert get_labels(et)["FinalResults"] == "Tulemused"
     assert build_short_final(et)["heading"] == "Tulemused"
+
+
+def test_intermediate_report():
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    ed = read_legacy_coz(EVENT)
+    model = build_intermediate(ed)
+    assert model["tables"]
+    text = _fits_portrait(render_pdf_bytes(intermediate_html(model)))
+    assert "Intermediate Results" in text
+
+
+def test_laps_protocol_report():
+    from cozer.reports.laps import build_laps_protocol, laps_protocol_html
+    ed = read_legacy_coz(EVENT)
+    model = build_laps_protocol(ed)
+    assert model["tables"]
+    text = _fits_portrait(render_pdf_bytes(laps_protocol_html(model)))
+    assert "Laps Counter Protocol" in text
+
+
+def test_endurance_final_report():
+    from cozer.reports.endurance import build_endurance_final, endurance_final_html, sec2time
+    assert sec2time(3661) == "01:01:01" and sec2time(None) == "-"
+    assert sec2time(-30.0).startswith("- ")
+    ed = read_legacy_coz(os.path.join(REPO, "legacy", "events", "Endurance_EC1_Parnu_2013.coz"))
+    model = build_endurance_final(ed)
+    assert model["orientation"] == "landscape" and model["tables"]
+    doc = fitz.open(stream=render_pdf_bytes(endurance_final_html(model)), filetype="pdf")
+    for pg in doc:
+        assert pg.rect.width > pg.rect.height
+        maxx = max((ln["bbox"][2] for b in pg.get_text("dict")["blocks"]
+                    for ln in b.get("lines", [])), default=0.0)
+        assert maxx <= pg.rect.width - 5
+    assert "Total Laps" in "".join(pg.get_text() for pg in doc)
+
+
+# --- coverage sweep -------------------------------------------------------
+
+@pytest.mark.parametrize("render_name,event", [
+    ("render_full_final", "wc2000"), ("render_short_final", "wc2000"),
+    ("render_participants", "wc2000"), ("render_checklist", "wc2000"),
+    ("render_intermediate", "wc2000"), ("render_laps_protocol", "wc2000"),
+    ("render_endurance_final", "Endurance_EC1_Parnu_2013"),
+])
+def test_render_wrappers_write_valid_pdf(tmp_path, render_name, event):
+    import cozer.reports as R
+    ed = read_legacy_coz(os.path.join(REPO, "legacy", "events", event + ".coz"))
+    out = str(tmp_path / (render_name + ".pdf"))
+    getattr(R, render_name)(ed, out)
+    assert os.path.getsize(out) > 500
+    fitz.open(out).close()
+
+
+def test_latex_to_html_more():
+    from cozer.reports.latexish import latex_to_html
+    assert latex_to_html(r"\ss") == "ß"
+    assert latex_to_html(r"\u{g}") == "ğ"
+    assert latex_to_html(r"\H{o}") == "ő"
+    assert latex_to_html(r"\r{u}") == "ů"
+    assert latex_to_html(r"\c{c}") == "ç"
+    assert latex_to_html(r"M \& M") == "M &amp; M"
+    assert latex_to_html(r"a\,b") == "a b"
+    assert latex_to_html("x^2") == "x<sup>2</sup>"
+    assert latex_to_html(r"\v{q}") == "q"        # unmapped accent -> bare letter
+    assert latex_to_html(r"\'{") == ""           # unclosed brace argument
+
+
+def test_common_helpers():
+    from cozer.reports.common import get_fullname, sheats_for, esc, display
+    assert get_fullname("A;B", "X;Y") == "A X; B Y"
+    assert get_fullname("John", "Doe") == "John Doe"
+    get_fullname("A;B", "X")                       # exercises last-padding branch
+    get_fullname("A", "X;Y")                       # exercises first-padding branch
+    assert sheats_for({"classes": []}, "Z", 3) == 3
+    assert esc("<&>") == "&lt;&amp;&gt;"
+    assert display("313.04_4") == "313.04<sub>4</sub>"
+
+
+def test_get_labels_bad_input():
+    assert get_labels("not a dict")["Place"] == "Place"        # exception -> English
+    assert get_labels({"configure": {"language": "Klingon"}})["Place"] == "Place"
+
+
+def test_intermediate_timetrial_and_multidriver():
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    ed = {
+        "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
+        "classes": [["x", "TT", "2*(2*1000):1"]],
+        "participants": [["x", "A;B", "One;Two", "EST", "TT", "1"],
+                         ["x", "C", "Three", "FIN", "TT", "2"]],
+        "record": {"TT": {"1t": [{"course": [1000, 1000], "racetime": 1000.0},
+                                 {"1": [(1, 20.0), (1, 21.0)], "2": [(1, 22.0)]}]}},
+    }
+    html = intermediate_html(build_intermediate(ed))
+    assert "Lap Time" in html                      # time-trial column header
+    assert "One" in html and "Two" in html         # multi-driver rows
