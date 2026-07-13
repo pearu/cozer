@@ -6,8 +6,9 @@ This document is the source of truth for modernizing COZER. The original Python-
 has been moved to **`legacy/`** (it must remain functional under Python 2); the new
 implementation is built fresh as the **`cozer/`** package. The transition proceeds
 **gradually**, **with tests**, and with a **proof that the new core behaves identically to
-legacy**. Every phase is independently approvable; **`legacy/` stays untouched** (used only
-as the bug-for-bug reference) until the new `cozer` becomes the default.
+legacy**. Every phase is independently approvable; **`legacy/` stays untouched and must remain
+runnable permanently, independent of phase** (used as the bug-for-bug reference). The new
+`cozer` becomes the default at cutover (Phase 6); `legacy/` keeps working regardless.
 
 ---
 
@@ -181,7 +182,8 @@ README.md
 ```
 
 - Each ported module is accepted only when its **equivalence tests pass** (Section 6).
-- `legacy/` stays runnable throughout; Phase 6 only flips the default entry point.
+- **`legacy/` must remain runnable at all times, independent of phase** (never modified by
+  the port); Phase 6 only flips the default entry point.
 
 ---
 
@@ -300,12 +302,31 @@ the new `cozer` at a later event.
 **Decision (2026-07-13):** proceed for now **assuming the new `cozer` can be ready** for this
 event; **revisit this timeline risk ~2026-07-20** with a week of progress to judge against.
 
+### 6.8 Known py2 → py3 porting hazards (equivalence-critical)
+
+Confirmed during Phase 1; the port (Phase 2) must reproduce legacy behavior exactly:
+
+- **`round()` differs**: py2 rounds half **away from zero**; py3 rounds half to **even**.
+  The analyzer rounds speeds to 2 decimals (`roundopt=2`), so the port must emulate py2
+  rounding rather than call py3 `round()`.
+- **Integer division**: legacy relies on py2 `/` doing integer division in places
+  (confirmed `1/2 == 0` under py2.7); the port must use `//` where legacy did int division.
+- **String convention**: goldens use the `USE_UNICODE=0` path (no str↔unicode re-encoding);
+  the port loads legacy `.coz` with `pickle.load(..., encoding='latin-1')` and applies the
+  same canonicalization (`tools/golden_io.py`) so text compares identically.
+- **Dict ordering**: legacy sorts wherever order is user-visible; goldens canonicalize with
+  sorted keys, so py2/py3 dict-iteration differences don't affect comparison.
+
 ---
 
 ## 7. Phased plan
 
-Each phase ends with an **owner approval gate**. Old `cozer/` remains runnable throughout
-Phases 0–5.
+Each phase ends with an **owner approval gate**. **`legacy/` must remain runnable at all
+times, independent of phase** (including after cutover) — it is never modified by the port.
+
+**Task tracking:** for now this plan (esp. the phase checklists) *is* the task list. Switch
+to **GitHub issues** later, once the project is far enough along that issue tracking beats
+the single-document view; keep the plan as the living design doc.
 
 ### Phase 0 — Scaffolding & environment
 - Create mamba env **`cozer`** (py3.13) and **`cozer-ref`** (py2.7).
@@ -314,10 +335,15 @@ Phases 0–5.
 - Set up pytest + CI (GitHub Actions: Linux **and** Windows).
 - **Deliverable:** reproducible env + green empty test run on both OSes.
 
-### Phase 1 — Lock the core (reference = old cozer)
-- `tools/wx_shim.py` + `tools/refharness.py`.
-- Generate `tests/golden/` from old cozer over all events + synthetic edge cases.
-- **Deliverable:** frozen equivalence baseline. No cozer logic yet.
+### Phase 1 — Lock the core (reference = legacy)  *(in progress)*
+- ✅ `tools/wx_shim.py` (fake wx for py2.7), `tools/golden_io.py` (shared py2/py3
+  canonical JSON), `tools/refharness.py`.
+- ✅ Generated `tests/golden/analyze/` from the legacy core over all events
+  (10 files, 115 class/heat records: `analyze` + input mutations + `resorder` +
+  `countlaps`); verified reproducible (regeneration is a no-op diff).
+- ☐ Extend goldens to `sumanalyze` and report `.tex` text; add synthetic edge
+  cases (interruption / restart / qualification / time-trial / endurance thresholds).
+- **Deliverable:** frozen equivalence baseline (analyzer core done; extensions pending).
 
 ### Phase 2 — Port headless core to cozer
 - Port to Python 3 (no wx): headless `prefs` helpers, `analyzer`, data-model logic
