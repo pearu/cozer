@@ -216,6 +216,7 @@ def _recorded_event():
         "participants": [["x", "A", "One", "EST", "GT", "1"],
                          ["x", "B", "Two", "FIN", "GT", "2"]],
         "races": [[["x", "GT", "1"]]],
+        "rules": [["", "DQ", "313.4", "Disqualification"]],
         "record": {"GT": {"1": [
             {"course": [1000, 1000, 1000], "racetime": 100.0, "sheats": 1, "duration": None},
             {"1": [[1, 20.0], [1, 21.0], [1, 22.0]], "2": [[1, 25.0], [1, 26.0], [1, 27.0]]},
@@ -224,47 +225,175 @@ def _recorded_event():
     }
 
 
-def test_editor_reload_and_edits(tmp_path, monkeypatch):
+def test_mark_positions():
+    # laps at cumulative time, event marks at their absolute time
+    from cozer.app.editor import mark_positions
+    pos = mark_positions([[1, 20.0], [12, 5.0, "x"], [1, 21.0], [-1, 3.0]])
+    assert [p[0] for p in pos] == ["lap", "event", "lap", "displap"]
+    assert [round(p[1], 1) for p in pos] == [20.0, 5.0, 41.0, 44.0]
+    # a disabled lap's time carries into the next lap's displayed time (dtime)
+    assert pos[0][3] == "20.0"
+    assert mark_positions([[1]])[0][1] == 0        # bare code, no time -> t=0
+
+
+def test_insert_lap_split_unit():
+    from cozer.app.editor import insert_lap_split
+    marks = [[1, 20.0], [1, 20.0]]            # cumulative 20, 40
+    insert_lap_split(marks, 30.0)
+    assert marks == [[1, 20.0], [2, 10.0], [1, 10.0]]
+    marks = [[1, 20.0]]                        # beyond the last lap -> append
+    insert_lap_split(marks, 50.0)
+    assert marks[-1] == [2, 30.0]
+
+
+def test_toggle_and_delete_nearest_unit():
+    from cozer.app.editor import delete_nearest, toggle_nearest
+    coef = 10.0                                # px/s; tol 5px -> within 0.5s
+    marks = [[1, 20.0], [12, 5.0, "x"], [1, 21.0]]
+    assert toggle_nearest(marks, 20.0, coef) and marks[0][0] == -1        # lap by cumulative time
+    assert toggle_nearest(marks, 5.0, coef) and marks[1][0] == -12        # event by absolute time
+    assert delete_nearest(marks, 5.0, coef) is None
+    assert not any(abs(m[0]) == 12 for m in marks)
+    assert toggle_nearest([[1, 20.0]], 999.0, coef) is False              # nothing near -> no-op
+    msg = delete_nearest([[1, 20.0]], 20.0, coef)                         # timed laps protected
+    assert msg and "lap" in msg.lower()
+    # deleting an inserted lap (code 2) merges its time into the following lap
+    ins = [[1, 20.0], [2, 10.0], [1, 11.0]]                               # cumulative 20, 30, 41
+    assert delete_nearest(ins, 30.0, coef) is None
+    assert [m[0] for m in ins] == [1, 1] and ins[1][1] == 21.0
+
+
+def test_editor_panel_journaled_edits(tmp_path, monkeypatch):
     _app()
     w = MainWindow(_recorded_event())
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     ep = w.editor_panel
     ep.reload()
     assert ep.heat_combo.count() == 1
-    assert [ep.boat_combo.itemText(i) for i in range(ep.boat_combo.count())] == ["1", "2"]
-    assert ep.marks.rowCount() == 3
+    assert ep.timeline._rows and ep.timeline._rows[0][1]        # result shown in the row header
     rec = w.eventdata["record"]["GT"]["1"]
     jpath = str(tmp_path / "e.cozj.journal")
-    ep.insert_mark("GT", "1", "1", 12, 5.0, "foul")     # 12 = DQ
+    ep.insert_rule_mark("GT", "1", "1", 12, 5.0, "foul")        # 12 = DQ, at t=5
     assert any(m[0] == 12 for m in rec[1]["1"])
-    ep.toggle_mark("GT", "1", "1", 0)
-    assert rec[1]["1"][0][0] < 0                          # disabled
-    n = len(rec[1]["1"])
-    ep.delete_mark("GT", "1", "1", 0)
-    assert len(rec[1]["1"]) == n - 1
-    ep.set_racetime("GT", "1", 90.0)
-    assert rec[0]["racetime"] == 90.0
-    assert os.path.getsize(jpath) > 0                     # every edit journaled + fsync'd
-    assert ep.results.toPlainText()                       # live results preview
+    ep.insert_lap("GT", "1", "1", 30.0)                         # split a lap
+    assert any(m[0] == 2 for m in rec[1]["1"])
+    ep.toggle_at("GT", "1", "1", 20.0)                          # disable the lap at cumulative 20
+    assert any(m[0] == -1 for m in rec[1]["1"])
+    ep.delete_at("GT", "1", "1", 5.0)                           # delete the DQ event mark
+    assert not any(abs(m[0]) == 12 for m in rec[1]["1"])
+    ep.commit_racetime(88.0)
+    assert rec[0]["racetime"] == 88.0
+    assert os.path.getsize(jpath) > 0                           # every edit journaled + fsync'd
 
 
-def test_code_label():
-    from cozer.app.editor import code_label
-    assert code_label(1) == "lap" and code_label(-1) == "(off) lap"
-    assert code_label(2) == "ins. lap"
-    assert code_label(12) == "DQ" and code_label(-12) == "(off) DQ"
-
-
-def test_insert_mark_dialog_values():
+def test_timeline_widget_coords():
     _app()
-    from cozer.app.editor import InsertMarkDialog
+    from cozer.app.editor import HEADER_W, ROW_H, TOP
+    w = MainWindow(_recorded_event())
+    tl = w.editor_panel.timeline
+    tl.set_data([("1", "hdr", [[1, 20.0]])], 100.0, 50.0, 8.0)
+    assert tl.x_of(0) == HEADER_W
+    assert abs(tl.x_of(10) - (HEADER_W + 80)) < 1e-6
+    assert abs(tl.t_of(tl.x_of(10)) - 10.0) < 1e-6
+    assert tl.row_at(5) == -1                                   # above the first row
+    assert tl.row_at(TOP + 5) == 0
+    assert tl.row_at(TOP + ROW_H * 5) == -1
+
+
+def test_editor_zoom_changes_scale():
+    _app()
+    w = MainWindow(_recorded_event())
+    ep = w.editor_panel
+    ep.reload()
+    c0 = ep._coef
+    ep._zoomed(1)
+    assert ep._coef > c0                                        # zooming in widens the axis
+    ep._zoomed(-1)
+    assert abs(ep._coef - c0) < 1e-9
+
+
+def test_timeline_paints_all_mark_kinds():
+    _app()
+    from PySide6.QtGui import QPixmap
+    from cozer.app.editor import TimelineWidget
+    tl = TimelineWidget(panel=None)
+    marks = [[1, 20.0], [2, 10.0], [-1, 5.0], [12, 8.0, "foul"], [-12, 9.0, "x"], [99, 7.0]]
+    tl.set_data([("1", "1.  pts 10", marks)], 100.0, 50.0, 8.0)
+    tl.resize(tl.minimumWidth(), tl.minimumHeight())
+    pm = QPixmap(tl.size())
+    tl.render(pm)                                              # exercises paintEvent headless
+    assert not pm.isNull()
+
+
+def test_result_str_unit():
+    from cozer.app.editor import result_str
+    dq = {"place": 0, "points": 0, "avgspeed": 0.0, "maxlapspeed": 0.0,
+          "lapinfo": (0, 0, 0), "notes": {"DQ": 1}}
+    assert "–" in result_str(dq) and "DQ" in result_str(dq)
+    ok = {"place": 1, "points": 10, "avgspeed": 50.0, "maxlapspeed": 60.0,
+          "lapinfo": (3, 0, 0), "notes": {}}
+    assert result_str(ok).startswith("1.")
+
+
+def test_editor_empty_state():
+    _app()
+    w = MainWindow()                                            # no record
+    assert w.editor_panel.timeline._rows == []
+
+
+def test_build_mark_menu_and_actions(tmp_path, monkeypatch):
+    _app()
     from cozer.records import reccodemap
-    dlg = InsertMarkDialog()
-    dlg.code.setCurrentText("DQ")
-    dlg.time.setValue(12.5)
-    dlg.note.setText("x")
-    code, ct, note = dlg.values()
-    assert code == reccodemap["DQ"] and ct == 12.5 and note == "x"
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    menu = ep.build_mark_menu("1", 10.0)
+    assert any("Insert lap" in a.text() for a in menu.actions())
+    assert any(a.menu() for a in menu.actions())                # rules submenu present
+    rec = w.eventdata["record"]["GT"]["1"]
+    for a in menu.actions():
+        if "Insert lap" in a.text():
+            a.trigger()
+            break
+    assert any(m[0] == 2 for m in rec[1]["1"])
+    for a in menu.actions():                                    # trigger a rule (DQ) from a submenu
+        if a.menu():
+            a.menu().actions()[0].trigger()
+            break
+    assert any(m[0] == reccodemap["DQ"] for m in rec[1]["1"])
+
+
+def test_timeline_mouse_drag_and_rightclick(tmp_path, monkeypatch):
+    _app()
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from cozer.app.editor import TOP
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    tl = ep.timeline
+
+    def press(x, y, button):
+        return QMouseEvent(QEvent.MouseButtonPress, QPointF(x, y), QPointF(x, y),
+                           button, button, Qt.NoModifier)
+
+    rx = tl.x_of(tl._racetime)
+    tl.mousePressEvent(press(rx, 5, Qt.LeftButton))
+    assert tl._drag
+    newx = tl.x_of(30.0)
+    tl.mouseMoveEvent(QMouseEvent(QEvent.MouseMove, QPointF(newx, 5), QPointF(newx, 5),
+                                  Qt.NoButton, Qt.NoButton, Qt.NoModifier))
+    tl.mouseReleaseEvent(QMouseEvent(QEvent.MouseButtonRelease, QPointF(newx, 5), QPointF(newx, 5),
+                                     Qt.LeftButton, Qt.LeftButton, Qt.NoModifier))
+    assert not tl._drag
+    assert abs(w.eventdata["record"]["GT"]["1"][0]["racetime"] - 30.0) < 0.5
+
+    calls = []
+    ep.open_mark_menu = lambda pid, ct, pos: calls.append((pid, round(ct)))
+    tl.mousePressEvent(press(tl.x_of(10.0), TOP + 5, Qt.RightButton))
+    assert calls and calls[0][0] == "1" and abs(calls[0][1] - 10) < 1
 
 
 def test_log_pane_records_messages():

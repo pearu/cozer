@@ -440,9 +440,15 @@ the single-document view; keep the plan as the living design doc.
   through the store (append + **fsync to the journal immediately**), so a power loss loses
   nothing; autosave toggle; button colors carry state (white=idle / green=in-progress /
   magenta=finished). Verified: the recorded data feeds the proven analyzer.
-- ✅ **5d:** **Edit Records** — per-heat marks table + live results preview; insert /
-  enable-disable / delete marks and set the race time, each committed through the store
-  (journaled). **Log** pane captures status messages. **GUI complete: 96 tests, 94%.**
+- ✅ **5d:** **Edit Records** — a *graphical timeline editor* faithful to legacy
+  `EditWin1`/`RecordEditor`: one row per boat (results order) with lap marks at cumulative
+  time and event marks at absolute time, the analysed result in each row header, a draggable
+  red race-stop line, right-click-at-a-time → rules-by-code menu (insert mark there) plus
+  Insert-lap / Enable-Disable / Delete on the nearest mark, and zoom. Every edit committed
+  through the store (journaled). Geometry + edit ops (`mark_positions`, `insert_lap_split`,
+  `toggle_nearest`, `delete_nearest`) are pure/unit-tested; the widget paints them and turns
+  mouse events into them. **Log** pane captures status messages.
+  **GUI complete: 104 tests, 94% (editor 94%).** UX polish welcome after live trial.
 - **UX:** provide a friendlier race-pattern editor — the current
   `NofHeats*(NofLaps*LapLength+..):Scored` syntax is cryptic — while keeping the internal
   pattern-string representation unchanged (parsed by `crack_race_pattern`).

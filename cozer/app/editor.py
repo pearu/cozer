@@ -1,109 +1,258 @@
-"""Edit Records — review and correct a heat's recorded marks, with a live
-results preview.
+"""Edit Records — a graphical timeline editor, faithful to legacy EditWin1 /
+RecordEditor.
 
-Each competitor's marks (laps + event marks) are shown in a table; you can
-insert a mark (penalty/lost-lap/DQ/… from the record codes), enable/disable a
-mark (toggle its sign), or delete one, and adjust the heat's race time. Every
-edit is committed through the store (journaled + fsync'd), so corrections are as
-durable as the original recording. The results panel re-runs the proven
-``analyze`` after each change.
+Each competitor is a row: the baseline is the race, lap marks sit at their
+*cumulative* time and event marks at their *absolute* time; the row header shows
+the competitor's analysed result. A draggable red line is the race-stop time.
+Right-clicking a row at a point in time opens the rules menu (grouped by code)
+to insert that mark *at that time*, plus Insert-lap / Enable-Disable / Delete on
+the nearest mark. Zoom stretches the time axis.
 
-The edit operations (set_racetime / insert_mark / toggle_mark / delete_mark)
-are plain methods, driven directly by the headless tests.
+Every edit is committed through the store (journaled + fsync'd). The geometry
+and edit operations are module-level pure functions, exercised headlessly by the
+tests; the widget paints them and turns mouse events into those operations.
 """
 import copy
 
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-    QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QComboBox, QHBoxLayout, QLabel, QMenu, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
-from cozer._py2compat import round2
 from cozer.analyzer import analyze, getresorder
 from cozer.records import insertmark, invreccodemap, reccodemap
 
+LAP = QColor(255, 127, 0)
+INSLAP = QColor(90, 190, 60)
+DISABLED = QColor(150, 150, 150)
+RACETIME = QColor(220, 0, 0)
+BASELINE = QColor(60, 60, 120)
+CODE_COLORS = {
+    "LL": QColor(230, 200, 0), "LL2": QColor(230, 200, 0), "PL": QColor(230, 210, 90),
+    "PL5": QColor(230, 210, 90), "PL8": QColor(230, 210, 90), "PL10": QColor(230, 210, 90),
+    "DS": QColor(150, 150, 150), "IR": QColor(30, 30, 30), "DQ": QColor(220, 0, 0),
+    "RC": QColor(220, 0, 0), "YC": QColor(235, 200, 40), "NT": QColor(140, 140, 90),
+    "Q": QColor(0, 170, 0), "NQ": QColor(210, 0, 210),
+}
 
-def code_label(code):
-    if code in (1, -1):
-        base = "lap"
-    elif code in (2, -2):
-        base = "ins. lap"
+HEADER_W = 220
+ROW_H = 46
+TOP = 34
+TICK = 16
+
+
+# --- geometry + edit operations (pure; unit-tested) ------------------------
+
+def mark_positions(marks):
+    """(kind, time, code, label) for each mark. Laps use cumulative time, event
+    marks their absolute time. kind: lap / inslap / displap / event / disevent."""
+    out = []
+    etime = 0.0
+    dtime = 0.0
+    for m in marks:
+        code = m[0]
+        t = m[1] if len(m) > 1 else 0
+        if abs(code) in (1, 2):
+            etime += t
+            if code == 1:
+                out.append(("lap", etime, code, "%s" % (t + dtime)))
+                dtime = 0
+            elif code == 2:
+                out.append(("inslap", etime, code, "%s" % (t + dtime)))
+                dtime = 0
+            else:
+                out.append(("displap", etime, code, ""))
+                dtime += t
+        else:
+            note = m[2] if len(m) > 2 else ""
+            label = invreccodemap.get(abs(code), str(abs(code)))
+            out.append(("event" if code > 0 else "disevent", t, code,
+                        ("%s %s" % (label, note)).strip()))
+    return out
+
+
+def insert_lap_split(marks, ct):
+    """Insert an inserted-lap (code 2) boundary at cumulative time ``ct``
+    (legacy RecordEditorMenu.OnInsert)."""
+    et = 0.0
+    ii = -1
+    for i, m in enumerate(marks):
+        if abs(m[0]) in (1, 2):
+            et += m[1]
+            if et > ct:
+                ii = i
+                break
+    if ii >= 0:
+        ct_local = marks[ii][1] - (et - ct)
+        marks[ii] = [marks[ii][0], marks[ii][1] - ct_local] + list(marks[ii][2:])
+        marks.insert(ii, [2, ct_local])
     else:
-        base = invreccodemap.get(abs(code), str(abs(code)))
-    return base if code > 0 else "(off) " + base
+        marks.append([2, ct - et])
+    return marks
 
 
-class InsertMarkDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Insert mark")
-        form = QFormLayout(self)
-        self.code = QComboBox()
-        for name in reccodemap:
-            self.code.addItem(name)
-        self.time = QDoubleSpinBox()
-        self.time.setRange(0.0, 1e6)
-        self.time.setDecimals(2)
-        self.note = QLineEdit()
-        form.addRow("Code:", self.code)
-        form.addRow("Time (s):", self.time)
-        form.addRow("Note:", self.note)
-        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        bb.accepted.connect(self.accept)
-        bb.rejected.connect(self.reject)
-        form.addRow(bb)
+def toggle_nearest(marks, ct, coef, tol=5):
+    """Toggle the sign (enable/disable) of the mark nearest ``ct``
+    (legacy OnEnable). Returns True if one was toggled."""
+    et = 0.0
+    for i, m in enumerate(marks):
+        if abs(m[0]) in (1, 2):
+            et += m[1]
+            near = abs(ct - et) * coef < tol
+        else:
+            near = abs(ct - m[1]) * coef < tol
+        if near:
+            marks[i] = [-m[0]] + list(m[1:])
+            return True
+    return False
 
-    def values(self):
-        return reccodemap[self.code.currentText()], round2(self.time.value()), self.note.text()
 
+def delete_nearest(marks, ct, coef, tol=5):
+    """Delete the mark nearest ``ct`` (legacy OnDelete). Timed laps (code 1)
+    cannot be deleted. Returns a message on refusal, else None."""
+    et = 0.0
+    ii = -1
+    for i, m in enumerate(marks):
+        if abs(m[0]) in (1, 2):
+            et += m[1]
+            if abs(ct - et) * coef < tol:
+                if abs(m[0]) == 2:
+                    ii = i
+                    break
+                return "Can't delete a timed lap — use Enable/Disable instead."
+        elif abs(ct - m[1]) * coef < tol:
+            del marks[i]
+            return None
+    if ii >= 0:
+        ni = -1
+        for i in range(ii + 1, len(marks)):
+            if abs(marks[i][0]) in (1, 2):
+                ni = i
+                break
+        if ni >= 0:      # give the removed lap's time to the following lap
+            marks[ni] = [marks[ni][0], marks[ni][1] + marks[ii][1]] + list(marks[ni][2:])
+        del marks[ii]
+    return None
+
+
+def result_str(r):
+    place = "%d." % r["place"] if r["place"] > 0 else "–"
+    laps = r["lapinfo"][0]
+    notes = " ".join(r["notes"].keys()) if r["notes"] else ""
+    return "%s  pts %s  %.1f/%.1f  L%s %s" % (
+        place, r["points"], r["avgspeed"], r["maxlapspeed"], laps, notes)
+
+
+# --- painted timeline widget -----------------------------------------------
+
+class TimelineWidget(QWidget):
+    def __init__(self, panel):
+        super().__init__()
+        self.panel = panel
+        self._rows = []          # [(pid, header, marks)]
+        self._coef = 1.0
+        self._maxtime = 1.0
+        self._racetime = 0.0
+        self._drag = False
+        self.setMouseTracking(True)
+
+    def set_data(self, rows, maxtime, racetime, coef):
+        self._rows, self._maxtime, self._racetime, self._coef = rows, maxtime, racetime, coef
+        self.setMinimumSize(int(HEADER_W + coef * maxtime + 40), TOP + len(rows) * ROW_H + 20)
+        self.update()
+
+    def x_of(self, t):
+        return HEADER_W + self._coef * t
+
+    def t_of(self, x):
+        return max(0.0, (x - HEADER_W) / self._coef) if self._coef else 0.0
+
+    def row_at(self, y):
+        r = int((y - TOP) // ROW_H)
+        return r if 0 <= r < len(self._rows) else -1
+
+    def paintEvent(self, _evt):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#fbf7e6"))
+        p.setFont(QFont("DejaVu Sans", 8))
+        for ri, (pid, header, marks) in enumerate(self._rows):
+            y = TOP + ri * ROW_H + ROW_H // 2
+            p.setPen(QPen(QColor(20, 20, 20)))
+            p.drawText(6, y - 6, HEADER_W - 10, 24, Qt.AlignVCenter, "#%s  %s" % (pid, header))
+            positions = mark_positions(marks)
+            end = positions[-1][1] if positions else 0
+            p.setPen(QPen(BASELINE, 2))
+            p.drawLine(int(HEADER_W), y, int(self.x_of(end if end else 0)), y)
+            for kind, t, code, label in positions:
+                x = int(self.x_of(t))
+                color = {"lap": LAP, "inslap": INSLAP, "displap": DISABLED,
+                         "disevent": DISABLED}.get(kind)
+                if color is None:
+                    color = CODE_COLORS.get(invreccodemap.get(abs(code), ""), QColor(80, 80, 80))
+                p.fillRect(x - 2, y - TICK // 2, 4, TICK, QBrush(color))
+                if label:
+                    p.setPen(QPen(QColor(40, 40, 40)))
+                    p.drawText(x + 3, y + 14, label)
+        # race-stop line
+        rx = int(self.x_of(self._racetime))
+        p.setPen(QPen(RACETIME, 2))
+        p.drawLine(rx, 0, rx, TOP + len(self._rows) * ROW_H)
+        p.drawText(rx + 3, 14, "race stop")
+        p.end()
+
+    def mousePressEvent(self, evt):
+        x, y = evt.position().x(), evt.position().y()
+        if evt.button() == Qt.LeftButton and abs(x - self.x_of(self._racetime)) < 6:
+            self._drag = True
+        elif evt.button() == Qt.RightButton:
+            ri = self.row_at(y)
+            if ri >= 0:
+                self.panel.open_mark_menu(self._rows[ri][0], self.t_of(x),
+                                          evt.globalPosition().toPoint())
+
+    def mouseMoveEvent(self, evt):
+        if self._drag:
+            self._racetime = round(self.t_of(evt.position().x()), 2)
+            self.update()
+
+    def mouseReleaseEvent(self, evt):
+        if self._drag:
+            self._drag = False
+            self.panel.commit_racetime(self._racetime)
+
+
+# --- panel ------------------------------------------------------------------
 
 class EditRecordsPanel(QWidget):
     def __init__(self, window):
         super().__init__()
         self.window = window
         self._heatkeys = []
-
+        self._zoom = 1
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Class / Heat:"))
         self.heat_combo = QComboBox()
-        self.heat_combo.currentIndexChanged.connect(self._on_heat)
+        self.heat_combo.currentIndexChanged.connect(self.refresh)
         top.addWidget(self.heat_combo)
-        top.addWidget(QLabel("Race time (s):"))
-        self.racetime_edit = QLineEdit()
-        self.racetime_edit.setFixedWidth(90)
-        self.racetime_edit.editingFinished.connect(self._on_racetime)
-        top.addWidget(self.racetime_edit)
-        top.addWidget(QLabel("Boat:"))
-        self.boat_combo = QComboBox()
-        self.boat_combo.currentIndexChanged.connect(self._refresh_marks)
-        top.addWidget(self.boat_combo)
+        zin = QPushButton("Zoom +")
+        zin.clicked.connect(lambda: self._zoomed(1))
+        zout = QPushButton("Zoom −")
+        zout.clicked.connect(lambda: self._zoomed(-1))
+        top.addWidget(zin)
+        top.addWidget(zout)
+        self.info_label = QLabel("")
+        top.addWidget(self.info_label)
         top.addStretch()
         v.addLayout(top)
+        self.timeline = TimelineWidget(self)
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setWidget(self.timeline)
+        v.addWidget(area, 1)
 
-        mid = QHBoxLayout()
-        self.marks = QTableWidget(0, 3)
-        self.marks.setHorizontalHeaderLabels(["Code", "Time", "Note"])
-        self.marks.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.marks.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.marks.horizontalHeader().setStretchLastSection(True)
-        mid.addWidget(self.marks, 2)
-        self.results = QPlainTextEdit()
-        self.results.setReadOnly(True)
-        mid.addWidget(self.results, 3)
-        v.addLayout(mid, 1)
-
-        btns = QHBoxLayout()
-        for text, slot in [("Insert mark…", self._on_insert), ("Enable/Disable", self._on_toggle),
-                           ("Delete mark", self._on_delete)]:
-            b = QPushButton(text)
-            b.clicked.connect(slot)
-            btns.addWidget(b)
-        btns.addStretch()
-        v.addLayout(btns)
-
-    # ---- data access ----
+    # ---- data ----
     def _record(self):
         return self.window.eventdata.get("record", {})
 
@@ -116,126 +265,119 @@ class EditRecordsPanel(QWidget):
                 self._heatkeys.append((cl, h))
                 self.heat_combo.addItem("%s / %s" % (cl, h))
         self.heat_combo.blockSignals(False)
-        self._on_heat()
+        self.refresh()
 
     def _cur(self):
         i = self.heat_combo.currentIndex()
         return self._heatkeys[i] if 0 <= i < len(self._heatkeys) else (None, None)
 
-    def _cur_boat(self):
-        return self.boat_combo.currentText()
+    def _maxtime(self, rec):
+        mx = 0.0
+        for marks in rec[1].values():
+            t = 0.0
+            for m in marks:
+                if abs(m[0]) in (1, 2):
+                    t += m[1]
+                elif len(m) > 1:
+                    mx = max(mx, m[1])
+            mx = max(mx, t)
+        return 1.0 + mx * 1.05
 
-    def _on_heat(self):
+    def refresh(self):
         cl, h = self._cur()
         if cl is None:
-            self.racetime_edit.clear()
-            self.boat_combo.clear()
-            self.marks.setRowCount(0)
-            self.results.clear()
+            self.timeline.set_data([], 1.0, 0.0, 1.0)
+            self.info_label.setText("")
             return
-        info = self._record()[cl][h][0]
-        self.racetime_edit.setText(str(info.get("racetime", "")))
-        self.boat_combo.blockSignals(True)
-        self.boat_combo.clear()
-        for pid in sorted(self._record()[cl][h][1].keys(), key=str):
-            self.boat_combo.addItem(str(pid))
-        self.boat_combo.blockSignals(False)
-        self._refresh_marks()
-
-    def _refresh_marks(self):
-        self.marks.setRowCount(0)
-        cl, h = self._cur()
-        pid = self._cur_boat()
-        if cl is not None and pid != "":
-            for m in self._record()[cl][h][1].get(pid, []):
-                r = self.marks.rowCount()
-                self.marks.insertRow(r)
-                self.marks.setItem(r, 0, QTableWidgetItem(code_label(m[0])))
-                self.marks.setItem(r, 1, QTableWidgetItem(str(m[1]) if len(m) > 1 else ""))
-                self.marks.setItem(r, 2, QTableWidgetItem(str(m[2]) if len(m) > 2 else ""))
-        self._refresh_results()
-
-    def _refresh_results(self):
-        cl, h = self._cur()
-        if cl is None:
-            return
+        rec = self._record()[cl][h]
         ss = self.window.eventdata.get("scoringsystem", [])
         try:
-            res = analyze(h, copy.deepcopy(self._record()[cl][h]), ss)
-        except Exception as e:      # pragma: no cover - surfaced, never crashes
-            self.results.setPlainText("(analysis error: %s: %s)" % (type(e).__name__, e))
-            return
-        lines = []
-        for pid in getresorder(res):
-            r = res[pid]
-            place = r["place"] if r["place"] > 0 else "-"
-            notes = " ".join(r["notes"].keys()) if r["notes"] else ""
-            lines.append("%3s  #%-4s  pts=%-4s  %.1f/%.1f  %s"
-                         % (place, pid, r["points"], r["avgspeed"], r["maxlapspeed"], notes))
-        self.results.setPlainText("\n".join(lines))
+            res = analyze(h, copy.deepcopy(rec), ss)
+            order = getresorder(res)
+        except Exception:            # pragma: no cover - degenerate data
+            res, order = {}, sorted(rec[1].keys(), key=str)
+        rows = [(str(pid), result_str(res[pid]) if pid in res else "", rec[1][pid])
+                for pid in order]
+        maxtime = self._maxtime(rec)
+        racetime = rec[0].get("racetime", maxtime)
+        width = int((1.4 ** self._zoom) * 600)
+        coef = width / maxtime
+        self._coef = coef
+        self.timeline.set_data(rows, maxtime, racetime, coef)
+        self.info_label.setText("race time %.1f s" % racetime)
 
-    # ---- edit operations (journaled via the store) ----
-    def _commit(self, cl, h, pid, marks):
-        self.window.store.record({"op": "replace", "cl": cl, "h": h, "id": pid, "marks": marks})
-        self._refresh_marks()
+    def _zoomed(self, delta):
+        self._zoom = max(0, min(8, self._zoom + delta))
+        self.refresh()
 
-    def set_racetime(self, cl, h, value):
-        self.window.store.record({"op": "info", "cl": cl, "h": h, "key": "racetime", "value": value})
-        self._refresh_results()
-
-    def insert_mark(self, cl, h, pid, code, ct, note=""):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
-        insertmark(marks, code, ct, note)
-        self._commit(cl, h, pid, marks)
-
-    def toggle_mark(self, cl, h, pid, index):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
-        if 0 <= index < len(marks):
-            marks[index][0] = -marks[index][0]
-            self._commit(cl, h, pid, marks)
-
-    def delete_mark(self, cl, h, pid, index):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
-        if 0 <= index < len(marks):
-            del marks[index]
-            self._commit(cl, h, pid, marks)
-
-    # ---- UI slots ----
+    # ---- edits (journaled through the store) ----
     def _require_store(self):
         if self.window.store is None:
             self.window.on_save_as()
         return self.window.store is not None
 
-    def _on_racetime(self):
+    def _commit(self, cl, h, pid, marks):
+        self.window.store.record({"op": "replace", "cl": cl, "h": h, "id": pid, "marks": marks})
+        self.refresh()
+
+    def commit_racetime(self, value):
         cl, h = self._cur()
         if cl is None or not self._require_store():
             return
-        try:
-            value = float(self.racetime_edit.text())
-        except ValueError:
+        self.window.store.record({"op": "info", "cl": cl, "h": h, "key": "racetime", "value": value})
+        self.refresh()
+
+    def insert_rule_mark(self, cl, h, pid, code, ct, note=""):
+        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        insertmark(marks, code, ct, note)
+        self._commit(cl, h, pid, marks)
+
+    def insert_lap(self, cl, h, pid, ct):
+        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        insert_lap_split(marks, ct)
+        self._commit(cl, h, pid, marks)
+
+    def toggle_at(self, cl, h, pid, ct):
+        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        if toggle_nearest(marks, ct, self._coef):
+            self._commit(cl, h, pid, marks)
+
+    def delete_at(self, cl, h, pid, ct):
+        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        msg = delete_nearest(marks, ct, self._coef)
+        if msg:
+            self.window.log(msg)
+        else:
+            self._commit(cl, h, pid, marks)
+
+    # ---- right-click menu on the timeline ----
+    def build_mark_menu(self, pid, ct):
+        """The context menu for a right-click at time ``ct`` on boat ``pid`` —
+        the event's rules grouped by code, then Insert-lap / Enable-Disable /
+        Delete. Built separately from exec() so tests can trigger its actions."""
+        cl, h = self._cur()
+        menu = QMenu(self)
+        if cl is None:
+            return menu
+        by_code = {}
+        for r in self.window.eventdata.get("rules", []):
+            if len(r) > 3 and r[1] in reccodemap:
+                by_code.setdefault(r[1], []).append(r)
+        for code_name in by_code:
+            sub = menu.addMenu("%s…" % code_name)
+            for r in by_code[code_name]:
+                act = sub.addAction(r[3] or r[2])
+                act.triggered.connect(
+                    lambda _=False, rr=r: self.insert_rule_mark(cl, h, pid, reccodemap[rr[1]], ct, rr[2]))
+        if by_code:
+            menu.addSeparator()
+        menu.addAction("Insert lap here").triggered.connect(lambda: self.insert_lap(cl, h, pid, ct))
+        menu.addAction("Enable/Disable nearest").triggered.connect(lambda: self.toggle_at(cl, h, pid, ct))
+        menu.addAction("Delete nearest").triggered.connect(lambda: self.delete_at(cl, h, pid, ct))
+        return menu
+
+    def open_mark_menu(self, pid, ct, global_pos):      # pragma: no cover - shows a modal menu
+        if self._cur()[0] is None or not self._require_store():
             return
-        self.set_racetime(cl, h, value)
-
-    def _on_insert(self):
-        cl, h = self._cur()
-        pid = self._cur_boat()
-        if cl is None or pid == "" or not self._require_store():
-            return
-        dlg = InsertMarkDialog(self)
-        if dlg.exec():                  # pragma: no cover - modal dialog
-            code, ct, note = dlg.values()
-            self.insert_mark(cl, h, pid, code, ct, note)
-
-    def _on_toggle(self):
-        cl, h = self._cur()
-        pid = self._cur_boat()
-        row = self.marks.currentRow()
-        if cl is not None and pid != "" and row >= 0 and self._require_store():
-            self.toggle_mark(cl, h, pid, row)
-
-    def _on_delete(self):
-        cl, h = self._cur()
-        pid = self._cur_boat()
-        row = self.marks.currentRow()
-        if cl is not None and pid != "" and row >= 0 and self._require_store():
-            self.delete_mark(cl, h, pid, row)
+        self.build_mark_menu(pid, ct).exec(
+            global_pos if isinstance(global_pos, QPoint) else QPoint(0, 0))
