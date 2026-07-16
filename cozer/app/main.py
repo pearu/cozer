@@ -9,6 +9,7 @@ graphical record editor land in subsequent Phase-5 passes.
 """
 import copy
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -503,4 +504,11 @@ def run(argv=None):     # pragma: no cover - launches the Qt event loop
         time.sleep(0.02)
     win.show()
     splash.finish(win)
+    # Ctrl+C on the terminal should behave like File -> Quit (a clean close).
+    # A signal handler alone won't fire while Qt's C++ event loop is blocked, so a
+    # small heartbeat timer periodically returns control to the Python interpreter.
+    signal.signal(signal.SIGINT, lambda *_: win.close())
+    heartbeat = QTimer()
+    heartbeat.timeout.connect(lambda: None)
+    heartbeat.start(200)
     return app.exec()
