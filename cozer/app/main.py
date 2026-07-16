@@ -132,17 +132,22 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
         v = QVBoxLayout(self)
         v.addWidget(QLabel("1.  Open  %s" % self._uri))
         v.addWidget(QLabel("2.  Enter this one-time code:"))
-        code = QLabel(start.get("user_code", ""))
-        code.setStyleSheet("font-size: 22px; font-weight: bold; letter-spacing: 3px;")
-        v.addWidget(code)
+        self._code = start.get("user_code", "")
+        code_edit = QLineEdit(self._code)
+        code_edit.setReadOnly(True)                 # selectable + copyable, not editable
+        code_edit.setAlignment(Qt.AlignCenter)
+        code_edit.setStyleSheet("font-size: 22px; font-weight: bold; letter-spacing: 4px;")
+        v.addWidget(code_edit)
         row = QHBoxLayout()
         openb = QPushButton("Open GitHub in browser")
         openb.clicked.connect(lambda: __import__("webbrowser").open(self._uri))
+        copyb = QPushButton("Copy code")
+        copyb.clicked.connect(lambda: QApplication.clipboard().setText(self._code))
         check = QPushButton("Check now")
         check.clicked.connect(self._poll)
         cancel = QPushButton("Cancel")
         cancel.clicked.connect(self.reject)
-        for b in (openb, check, cancel):
+        for b in (openb, copyb, check, cancel):
             row.addWidget(b)
         v.addLayout(row)
         self._status = QLabel("After you approve in the browser this continues automatically "
