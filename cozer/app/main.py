@@ -181,8 +181,8 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
             self._interval += int(js.get("interval", 5))
             self._timer.start(self._interval * 1000)
             self._wlog("sign-in: slow_down -> backing off to %ds" % self._interval)
+            self._status.setText("Waiting… (GitHub asked to slow down)")
         elif err in ("authorization_pending", None):
-            self._wlog("sign-in poll: %s" % (err or "no error/no token"))
             self._status.setText("Waiting for you to approve in the browser…")
         else:
             self._timer.stop()
