@@ -437,6 +437,22 @@ def test_timeline_mouse_drag_and_rightclick(tmp_path, monkeypatch):
     assert calls and calls[0][0] == "1" and abs(calls[0][1] - 10) < 1
 
 
+def test_report_exception_captures_and_queues(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    _app()
+    import cozer.app.crashreport as cr
+    w = MainWindow(_timer_event())
+    try:
+        raise RuntimeError("boom in a slot")
+    except RuntimeError:
+        et, ev, tb = sys.exc_info()
+        report, url = appmain.report_exception(w, et, ev, tb)
+    assert report["exc_type"] == "RuntimeError" and report["action"]     # tab name as context
+    assert url is None                                    # not logged in -> queued for later
+    assert len(cr.list_pending()) == 1
+
+
 def test_log_pane_records_messages():
     _app()
     w = MainWindow(_recorded_event())

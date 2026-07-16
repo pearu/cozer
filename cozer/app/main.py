@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer import reports as R
+from cozer.app import crashreport
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
 from cozer.app.timer import TimerPanel
@@ -67,6 +68,41 @@ def open_in_viewer(path):
         subprocess.Popen(["open", path])
     else:
         subprocess.Popen(["xdg-open", path])
+
+
+def report_exception(window, exc_type, exc, tb, action=None):
+    """Capture an unhandled error: write a local crash report and auto-submit if
+    logged in (else queue). Returns (report, issue_url). Never raises."""
+    try:
+        store = getattr(window, "store", None)
+        path = store.path if store is not None else None
+        if action is None and getattr(window, "tabs", None) is not None:
+            action = window.tabs.tabText(window.tabs.currentIndex())
+        report = crashreport.build_report(exc_type, exc, tb, action=action, event_path=path,
+                                          eventdata=getattr(window, "eventdata", None))
+        reporter = crashreport.Reporter()
+        url = reporter.handle(report, event_path=path)
+        reporter.submit_pending()          # opportunistically drain earlier offline reports
+        return report, url
+    except Exception:      # pragma: no cover - reporting must never itself crash the app
+        return None, None
+
+
+def _install_excepthook(window):     # pragma: no cover - process-global; needs the GUI loop
+    prev = sys.excepthook
+
+    def hook(exc_type, exc, tb):
+        _report, url = report_exception(window, exc_type, exc, tb)
+        try:
+            QMessageBox.critical(window, "cozer error",
+                                 "An error occurred and was recorded locally%s.\n\n%s: %s"
+                                 % (" and reported" if url else "",
+                                    getattr(exc_type, "__name__", "Error"), exc))
+        except Exception:
+            pass
+        prev(exc_type, exc, tb)
+
+    sys.excepthook = hook
 
 
 class MainWindow(QMainWindow):
@@ -291,6 +327,7 @@ def run(argv=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
     win = MainWindow()
+    _install_excepthook(win)
     files = [a for a in argv if not a.startswith("-") and os.path.exists(a)]
     if files:
         win.load(files[0])

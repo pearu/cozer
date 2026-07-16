@@ -590,6 +590,16 @@ python -m cozer            # (entry point available from Phase 5)
   shown, but the app and the recording kernel keep running. Prefer explicit exceptions over
   bare `except`; remove `exec`/backtick-repr during the port.
 - **Recovery drills** are part of the test suite and the Phase 6 mock event.
+- **Crash reporting** (`cozer/app/crashreport.py`): an unhandled error (via `sys.excepthook`,
+  which PySide6 routes GUI-slot exceptions through) is always captured to a local JSON crash
+  report (traceback + context + full event snapshot) next to the event, so nothing is lost and
+  the app keeps running. When signed in to GitHub (in-app **device-flow** login) it auto-files
+  the report as a `needs-triage` issue titled `[<date>/<venue>] Crash: …`, deduped by a
+  traceback fingerprint; offline reports queue and drain when back online. All network calls go
+  through an injectable transport (stdlib `urllib`, no new dep) and are unit-tested without the
+  network. **Pending owner action:** register a GitHub OAuth App (Device Flow enabled, scope
+  `public_repo`) and set its client id (`COZER_GITHUB_CLIENT_ID` / config) — then the sign-in
+  dialog + user "Report a bug" action land (next commit). Future: AI triage of `needs-triage`.
 
 ---
 
