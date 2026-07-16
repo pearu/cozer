@@ -22,7 +22,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QGroupBox, QHBoxLayout, QLabel, QMessageBox,
+    QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -144,8 +144,6 @@ def class_ids(eventdata, cl):
 class GridButtons(QWidget):
     """Square boat-number buttons that auto-fit the widget's area (all always
     visible), arranged in tens-grouped rows (calclayout)."""
-    GAP = 6
-
     def __init__(self, panel, cl, h, ids):
         super().__init__()
         self.panel, self.cl, self.h = panel, cl, h
@@ -170,8 +168,8 @@ class GridButtons(QWidget):
         self.relayout()
 
     def relayout(self):
-        g = self.GAP
         self.sz = max(26, min(self.width() // self.ncols, self.height() // self.nrows))
+        g = max(4, self.sz // 8)               # gap ~1/8 of the button size
         for pid, (b, r, c) in self.own.items():
             b.setGeometry(c * self.sz + g // 2, r * self.sz + g // 2, self.sz - g, self.sz - g)
             self.restyle(pid)
@@ -214,9 +212,12 @@ class TimerPanel(QWidget):
         top.addStretch()
         v.addLayout(top)
 
-        self._host = QWidget()      # heats fill the window (grid auto-fits, no scroll)
-        self._heatbox = QVBoxLayout(self._host)
-        v.addWidget(self._host, 1)
+        # Each heat is a resizable internal sub-window: the grid auto-fits it, so
+        # maximizing the app doesn't blow up the buttons — the operator drags a
+        # sub-window's borders to set a comfortable grid size.
+        self.area = QMdiArea()
+        self._subs = []
+        v.addWidget(self.area, 1)
         self.status = QLabel("")
         v.addWidget(self.status)
         self.race_combo.currentIndexChanged.connect(self._show_race)
@@ -269,10 +270,10 @@ class TimerPanel(QWidget):
 
     # ---- widget building ----
     def _clear(self):
-        while self._heatbox.count():
-            item = self._heatbox.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        for sub in self._subs:
+            sub.close()
+        self._subs = []
+        self.area.closeAllSubWindows()
         self._buttons = {}
         self._ladder_boats = {}
         self._ladder_layouts = {}
@@ -281,25 +282,32 @@ class TimerPanel(QWidget):
     def _build(self):
         self._clear()
         for cl, h in self._heats:
-            box = QGroupBox("%s  heat %s" % (cl, h))
-            row = QHBoxLayout(box)
+            heat_w = QWidget()
+            row = QHBoxLayout(heat_w)
 
             ladder_scroll = QScrollArea()          # ladder can be tall -> its own scroll
             ladder_scroll.setWidgetResizable(True)
             ladder_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            ladder_scroll.setMaximumWidth(170)
+            ladder_scroll.setMinimumWidth(190)     # wider ladder buttons
+            ladder_scroll.setMaximumWidth(220)
             ladder_host = QWidget()
             lv = QVBoxLayout(ladder_host)
             lv.setSpacing(2)
             self._ladder_layouts[(cl, h)] = lv
             ladder_scroll.setWidget(ladder_host)
             row.addWidget(ladder_scroll, 0)
+            row.addSpacing(28)                     # gap between ladder and grid
 
             grid = GridButtons(self, cl, h, self._heat_ids(cl, h))
             self._grids[(cl, h)] = grid
             row.addWidget(grid, 1)
 
-            self._heatbox.addWidget(box, 1)        # heats share the height, filling the window
+            sub = self.area.addSubWindow(heat_w)
+            sub.setWindowTitle("%s  heat %s" % (cl, h))
+            sub.setWindowFlags(Qt.SubWindow | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+            sub.resize(820, 560)
+            sub.show()
+            self._subs.append(sub)
             self._build_ladder(cl, h)
 
     def _build_ladder(self, cl, h):
