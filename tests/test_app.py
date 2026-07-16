@@ -76,14 +76,44 @@ def test_generate_report_writes_and_opens(tmp_path, monkeypatch):
 
 
 def test_open_and_import_via_dialog(tmp_path, monkeypatch):
+    import shutil
     _app()
     w = MainWindow()
     monkeypatch.setattr(appmain.QFileDialog, "getOpenFileName",
                         staticmethod(lambda *a, **k: (EVENT, "")))
     w.on_import()
-    assert w.eventdata["record"] and w.store is None
-    w.on_open()                                            # .coz path -> import branch
+    assert w.eventdata["record"] and w.store is None       # import stages only, no store
+    coz = str(tmp_path / "ev.coz")
+    shutil.copy(EVENT, coz)
+    monkeypatch.setattr(appmain.QFileDialog, "getOpenFileName",
+                        staticmethod(lambda *a, **k: (coz, "")))
+    w.on_open()                                            # opening a .coz auto-persists
     assert w.eventdata["record"]
+    assert w.store is not None and os.path.exists(str(tmp_path / "ev.cozj"))
+
+
+def test_open_coz_autosaves_edits_without_prompt(tmp_path, monkeypatch):
+    import shutil
+    _app()
+    coz = str(tmp_path / "ev.coz")
+    shutil.copy(EVENT, coz)
+    w = MainWindow()
+    # any Save-As prompt would be a bug now -> make it fail loudly
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (_ for _ in ()).throw(AssertionError("prompted"))))
+    w.load(coz)
+    assert w.store is not None and os.path.exists(str(tmp_path / "ev.cozj"))
+    ep = w.editor_panel
+    ep.reload()
+    assert ep.heat_combo.count() > 0
+    jpath = str(tmp_path / "ev.cozj.journal")
+    before = os.path.getsize(jpath) if os.path.exists(jpath) else 0
+    ep.commit_racetime(123.0)                              # edits journal, no dialog
+    assert os.path.getsize(jpath) > before
+    # reopening the .coz continues the working copy (never clobbers the edits)
+    w2 = MainWindow()
+    w2.load(coz)
+    assert w2.store is not None
 
 
 def test_open_in_viewer_linux(monkeypatch):
@@ -184,6 +214,17 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     from cozer.analyzer import analyze
     res = analyze("1", copy.deepcopy(w.eventdata["record"]["GT"]["1"]), [10, 5, 3])
     assert "1" in res and "2" in res
+
+
+def test_timer_shows_buttons_on_race_select():
+    _app()
+    w = MainWindow(_timer_event())
+    tp = w.timer_panel
+    tp.race_combo.setCurrentIndex(0)
+    # boat-number grid appears BEFORE Start, built from the class participant ids
+    assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "2") in tp._buttons
+    assert not tp._started
+    assert tp._buttons[("GT", "1", "1")].text().startswith("1")   # shows the boat number
 
 
 def test_timer_record_before_start_is_noop():

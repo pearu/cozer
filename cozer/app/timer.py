@@ -90,22 +90,39 @@ class TimerPanel(QWidget):
         v.addWidget(self.area, 1)
         self.status = QLabel("")
         v.addWidget(self.status)
+        self.race_combo.currentIndexChanged.connect(self._show_race)
 
     @property
     def eventdata(self):
         return self.window.eventdata
 
     def reload(self):
+        self.race_combo.blockSignals(True)
         self.race_combo.clear()
         for i in range(len(self.eventdata.get("races", []))):
             self.race_combo.addItem("Race %d" % (i + 1))
+        self.race_combo.blockSignals(False)
         self.on_stop()
-        self._clear_buttons()
+        self._show_race()
 
     def _selected_race(self):
         i = self.race_combo.currentIndex()
         races = self.eventdata.get("races", [])
         return races[i] if 0 <= i < len(races) else None
+
+    def _race_heats(self, race):
+        return [(e[1], e[2]) for e in race if len(e) > 2 and e[1] and e[2]] if race else []
+
+    def _show_race(self):
+        """Show the boat-button grid for the selected race (before Start)."""
+        self._heats = self._race_heats(self._selected_race())
+        self._build_buttons()
+
+    def _heat_ids(self, cl, h):
+        rec = self.eventdata.get("record", {}).get(cl, {}).get(h)
+        if rec:
+            return sorted(rec[1].keys(), key=_idkey)
+        return sorted(class_ids(self.eventdata, cl), key=_idkey)
 
     def _ensure_store(self):
         if self.window.store is None:
@@ -121,17 +138,14 @@ class TimerPanel(QWidget):
                                 "Save the event first so recording is journaled.")
             return
         now = self._clock()
-        self._heats = []
-        for entry in race:
-            cl = entry[1] if len(entry) > 1 else ""
-            h = entry[2] if len(entry) > 2 else ""
-            if cl and h:
-                self.setup_heat(cl, h, now)
-                self._heats.append((cl, h))
+        self._heats = self._race_heats(race)
+        for cl, h in self._heats:
+            self.setup_heat(cl, h, now)
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self._build_buttons()
+        self.race_combo.setEnabled(False)          # lock the race while timing
+        self._build_buttons()                      # rebuild now that records exist
         self.status.setText("Recording…")
 
     def setup_heat(self, cl, h, now):
@@ -142,6 +156,7 @@ class TimerPanel(QWidget):
 
     def record_lap(self, cl, h, pid):
         if not self._started:
+            self.status.setText("Press Start to begin timing")
             return
         rec = self.eventdata["record"][cl][h]
         prev = sum(gettimes(rec[1].get(pid, [])))
@@ -154,6 +169,7 @@ class TimerPanel(QWidget):
         self._started = False
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self.race_combo.setEnabled(True)
         self.status.setText("Stopped")
 
     def _clear_buttons(self):
@@ -168,8 +184,7 @@ class TimerPanel(QWidget):
         for cl, h in self._heats:
             box = QGroupBox("%s  heat %s" % (cl, h))
             g = QGridLayout(box)
-            ids = sorted(self.eventdata["record"][cl][h][1].keys(), key=_idkey)
-            for i, pid in enumerate(ids):
+            for i, pid in enumerate(self._heat_ids(cl, h)):
                 b = QPushButton()
                 b.setMinimumSize(52, 42)
                 b.clicked.connect(lambda _=False, c=cl, hh=h, p=pid: self.record_lap(c, hh, p))
@@ -183,9 +198,10 @@ class TimerPanel(QWidget):
         b = self._buttons.get((cl, h, pid))
         if b is None:
             return
-        rec = self.eventdata["record"][cl][h]
-        laps = len([m for m in rec[1].get(pid, []) if m and m[0] in (1, 2)])
-        need = len(rec[0].get("course", []))
+        rec = self.eventdata.get("record", {}).get(cl, {}).get(h)
+        marks = rec[1].get(pid, []) if rec else []
+        laps = len([m for m in marks if m and m[0] in (1, 2)])
+        need = len(rec[0].get("course", [])) if rec else len(heat_course(self.eventdata, cl, h)[0])
         color = C_WAITING if laps == 0 else (C_FINISH if need and laps >= need else C_PROGRESS)
         b.setStyleSheet("background-color: %s;" % color)
         b.setText("%s\n%d" % (pid, laps))

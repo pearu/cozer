@@ -116,14 +116,26 @@ class MainWindow(QMainWindow):
 
     def load(self, path):
         if path.endswith(".coz"):
-            self.eventdata = read_legacy_coz(path)
-            self.store = None
+            # Open a legacy file as an editable new-format working copy beside it, so
+            # edits journal immediately (no Save-As prompt). The original .coz is left
+            # untouched; an existing .cozj working copy is continued, never clobbered.
+            cozj = os.path.splitext(path)[0] + ".cozj"
+            if os.path.exists(cozj):
+                self.store = EventStore.open(cozj, default=copy.deepcopy(DEFAULT_EVENT))
+                self.eventdata = self.store.eventdata
+                msg = "Opened %s — continuing working copy %s" % (path, cozj)
+            else:
+                self.eventdata = read_legacy_coz(path)
+                self.store = EventStore(cozj, self.eventdata)
+                self.store.snapshot()
+                msg = "Opened %s — auto-saving to %s" % (path, cozj)
         else:
             self.store = EventStore.open(path, default=copy.deepcopy(DEFAULT_EVENT))
             self.eventdata = self.store.eventdata
+            msg = "Opened %s" % path
         self._reload_forms()
         self._refresh_title()
-        self.log("Opened %s" % path)
+        self.log(msg)
 
     def on_import(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import legacy .coz", "", "Legacy events (*.coz)")
