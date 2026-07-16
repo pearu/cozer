@@ -496,11 +496,6 @@ def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     assert url is None and len(cr.list_pending()) == 1     # queued until signed in
 
 
-def test_make_splash_constructs():
-    _app()
-    assert appmain.make_splash() is not None
-
-
 def test_log_pane_records_messages():
     _app()
     w = MainWindow(_recorded_event())

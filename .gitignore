@@ -24,3 +24,9 @@ Untitled.coz
 # editors / OS
 .DS_Store
 *.swp
+
+# cozer event working files (auto-created next to opened .coz; never commit)
+*.cozj
+*.cozj.journal
+*.cozj.bak*
+cozer-crashes/
