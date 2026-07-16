@@ -17,8 +17,6 @@ import platform
 import sys
 import time
 import traceback
-import urllib.parse
-import urllib.request
 
 from cozer import __version__
 from cozer.store import atomic_write, dumps
@@ -212,10 +210,12 @@ def _parse_body(body):
     try:
         return json.loads(body)
     except ValueError:
+        import urllib.parse
         return {k: v[0] for k, v in urllib.parse.parse_qs(body).items()}
 
 
 def _urllib_transport(method, url, headers, data):     # pragma: no cover - real network
+    import urllib.request
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req, timeout=20) as resp:
         return resp.status, _parse_body(resp.read().decode("utf-8"))
@@ -269,6 +269,7 @@ def github_login(token, transport=None):
 
 
 def search_fingerprint(token, fp, repo=REPO, transport=None):
+    import urllib.parse
     q = 'repo:%s in:body "crash-fingerprint:%s"' % (repo, fp)
     _, js = _http("GET", GITHUB_API + "/search/issues?q=" + urllib.parse.quote(q),
                   token=token, transport=transport)
