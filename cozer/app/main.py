@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from cozer.app import crashreport
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
+from cozer.app.splash import center_splash, make_splash
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, read_legacy_coz
@@ -105,24 +106,6 @@ def report_bug(window, description):
     report = crashreport.build_user_report(description, event_path=path,
                                             eventdata=getattr(window, "eventdata", None))
     return crashreport.Reporter().handle(report, event_path=path)
-
-
-def make_splash():
-    """A small COZER splash shown while the window sets up."""
-    from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
-    from PySide6.QtWidgets import QSplashScreen
-    pm = QPixmap(440, 180)
-    pm.fill(QColor("#2b3a67"))
-    p = QPainter(pm)
-    p.setPen(QColor("#f4f3ee"))
-    p.setFont(QFont("DejaVu Sans", 30, QFont.Bold))
-    p.drawText(pm.rect().adjusted(0, 34, 0, 0), Qt.AlignHCenter | Qt.AlignTop, "COZER")
-    p.setFont(QFont("DejaVu Sans", 11))
-    p.drawText(pm.rect().adjusted(0, 96, 0, 0), Qt.AlignHCenter | Qt.AlignTop, "COmpetition organiZER")
-    p.end()
-    splash = QSplashScreen(pm)
-    splash.showMessage("Starting up…", Qt.AlignBottom | Qt.AlignHCenter, QColor("#f4f3ee"))
-    return splash
 
 
 class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network polling
@@ -491,15 +474,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("COZER — %s" % (self.store.path if self.store else "(unsaved)"))
 
 
-def run(argv=None):     # pragma: no cover - launches the Qt event loop
+def run(argv=None, app=None, splash=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
-    app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
-    splash = make_splash()
-    screen = app.primaryScreen()
-    if screen is not None:                         # center the splash on the screen
-        splash.move(screen.availableGeometry().center() - splash.rect().center())
-    splash.show()
-    app.processEvents()
+    if app is None:
+        app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
+    if splash is None:                             # __main__ normally shows it earlier
+        splash = make_splash()
+        center_splash(app, splash)
+        splash.show()
+        app.processEvents()
     shown_at = time.monotonic()
     win = MainWindow()
     _install_excepthook(win)
