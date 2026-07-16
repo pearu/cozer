@@ -12,7 +12,6 @@ import os
 import signal
 import subprocess
 import sys
-import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -24,7 +23,6 @@ from PySide6.QtWidgets import (
 from cozer.app import crashreport
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
-from cozer.app.splash import center_splash, make_splash
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, read_legacy_coz
@@ -474,27 +472,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("COZER — %s" % (self.store.path if self.store else "(unsaved)"))
 
 
-def run(argv=None, app=None, splash=None):     # pragma: no cover - launches the Qt event loop
+def run(argv=None, app=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     if app is None:
         app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
-    if splash is None:                             # __main__ normally shows it earlier
-        splash = make_splash()
-        center_splash(app, splash)
-        splash.show()
-        app.processEvents()
-    shown_at = time.monotonic()
     win = MainWindow()
     _install_excepthook(win)
     files = [a for a in argv if not a.startswith("-") and os.path.exists(a)]
     if files:
         win.load(files[0])
-    # startup is fast now, so hold the splash briefly so it's actually seen
-    while time.monotonic() - shown_at < 0.8:
-        app.processEvents()
-        time.sleep(0.02)
     win.show()
-    splash.finish(win)
     # Ctrl+C on the terminal should behave like File -> Quit (a clean close).
     # A signal handler alone won't fire while Qt's C++ event loop is blocked, so a
     # small heartbeat timer periodically returns control to the Python interpreter.
@@ -502,4 +489,5 @@ def run(argv=None, app=None, splash=None):     # pragma: no cover - launches the
     heartbeat = QTimer()
     heartbeat.timeout.connect(lambda: None)
     heartbeat.start(200)
+    win._heartbeat = heartbeat
     return app.exec()
