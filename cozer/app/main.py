@@ -36,6 +36,11 @@ APP_QSS = (
     " QPushButton { padding: 4px 10px; }"
     " QGroupBox { font-weight: bold; margin-top: 6px; }"
     " QTabBar::tab { padding: 5px 12px; }"
+    # menus: define selected-item colors explicitly, else the broad QWidget
+    # background above leaves highlighted menu text invisible.
+    " QMenu { background: #f4f3ee; color: #1a1a1a; }"
+    " QMenu::item:selected { background: #2b3a67; color: #ffffff; }"
+    " QMenuBar::item:selected { background: #2b3a67; color: #ffffff; }"
 )
 
 DEFAULT_EVENT = {
@@ -490,6 +495,9 @@ def run(argv=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
     splash = make_splash()
+    screen = app.primaryScreen()
+    if screen is not None:                         # center the splash on the screen
+        splash.move(screen.availableGeometry().center() - splash.rect().center())
     splash.show()
     app.processEvents()
     shown_at = time.monotonic()
