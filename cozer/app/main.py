@@ -133,6 +133,7 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
         v.addWidget(QLabel("1.  Open  %s" % self._uri))
         v.addWidget(QLabel("2.  Enter this one-time code:"))
         self._code = start.get("user_code", "")
+        self._wlog("GitHub sign-in: approve code %s at %s" % (self._code, self._uri))
         code_edit = QLineEdit(self._code)
         code_edit.setReadOnly(True)                 # selectable + copyable, not editable
         code_edit.setAlignment(Qt.AlignCenter)
@@ -153,25 +154,40 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
         self._status = QLabel("After you approve in the browser this continues automatically "
                               "— or click ‘Check now’.")
         v.addWidget(self._status)
+        self._interval = max(1, int(start.get("interval", 5)))
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll)
-        self._timer.start(max(1, int(start.get("interval", 5))) * 1000)
+        self._timer.start(self._interval * 1000)
+
+    def _wlog(self, msg):
+        p = self.parent()
+        if p is not None and hasattr(p, "log"):
+            p.log(msg)
 
     def _poll(self):
         try:
             js = crashreport.device_poll_once(self._cid, self._device_code, transport=self._transport)
         except Exception as e:
-            self._status.setText("Network error: %s" % e)
+            self._status.setText("Network error (will retry): %s" % e)
+            self._wlog("sign-in poll network error: %s" % e)
             return
+        err = js.get("error")
         if js.get("access_token"):
             self.token = js["access_token"]
             self._timer.stop()
+            self._wlog("sign-in: token received")
             self.accept()
-        elif js.get("error") in ("authorization_pending", "slow_down", None):
+        elif err == "slow_down":
+            self._interval += int(js.get("interval", 5))
+            self._timer.start(self._interval * 1000)
+            self._wlog("sign-in: slow_down -> backing off to %ds" % self._interval)
+        elif err in ("authorization_pending", None):
+            self._wlog("sign-in poll: %s" % (err or "no error/no token"))
             self._status.setText("Waiting for you to approve in the browser…")
         else:
             self._timer.stop()
-            self._status.setText("Sign-in failed: %s" % js.get("error"))
+            self._wlog("sign-in failed: %s" % err)
+            self._status.setText("Sign-in failed: %s" % err)
 
 
 def _install_excepthook(window):     # pragma: no cover - process-global; needs the GUI loop
