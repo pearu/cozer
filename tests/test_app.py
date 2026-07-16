@@ -453,6 +453,21 @@ def test_report_exception_captures_and_queues(tmp_path, monkeypatch):
     assert len(cr.list_pending()) == 1
 
 
+def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    _app()
+    import cozer.app.crashreport as cr
+    w = MainWindow(_timer_event())
+    url = appmain.report_bug(w, "the timer button did nothing")
+    assert url is None and len(cr.list_pending()) == 1     # queued until signed in
+
+
+def test_make_splash_constructs():
+    _app()
+    assert appmain.make_splash() is not None
+
+
 def test_log_pane_records_messages():
     _app()
     w = MainWindow(_recorded_event())

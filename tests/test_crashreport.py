@@ -179,6 +179,21 @@ def test_device_poll_error_raises(tmp_path, monkeypatch):
         assert "access_denied" in str(e)
 
 
+def test_build_user_report_and_bug_title():
+    r = cr.build_user_report("It froze when I clicked Start\nmore detail",
+                             eventdata={"date": "2026-07-24", "venue": "Tallinn"}, now=1)
+    assert r["exc_type"] == "BugReport" and r["exc_msg"] == "It froze when I clicked Start"
+    assert cr.report_title(r) == "[2026-07-24/Tallinn] Bug report: It froze when I clicked Start"
+    body = cr.report_body(r)
+    assert body.startswith("User bug report") and "### Description" in body
+
+
+def test_client_id_default(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    assert cr.client_id() == cr.DEFAULT_CLIENT_ID
+
+
 def test_config_roundtrip(tmp_path, monkeypatch):
     _cfg(tmp_path, monkeypatch)
     cfg = cr.load_config()

@@ -12,14 +12,13 @@ import os
 import subprocess
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMessageBox,
-    QPlainTextEdit, QPushButton, QTabWidget, QVBoxLayout, QWidget,
+    QApplication, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
+    QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QVBoxLayout, QWidget,
 )
 
-from cozer import reports as R
 from cozer.app import crashreport
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, parse_scoring
@@ -46,17 +45,18 @@ DEFAULT_EVENT = {
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
                  ("officer", "Officer of the Day"), ("secretary", "Secretary General")]
 
-# (label, render function, accepts a class selection)
+# (label, cozer.reports function name, accepts a class selection). Resolved lazily in
+# on_generate so importing this module doesn't pull in weasyprint (a slow import).
 _REPORTS = [
-    ("Participants", R.render_participants, True),
-    ("Intermediate", R.render_intermediate, True),
-    ("Full Final", R.render_full_final, True),
-    ("Short Final", R.render_short_final, True),
-    ("Endurance Full Final", R.render_endurance_final, True),
-    ("Check List", R.render_checklist, True),
-    ("Laps Protocol", R.render_laps_protocol, True),
-    ("Info Letter", R.render_info_letter, False),
-    ("Registration Letter", R.render_registration_letter, False),
+    ("Participants", "render_participants", True),
+    ("Intermediate", "render_intermediate", True),
+    ("Full Final", "render_full_final", True),
+    ("Short Final", "render_short_final", True),
+    ("Endurance Full Final", "render_endurance_final", True),
+    ("Check List", "render_checklist", True),
+    ("Laps Protocol", "render_laps_protocol", True),
+    ("Info Letter", "render_info_letter", False),
+    ("Registration Letter", "render_registration_letter", False),
 ]
 
 
@@ -86,6 +86,81 @@ def report_exception(window, exc_type, exc, tb, action=None):
         return report, url
     except Exception:      # pragma: no cover - reporting must never itself crash the app
         return None, None
+
+
+def report_bug(window, description):
+    """File a user-initiated bug report (submits if signed in, else queues). Returns
+    the issue URL if filed, else None."""
+    store = getattr(window, "store", None)
+    path = store.path if store is not None else None
+    report = crashreport.build_user_report(description, event_path=path,
+                                            eventdata=getattr(window, "eventdata", None))
+    return crashreport.Reporter().handle(report, event_path=path)
+
+
+def make_splash():
+    """A small COZER splash shown while the window sets up."""
+    from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+    from PySide6.QtWidgets import QSplashScreen
+    pm = QPixmap(440, 180)
+    pm.fill(QColor("#2b3a67"))
+    p = QPainter(pm)
+    p.setPen(QColor("#f4f3ee"))
+    p.setFont(QFont("DejaVu Sans", 30, QFont.Bold))
+    p.drawText(pm.rect().adjusted(0, 34, 0, 0), Qt.AlignHCenter | Qt.AlignTop, "COZER")
+    p.setFont(QFont("DejaVu Sans", 11))
+    p.drawText(pm.rect().adjusted(0, 96, 0, 0), Qt.AlignHCenter | Qt.AlignTop, "COmpetition organiZER")
+    p.end()
+    splash = QSplashScreen(pm)
+    splash.showMessage("Starting up…", Qt.AlignBottom | Qt.AlignHCenter, QColor("#f4f3ee"))
+    return splash
+
+
+class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network polling
+    """GitHub device-flow login: shows the user code and polls until authorized."""
+
+    def __init__(self, parent, cid, transport=None):
+        super().__init__(parent)
+        self.setWindowTitle("Sign in to GitHub")
+        self._cid = cid
+        self._transport = transport
+        self.token = None
+        start = crashreport.device_start(cid, transport=transport)
+        self._device_code = start["device_code"]
+        self._uri = start.get("verification_uri", "https://github.com/login/device")
+        v = QVBoxLayout(self)
+        v.addWidget(QLabel("1.  Open  %s" % self._uri))
+        v.addWidget(QLabel("2.  Enter this one-time code:"))
+        code = QLabel(start.get("user_code", ""))
+        code.setStyleSheet("font-size: 22px; font-weight: bold; letter-spacing: 3px;")
+        v.addWidget(code)
+        row = QHBoxLayout()
+        openb = QPushButton("Open GitHub in browser")
+        openb.clicked.connect(lambda: __import__("webbrowser").open(self._uri))
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        row.addWidget(openb)
+        row.addWidget(cancel)
+        v.addLayout(row)
+        self._status = QLabel("Waiting for authorization…")
+        v.addWidget(self._status)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._poll)
+        self._timer.start(max(1, int(start.get("interval", 5))) * 1000)
+
+    def _poll(self):
+        try:
+            js = crashreport.device_poll_once(self._cid, self._device_code, transport=self._transport)
+        except Exception as e:
+            self._status.setText("Network error: %s" % e)
+            return
+        if js.get("access_token"):
+            self.token = js["access_token"]
+            self._timer.stop()
+            self.accept()
+        elif js.get("error") not in ("authorization_pending", "slow_down", None):
+            self._timer.stop()
+            self._status.setText("Failed: %s" % js.get("error"))
 
 
 def _install_excepthook(window):     # pragma: no cover - process-global; needs the GUI loop
@@ -137,6 +212,9 @@ class MainWindow(QMainWindow):
                 m.addSeparator()
             else:
                 m.addAction(text, slot)
+        hlp = self.menuBar().addMenu("&Help")
+        hlp.addAction("&Sign in to GitHub…", self._on_signin)
+        hlp.addAction("&Report a bug…", self._on_report_bug)
 
     def on_new(self):
         self.eventdata = copy.deepcopy(DEFAULT_EVENT)
@@ -267,6 +345,31 @@ class MainWindow(QMainWindow):
         self.log_view.appendPlainText(msg)
         self.statusBar().showMessage(msg)
 
+    # ---- Help: GitHub sign-in & bug reports ----
+    def _on_signin(self):     # pragma: no cover - modal dialog + network
+        try:
+            dlg = SignInDialog(self, crashreport.client_id())
+        except Exception as e:
+            QMessageBox.warning(self, "Sign in", "Could not reach GitHub:\n%s" % e)
+            return
+        if dlg.exec() and dlg.token:
+            cfg = crashreport.load_config()
+            cfg["token"] = dlg.token
+            crashreport.save_config(cfg)
+            n = len(crashreport.Reporter(config=cfg).submit_pending())
+            self.log("Signed in to GitHub — submitted %d queued report(s)." % n)
+        else:
+            self.log("GitHub sign-in cancelled")
+
+    def _on_report_bug(self):     # pragma: no cover - modal input dialog
+        text, ok = QInputDialog.getMultiLineText(
+            self, "Report a bug",
+            "Describe what happened. The current event is attached so it can be reproduced:")
+        if ok and text.strip():
+            url = report_bug(self, text)
+            self.log("Bug report %s" % ("filed: %s" % url if url
+                                        else "saved locally — will submit when you sign in"))
+
     # ---- reports tab ----
     def _build_reports_tab(self):
         w = QWidget()
@@ -301,7 +404,7 @@ class MainWindow(QMainWindow):
         return sel or None
 
     def on_generate(self):
-        label, func, takes = _REPORTS[self.report_combo.currentIndex()]
+        label, funcname, takes = _REPORTS[self.report_combo.currentIndex()]
         default = label.lower().replace(" ", "_") + ".pdf"
         path, _ = QFileDialog.getSaveFileName(self, "Save report PDF", default, "PDF (*.pdf)")
         if not path:
@@ -309,6 +412,8 @@ class MainWindow(QMainWindow):
         if not path.endswith(".pdf"):
             path += ".pdf"
         try:
+            import cozer.reports as R
+            func = getattr(R, funcname)
             if takes:
                 func(self.eventdata, path, classes=self.selected_classes())
             else:
@@ -326,10 +431,14 @@ class MainWindow(QMainWindow):
 def run(argv=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
+    splash = make_splash()
+    splash.show()
+    app.processEvents()
     win = MainWindow()
     _install_excepthook(win)
     files = [a for a in argv if not a.startswith("-") and os.path.exists(a)]
     if files:
         win.load(files[0])
     win.show()
+    splash.finish(win)
     return app.exec()

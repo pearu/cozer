@@ -26,6 +26,9 @@ from cozer.store import atomic_write, dumps
 REPO = "pearu/cozer"
 SCOPE = "public_repo"
 LABEL = "needs-triage"
+# cozer's registered GitHub OAuth App (Device Flow). The client id is public and
+# safe to ship; the flow needs no client secret. Overridable via env/config.
+DEFAULT_CLIENT_ID = "Ov23lixGVzLMEmj1QaHv"
 GITHUB_API = "https://api.github.com"
 DEVICE_CODE_URL = "https://github.com/login/device/code"
 DEVICE_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -70,7 +73,8 @@ def save_config(cfg):
 
 
 def client_id(cfg=None):
-    return os.environ.get("COZER_GITHUB_CLIENT_ID") or (cfg or load_config()).get("client_id")
+    return (os.environ.get("COZER_GITHUB_CLIENT_ID")
+            or (cfg or load_config()).get("client_id") or DEFAULT_CLIENT_ID)
 
 
 # --- report model -----------------------------------------------------------
@@ -99,6 +103,25 @@ def build_report(exc_type, exc, tb, eventdata=None, event_path=None, action=None
     }
 
 
+def build_user_report(description, eventdata=None, event_path=None, action=None, now=None):
+    """A user-initiated bug report (no exception) — the current event is attached
+    for reproduction, same as a crash."""
+    text = (description or "").strip()
+    return {
+        "time": now if now is not None else time.time(),
+        "cozer_version": __version__,
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "action": action or "user bug report",
+        "event_path": event_path,
+        "exc_type": "BugReport",
+        "exc_msg": (text.splitlines()[0][:80] if text else "(no description)"),
+        "traceback": text,
+        "fingerprint": hashlib.sha1(("bug|" + text).encode("utf-8")).hexdigest()[:12],
+        "event": eventdata,
+    }
+
+
 def _venue_tag(eventdata):
     eventdata = eventdata or {}
     date = (eventdata.get("date") or "").strip() or "?"
@@ -107,20 +130,25 @@ def _venue_tag(eventdata):
 
 
 def report_title(report):
-    return "[%s] Crash: %s: %s" % (
-        _venue_tag(report.get("event")), report["exc_type"], (report["exc_msg"] or "")[:80])
+    tag = _venue_tag(report.get("event"))
+    msg = (report["exc_msg"] or "")[:80]
+    if report["exc_type"] == "BugReport":
+        return "[%s] Bug report: %s" % (tag, msg)
+    return "[%s] Crash: %s: %s" % (tag, report["exc_type"], msg)
 
 
 def report_body(report):
+    is_bug = report["exc_type"] == "BugReport"
     lines = [
-        "Automated crash report from cozer.", "",
+        "User bug report from cozer." if is_bug else "Automated crash report from cozer.", "",
         "| field | value |", "|---|---|",
         "| cozer | %s |" % report["cozer_version"],
         "| python | %s |" % report["python"],
         "| platform | %s |" % report["platform"],
         "| action | %s |" % (report.get("action") or "—"),
         "| fingerprint | `%s` |" % report["fingerprint"], "",
-        "### Traceback", "```", report["traceback"].rstrip(), "```",
+        "### Description" if is_bug else "### Traceback",
+        "```", report["traceback"].rstrip(), "```",
     ]
     ev = report.get("event")
     if ev is not None:

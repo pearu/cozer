@@ -597,9 +597,13 @@ python -m cozer            # (entry point available from Phase 5)
   the report as a `needs-triage` issue titled `[<date>/<venue>] Crash: …`, deduped by a
   traceback fingerprint; offline reports queue and drain when back online. All network calls go
   through an injectable transport (stdlib `urllib`, no new dep) and are unit-tested without the
-  network. **Pending owner action:** register a GitHub OAuth App (Device Flow enabled, scope
-  `public_repo`) and set its client id (`COZER_GITHUB_CLIENT_ID` / config) — then the sign-in
-  dialog + user "Report a bug" action land (next commit). Future: AI triage of `needs-triage`.
+  network. The GitHub OAuth App is registered (public client id baked into `crashreport.py`, no
+  secret — device flow needs none); **Help → Sign in to GitHub** (device-flow dialog) and
+  **Help → Report a bug** are wired, and queued reports drain on sign-in. Future: AI triage of
+  `needs-triage` issues, and an in-app self-update UI (Help → Check for updates) that ties into
+  this — notify the user when a version fixing *their* reported issue is available.
+- **Fast startup:** `cozer.reports` (hence `weasyprint`) is imported lazily on first report, not
+  at launch; a `QSplashScreen` covers the remaining window setup.
 
 ---
 
