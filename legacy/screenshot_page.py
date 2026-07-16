@@ -30,6 +30,11 @@ class App(cozer.MyApp):
                 if hasattr(pg, 'Entering'):
                     pg.Entering()
                 if PAGE == 'Timer' and f.eventdata.get('races'):
+                    cfg = f.eventdata.setdefault('configure', {})
+                    if os.environ.get('BUT_SIZE'):
+                        cfg['id_but_size'] = int(os.environ['BUT_SIZE'])
+                    if os.environ.get('BUT_TEXTSIZE'):
+                        cfg['id_but_textsize'] = int(os.environ['BUT_TEXTSIZE'])
                     f.currentRace = RACE
                     try:
                         pg.racechoice.SetSelection(RACE)
