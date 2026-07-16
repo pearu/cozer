@@ -472,15 +472,26 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("COZER — %s" % (self.store.path if self.store else "(unsaved)"))
 
 
+def _startup_file(argv):
+    """The event file to open on launch: the first .coz/.cozj argument (existence
+    checked by the caller so a wrong path can be reported)."""
+    for a in argv:
+        if not a.startswith("-") and a.lower().endswith((".coz", ".cozj")):
+            return a
+    return None
+
+
 def run(argv=None, app=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     if app is None:
         app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
     win = MainWindow()
     _install_excepthook(win)
-    files = [a for a in argv if not a.startswith("-") and os.path.exists(a)]
-    if files:
-        win.load(files[0])
+    path = _startup_file(argv)
+    if path and os.path.exists(path):
+        win.load(path)                             # python -m cozer path/to/file.coz
+    elif path:
+        print("cozer: file not found: %s" % path, file=sys.stderr)
     win.show()
     # Ctrl+C on the terminal should behave like File -> Quit (a clean close).
     # A signal handler alone won't fire while Qt's C++ event loop is blocked, so a

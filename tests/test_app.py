@@ -496,6 +496,28 @@ def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     assert url is None and len(cr.list_pending()) == 1     # queued until signed in
 
 
+def test_startup_file_selects_event_arg():
+    from cozer.app.main import _startup_file
+    assert _startup_file([]) is None
+    assert _startup_file(["--debug"]) is None
+    assert _startup_file(["notes.txt"]) is None
+    assert _startup_file(["event.coz"]) == "event.coz"
+    assert _startup_file(["-x", "a.cozj", "b.coz"]) == "a.cozj"   # first event arg wins
+
+
+def test_startup_file_loads_into_window(tmp_path, monkeypatch):
+    import shutil
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    _app()
+    coz = str(tmp_path / "ev.coz")
+    shutil.copy(EVENT, coz)
+    w = MainWindow()
+    path = appmain._startup_file([coz])                          # what run() resolves
+    assert path == coz
+    w.load(path)
+    assert w._fields["title"].text() and w.store is not None     # opened + auto-persisted
+
+
 def test_log_pane_records_messages():
     _app()
     w = MainWindow(_recorded_event())

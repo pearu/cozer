@@ -583,12 +583,11 @@ the laptop needs its own `cozer` env (below). Headless GUI tests on the server/C
 offscreen platform plugin.
 
 **Slow GUI startup over sshfs.** Running `python -m cozer` directly off the sshfs mount is
-slow (~6 s) because every `cozer/*.pyc` import is a network round-trip (importtime confirmed:
-even an empty `cozer/app/__init__.py` took ~0.9 s; PySide6, local, is ~80 ms). Fix for the
-edit-verify-before-commit loop: **`sh tools/devrun.sh`** — rsyncs the current working tree
-(uncommitted edits included) from the mount to a local dir (~50 ms) and runs from there
-(~0.2 s), so no `git pull` and no committing to test. End users install locally, so they never
-hit this.
+slow because every `cozer/*.pyc` import is a network round-trip (importtime confirmed: even an
+empty `cozer/app/__init__.py` took ~0.9 s; PySide6, local, is ~80 ms). If dev startup speed
+matters, run from a **local checkout** instead of the mount. End users install locally, so they
+never hit this. `python -m cozer path/to/event.coz` opens an event on launch (handy for
+testing).
 
 ### 8.2 Laptop GUI setup (Linux laptop)
 
