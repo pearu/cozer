@@ -138,12 +138,15 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
         row = QHBoxLayout()
         openb = QPushButton("Open GitHub in browser")
         openb.clicked.connect(lambda: __import__("webbrowser").open(self._uri))
+        check = QPushButton("Check now")
+        check.clicked.connect(self._poll)
         cancel = QPushButton("Cancel")
         cancel.clicked.connect(self.reject)
-        row.addWidget(openb)
-        row.addWidget(cancel)
+        for b in (openb, check, cancel):
+            row.addWidget(b)
         v.addLayout(row)
-        self._status = QLabel("Waiting for authorization…")
+        self._status = QLabel("After you approve in the browser this continues automatically "
+                              "— or click ‘Check now’.")
         v.addWidget(self._status)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll)
@@ -159,9 +162,11 @@ class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network pol
             self.token = js["access_token"]
             self._timer.stop()
             self.accept()
-        elif js.get("error") not in ("authorization_pending", "slow_down", None):
+        elif js.get("error") in ("authorization_pending", "slow_down", None):
+            self._status.setText("Waiting for you to approve in the browser…")
+        else:
             self._timer.stop()
-            self._status.setText("Failed: %s" % js.get("error"))
+            self._status.setText("Sign-in failed: %s" % js.get("error"))
 
 
 def _install_excepthook(window):     # pragma: no cover - process-global; needs the GUI loop

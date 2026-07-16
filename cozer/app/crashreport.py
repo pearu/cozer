@@ -204,16 +204,26 @@ def list_pending():
 
 # --- GitHub transport (urllib; injectable for tests) ------------------------
 
+def _parse_body(body):
+    """GitHub's login/oauth endpoints reply form-encoded unless asked for JSON;
+    accept either so a token response is never silently missed."""
+    if not body:
+        return {}
+    try:
+        return json.loads(body)
+    except ValueError:
+        return {k: v[0] for k, v in urllib.parse.parse_qs(body).items()}
+
+
 def _urllib_transport(method, url, headers, data):     # pragma: no cover - real network
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req, timeout=20) as resp:
-        body = resp.read().decode("utf-8")
-        return resp.status, (json.loads(body) if body else {})
+        return resp.status, _parse_body(resp.read().decode("utf-8"))
 
 
-def _http(method, url, token=None, data=None, transport=None):
+def _http(method, url, token=None, data=None, transport=None, accept="application/vnd.github+json"):
     transport = transport or _urllib_transport
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "cozer"}
+    headers = {"Accept": accept, "User-Agent": "cozer"}
     if token:
         headers["Authorization"] = "Bearer %s" % token
     payload = None
@@ -225,14 +235,14 @@ def _http(method, url, token=None, data=None, transport=None):
 
 def device_start(cid, transport=None):
     _, js = _http("POST", "%s?client_id=%s&scope=%s" % (DEVICE_CODE_URL, cid, SCOPE),
-                  transport=transport)
+                  transport=transport, accept="application/json")
     return js       # device_code, user_code, verification_uri, interval, expires_in
 
 
 def device_poll_once(cid, device_code, transport=None):
     url = ("%s?client_id=%s&device_code=%s&grant_type=urn:ietf:params:oauth:grant-type:device_code"
            % (DEVICE_TOKEN_URL, cid, device_code))
-    _, js = _http("POST", url, transport=transport)
+    _, js = _http("POST", url, transport=transport, accept="application/json")
     return js       # {access_token: ...} or {error: authorization_pending|slow_down|...}
 
 

@@ -139,6 +139,15 @@ def test_submit_pending_drains_queue(tmp_path, monkeypatch):
     assert len(done) == 1 and not cr.list_pending()        # drained
 
 
+def test_parse_body_json_or_form_encoded():
+    # GitHub's device endpoints reply form-encoded unless asked for JSON — accept both
+    assert cr._parse_body("") == {}
+    assert cr._parse_body('{"access_token": "gho_x"}') == {"access_token": "gho_x"}
+    assert cr._parse_body("access_token=gho_x&token_type=bearer") == {
+        "access_token": "gho_x", "token_type": "bearer"}
+    assert cr._parse_body("error=authorization_pending")["error"] == "authorization_pending"
+
+
 def test_device_flow(tmp_path, monkeypatch):
     _cfg(tmp_path, monkeypatch)
     fake = FakeGitHub()
