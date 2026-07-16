@@ -216,6 +216,75 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     assert "1" in res and "2" in res
 
 
+def test_standings_orders_by_progress():
+    from cozer.app.timer import standings
+    rec = [{"course": [1000, 1000, 1000]},
+           {"1": [[1, 20.0], [1, 21.0]],                 # 2 laps, 41s
+            "2": [[1, 19.0], [1, 20.0], [1, 22.0]],       # 3 laps -> finished, 61s
+            "3": [[1, 25.0]]}]                             # 1 lap
+    order = standings(rec)
+    assert [s["id"] for s in order] == ["2", "1", "3"]    # finished, then 2 laps, then 1
+    by = {s["id"]: s for s in order}
+    assert by["2"]["finished"] and by["2"]["laps"] == 3 and not by["1"]["finished"]
+
+
+def test_standings_same_laps_by_time():
+    from cozer.app.timer import standings
+    rec = [{"course": [1000, 1000]}, {"1": [[1, 30.0]], "2": [[1, 25.0]]}]
+    assert [s["id"] for s in standings(rec)] == ["2", "1"]     # equal laps -> faster leads
+
+
+def test_calclayout_keeps_all_ids():
+    from cozer.app.timer import calclayout
+    rows = calclayout(["1", "2", "3", "11", "12", "23"])
+    flat = [x for row in rows for x in row]
+    assert sorted(flat) == sorted(["1", "2", "3", "11", "12", "23"]) and all(rows)
+
+
+def test_timer_running_order_updates(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clock = [1000.0]
+    tp._clock = lambda: clock[0]
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    lst = tp._orderlists[("GT", "1")]
+    assert lst.count() == 2
+    clock[0] = 1020.0
+    tp.record_lap("GT", "1", "2")             # boat 2 completes a lap first -> leads
+    assert "#2" in lst.item(0).text()
+    clock[0] = 1021.0
+    tp.record_lap("GT", "1", "1")             # boat 1 slower -> boat 2 still leads
+    assert "#2" in lst.item(0).text()
+
+
+def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    tp._clock = lambda: 100.0
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    tp.record_lap("GT", "1", "1")
+    tp.on_stop()
+    assert not tp._started
+    tp.on_resume()
+    assert tp._started                        # a start time exists -> resumes
+    assert len(w.eventdata["record"]["GT"]["1"][1]["1"]) == 1   # prior data kept
+
+
+def test_timer_reopen_reconstructs_order():
+    _app()
+    w = MainWindow(_recorded_event())          # GT/1 already has recorded laps
+    tp = w.timer_panel
+    tp.race_combo.setCurrentIndex(0)
+    lst = tp._orderlists.get(("GT", "1"))
+    assert lst is not None and lst.count() == 2 and not tp._started   # shown, not recording
+
+
 def test_timer_shows_buttons_on_race_select():
     _app()
     w = MainWindow(_timer_event())
