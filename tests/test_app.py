@@ -277,15 +277,29 @@ def test_timer_running_order_and_both_views_record(tmp_path, monkeypatch):
     assert len(w.eventdata["record"]["GT"]["1"][1]["2"]) == 1
 
 
-def test_timer_button_size_persists(tmp_path, monkeypatch):
+def test_grid_buttons_autofit():
     _app()
-    w = MainWindow(_timer_event())
-    tp = w.timer_panel
-    tp.race_combo.setCurrentIndex(0)
-    base = tp._butsize()
-    tp._bump_size(6)
-    assert tp._butsize() == base + 6
-    assert w.eventdata["configure"]["id_but_size"] == base + 6   # persisted in the event
+    from cozer.app.timer import GridButtons
+
+    class _P:
+        def __init__(self):
+            self._buttons = {}
+
+        def record_lap(self, *a):
+            pass
+
+        def _boat_color(self, *a):
+            return "#ffffff"
+
+    g = GridButtons(_P(), "GT", "1", [str(i) for i in range(1, 13)])   # 12 boats
+    g.resize(300, 200)
+    g.relayout()                                         # what resizeEvent calls
+    small = g.sz
+    for b, r, c in g.own.values():                       # every button fits inside the area
+        assert b.geometry().right() <= 300 and b.geometry().bottom() <= 200
+    g.resize(600, 400)
+    g.relayout()
+    assert g.sz > small                                  # bigger window -> bigger square buttons
 
 
 def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):

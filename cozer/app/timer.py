@@ -2,18 +2,18 @@
 
 Per heat there are two synchronized views, and a lap is recorded by clicking a
 boat in **either** of them:
-  * a **click grid** of boat-number buttons (laid out by tens, `calclayout`);
+  * a **click grid** of square boat-number buttons that **auto-fit the window** —
+    all boats stay visible at any window size; the buttons grow/shrink to fill the
+    space (make the window bigger for bigger targets). Laid out in tens-grouped
+    rows so the operator's eye finds a number fast.
   * a **running-order ladder** — `Ready to Start` → boats grouped into the zone
-    after each `Lap N` marker by how many laps they have completed → finished
-    boats (magenta) → `Finish`. A boat's vertical position is its progress; this
-    ordering is also what the Phase-7 live feed will publish.
+    after each `Lap N` marker by laps completed → finished boats (magenta) →
+    `Finish`. A boat's vertical position is its progress; this ordering is also
+    what the Phase-7 live feed will publish.
 
-Every click goes straight through `store.record` (append + fsync to the
-journal), so a power loss loses at most nothing that was clicked. Start clears
-the heat and stamps a start time; Resume continues an in-progress heat without
-resetting. The display is always recomputed from the record, so reopening a
-part-timed event reconstructs it. Button size is operator-adjustable (A−/A+) for
-comfortable high-pace tapping, and persisted in the event config.
+Every click goes through `store.record` (append + fsync to the journal). Start
+clears the heat and stamps a start time; Resume continues without resetting; the
+display is always recomputed from the record, so reopening reconstructs it.
 
 `standings()` / `ladder()` / `calclayout()` are pure and unit-tested.
 """
@@ -22,8 +22,8 @@ import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-    QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QCheckBox, QComboBox, QGroupBox, QHBoxLayout, QLabel, QMessageBox,
+    QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from cozer._py2compat import round2
@@ -38,7 +38,13 @@ C_FINISH = "#ff00ff"        # finish
 C_FINISHBAR = "#000000"     # finishmark_bg (fg white)
 C_INPROGRESS = "#c8c8c8"    # waiting1 (a lap done, still racing)
 C_WAITING = "#ffffff"       # not started
-DEFAULT_BUTSIZE = 46
+
+
+def _btn_qss(color, fontpx):
+    """Boat-button style: a thin border separates neighbours (avoid mis-taps); on
+    hover it thickens so the button stands out."""
+    return ("QPushButton { background-color: %s; font-size: %dpx; border: 1px solid #9a9a9a; }"
+            "QPushButton:hover { border: 3px solid #202020; }" % (color, fontpx))
 
 
 def _idkey(pid):
@@ -135,6 +141,47 @@ def class_ids(eventdata, cl):
             if len(p) > 5 and p[4] == base and p[5] != ""]
 
 
+class GridButtons(QWidget):
+    """Square boat-number buttons that auto-fit the widget's area (all always
+    visible), arranged in tens-grouped rows (calclayout)."""
+    GAP = 6
+
+    def __init__(self, panel, cl, h, ids):
+        super().__init__()
+        self.panel, self.cl, self.h = panel, cl, h
+        # Compact near-square packing (short travel), sorted so decades stay
+        # contiguous (easy to find); arrangement is fixed by the boat set, so only
+        # the size scales on resize -> stable positions / muscle memory.
+        ids = sorted(ids, key=_idkey)
+        n = len(ids) or 1
+        self.ncols = min(n, max(3, int(math.ceil(math.sqrt(n)))))
+        self.nrows = int(math.ceil(n / float(self.ncols)))
+        self.own = {}               # pid -> (button, r, c)
+        self.sz = 40
+        for i, pid in enumerate(ids):
+            b = QPushButton(str(pid), self)
+            b.clicked.connect(lambda _=False, p=pid: self.panel.record_lap(self.cl, self.h, p))
+            self.own[pid] = (b, i // self.ncols, i % self.ncols)
+            panel._buttons[(cl, h, pid)] = b
+        self.setMinimumSize(self.ncols * 30, self.nrows * 30)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    def resizeEvent(self, _evt):
+        self.relayout()
+
+    def relayout(self):
+        g = self.GAP
+        self.sz = max(26, min(self.width() // self.ncols, self.height() // self.nrows))
+        for pid, (b, r, c) in self.own.items():
+            b.setGeometry(c * self.sz + g // 2, r * self.sz + g // 2, self.sz - g, self.sz - g)
+            self.restyle(pid)
+
+    def restyle(self, pid):
+        b = self.own[pid][0]
+        color = self.panel._boat_color(self.cl, self.h, pid)
+        b.setStyleSheet(_btn_qss(color, max(10, int(self.sz * 0.34))))
+
+
 class TimerPanel(QWidget):
     def __init__(self, window, clock=time.time):
         super().__init__()
@@ -145,6 +192,7 @@ class TimerPanel(QWidget):
         self._buttons = {}          # (cl, h, pid) -> grid QPushButton
         self._ladder_boats = {}     # (cl, h, pid) -> ladder QPushButton
         self._ladder_layouts = {}   # (cl, h) -> QVBoxLayout of the ladder
+        self._grids = {}            # (cl, h) -> GridButtons
         self._autosave = None
 
         v = QVBoxLayout(self)
@@ -164,23 +212,11 @@ class TimerPanel(QWidget):
         for w in (self.start_btn, self.stop_btn, self.resume_btn, self.autosave_cb):
             top.addWidget(w)
         top.addStretch()
-        top.addWidget(QLabel("Button size:"))
-        smaller = QPushButton("A−")
-        smaller.setFixedWidth(34)
-        smaller.clicked.connect(lambda: self._bump_size(-6))
-        bigger = QPushButton("A+")
-        bigger.setFixedWidth(34)
-        bigger.clicked.connect(lambda: self._bump_size(6))
-        top.addWidget(smaller)
-        top.addWidget(bigger)
         v.addLayout(top)
 
-        self.area = QScrollArea()
-        self.area.setWidgetResizable(True)
-        self._host = QWidget()
-        self._grid = QVBoxLayout(self._host)
-        self.area.setWidget(self._host)
-        v.addWidget(self.area, 1)
+        self._host = QWidget()      # heats fill the window (grid auto-fits, no scroll)
+        self._heatbox = QVBoxLayout(self._host)
+        v.addWidget(self._host, 1)
         self.status = QLabel("")
         v.addWidget(self.status)
         self.race_combo.currentIndexChanged.connect(self._show_race)
@@ -220,64 +256,51 @@ class TimerPanel(QWidget):
             return sorted(rec[1].keys(), key=_idkey)
         return sorted(class_ids(self.eventdata, cl), key=_idkey)
 
-    # ---- sizing ----
-    def _butsize(self):
-        try:
-            return int(self.eventdata.get("configure", {}).get("id_but_size", DEFAULT_BUTSIZE))
-        except (TypeError, ValueError):
-            return DEFAULT_BUTSIZE
+    def _boat_color(self, cl, h, pid):
+        rec = self._rec(cl, h)
+        marks = rec[1].get(pid, []) if rec else []
+        laps = len([m for m in marks if m and m[0] in (1, 2)])
+        need = len(rec[0].get("course", [])) if rec else len(heat_course(self.eventdata, cl, h)[0])
+        return C_FINISH if (need and laps >= need) else (C_INPROGRESS if laps else C_WAITING)
 
-    def _bump_size(self, delta):
-        self.eventdata.setdefault("configure", {})["id_but_size"] = \
-            max(28, min(110, self._butsize() + delta))
-        self._build()
-
-    def _boat_style(self, s):
+    def _boat_style(self, s):       # ladder boat button (fixed font)
         color = C_FINISH if s["finished"] else (C_INPROGRESS if s["laps"] else C_WAITING)
-        sz = self._butsize()
-        return "background-color: %s; font-size: %dpx;" % (color, max(9, int(sz * 0.34)))
+        return _btn_qss(color, 12)
 
     # ---- widget building ----
     def _clear(self):
-        while self._grid.count():
-            item = self._grid.takeAt(0)
+        while self._heatbox.count():
+            item = self._heatbox.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         self._buttons = {}
         self._ladder_boats = {}
         self._ladder_layouts = {}
+        self._grids = {}
 
     def _build(self):
         self._clear()
-        sz = self._butsize()
         for cl, h in self._heats:
             box = QGroupBox("%s  heat %s" % (cl, h))
             row = QHBoxLayout(box)
 
+            ladder_scroll = QScrollArea()          # ladder can be tall -> its own scroll
+            ladder_scroll.setWidgetResizable(True)
+            ladder_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            ladder_scroll.setMaximumWidth(170)
             ladder_host = QWidget()
             lv = QVBoxLayout(ladder_host)
             lv.setSpacing(2)
             self._ladder_layouts[(cl, h)] = lv
-            row.addWidget(ladder_host, 1)
+            ladder_scroll.setWidget(ladder_host)
+            row.addWidget(ladder_scroll, 0)
 
-            grid_host = QWidget()
-            g = QGridLayout(grid_host)
-            r = 0
-            for line in calclayout(self._heat_ids(cl, h)):
-                for c, pid in enumerate(line):
-                    b = QPushButton(str(pid))
-                    b.setMinimumSize(sz, sz)
-                    b.clicked.connect(lambda _=False, cc=cl, hh=h, p=pid: self.record_lap(cc, hh, p))
-                    self._buttons[(cl, h, pid)] = b
-                    g.addWidget(b, r, c)
-                r += 1
-            row.addWidget(grid_host, 2)
+            grid = GridButtons(self, cl, h, self._heat_ids(cl, h))
+            self._grids[(cl, h)] = grid
+            row.addWidget(grid, 1)
 
-            self._grid.addWidget(box)
+            self._heatbox.addWidget(box, 1)        # heats share the height, filling the window
             self._build_ladder(cl, h)
-            for pid in self._heat_ids(cl, h):
-                self._recolor(cl, h, pid)
-        self._grid.addStretch()
 
     def _build_ladder(self, cl, h):
         lv = self._ladder_layouts.get((cl, h))
@@ -293,7 +316,6 @@ class TimerPanel(QWidget):
         rec = self._rec(cl, h)
         if rec is None:
             return
-        sz = self._butsize()
         rows, _ = ladder(rec)
         for r in rows:
             if r[0] == "marker":
@@ -309,7 +331,7 @@ class TimerPanel(QWidget):
                 s = r[1]
                 pid = s["id"]
                 b = QPushButton(str(pid))
-                b.setMinimumHeight(max(22, int(sz * 0.6)))
+                b.setMinimumHeight(26)
                 b.setStyleSheet(self._boat_style(s))
                 b.clicked.connect(lambda _=False, cc=cl, hh=h, p=pid: self.record_lap(cc, hh, p))
                 self._ladder_boats[(cl, h, pid)] = b
@@ -383,7 +405,9 @@ class TimerPanel(QWidget):
         laptime = round2(self._clock() - rec[0]["starttime"] - prev)
         self.window.store.record({"op": "lap", "cl": cl, "h": h, "id": pid,
                                   "mark": [1, laptime]})
-        self._recolor(cl, h, pid)
+        grid = self._grids.get((cl, h))
+        if grid is not None:
+            grid.restyle(pid)
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
 
     def on_stop(self):
@@ -392,20 +416,6 @@ class TimerPanel(QWidget):
         self.stop_btn.setEnabled(False)
         self.race_combo.setEnabled(True)
         self.status.setText("Stopped")
-
-    # ---- display ----
-    def _recolor(self, cl, h, pid):
-        b = self._buttons.get((cl, h, pid))
-        if b is None:
-            return
-        rec = self._rec(cl, h)
-        marks = rec[1].get(pid, []) if rec else []
-        laps = len([m for m in marks if m and m[0] in (1, 2)])
-        need = len(rec[0].get("course", [])) if rec else len(heat_course(self.eventdata, cl, h)[0])
-        color = C_FINISH if (need and laps >= need) else (C_INPROGRESS if laps else C_WAITING)
-        b.setStyleSheet("background-color: %s; font-size: %dpx;"
-                        % (color, max(9, int(self._butsize() * 0.34))))
-        b.setText(str(pid))
 
     # ---- autosave ----
     def _toggle_autosave(self, on):
