@@ -8,16 +8,22 @@ Right-clicking a row at a point in time opens the rules menu (grouped by code)
 to insert that mark *at that time*, plus Insert-lap / Enable-Disable / Delete on
 the nearest mark. Zoom stretches the time axis.
 
-Every edit is committed through the store (journaled + fsync'd). The geometry
-and edit operations are module-level pure functions, exercised headlessly by the
-tests; the widget paints them and turns mouse events into those operations.
+Post-race edits are *buffered*: they modify an in-memory draft of the current
+heat and are written to the store (journaled + fsync'd + snapshot) only when the
+operator presses "Save changes". Leaving a modified record — switching heat/tab
+or quitting — prompts save/discard/cancel, so an accidental drag of the finish
+line can never silently overwrite a completed race. The geometry and edit
+operations are module-level pure functions, exercised headlessly by the tests;
+the widget paints them and turns mouse events into those operations.
 """
 import copy
+import time
 
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QMenu, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QComboBox, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QScrollArea,
+    QVBoxLayout, QWidget,
 )
 
 from cozer.analyzer import analyze, getresorder
@@ -36,7 +42,8 @@ CODE_COLORS = {
     "Q": QColor(0, 170, 0), "NQ": QColor(210, 0, 210),
 }
 
-HEADER_W = 220
+HEADER_W = 236       # frozen left column (competitor + result), always visible
+PAD = 10             # small left margin before the timeline baseline
 ROW_H = 46
 TOP = 34
 TICK = 16
@@ -136,12 +143,83 @@ def delete_nearest(marks, ct, coef, tol=5):
     return None
 
 
+def _ordinal(n):
+    if n <= 0:
+        return "–"
+    suf = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return "%d%s" % (n, suf)
+
+
 def result_str(r):
-    place = "%d." % r["place"] if r["place"] > 0 else "–"
-    laps = r["lapinfo"][0]
-    notes = " ".join(r["notes"].keys()) if r["notes"] else ""
-    return "%s  pts %s  %.1f/%.1f  L%s %s" % (
-        place, r["points"], r["avgspeed"], r["maxlapspeed"], laps, notes)
+    """Legacy res2str-style header: Nth/points  A/M=avg/max km/h  Laps/Pen/Left."""
+    laps, pen, left = (list(r.get("lapinfo", (0, 0, 0))) + [0, 0, 0])[:3]
+    notes = " ".join(r["notes"].keys()) if r.get("notes") else ""
+    return "%s/%s  A/M=%.1f/%.1f km/h  Laps/Pen/Left=%d/%d/%d %s" % (
+        _ordinal(r["place"]), r["points"], r["avgspeed"], r["maxlapspeed"], laps, pen, left, notes)
+
+
+def result_header(r):
+    """Two-line row label for the frozen column, so it stays narrow: place/points
+    and A/M speeds on top, Laps/Pen/Left (+ notes) wrapped to the second line."""
+    laps, pen, left = (list(r.get("lapinfo", (0, 0, 0))) + [0, 0, 0])[:3]
+    notes = " ".join(r["notes"].keys()) if r.get("notes") else ""
+    top = "%s/%s  A/M=%.1f/%.1f km/h" % (
+        _ordinal(r["place"]), r["points"], r["avgspeed"], r["maxlapspeed"])
+    bottom = ("Laps/Pen/Left=%d/%d/%d %s" % (laps, pen, left, notes)).rstrip()
+    return top + "\n" + bottom
+
+
+# --- frozen header column ---------------------------------------------------
+
+class FrozenHolder(QWidget):
+    """Fixed-width viewport that clips its HeaderColumn child. The column is
+    moved vertically by exactly the timeline's scroll offset (see
+    EditRecordsPanel._sync_header_scroll), so row labels stay pixel-aligned with
+    their baselines at every scroll position — no scrollbar-height skew — and
+    the frozen column is always visible regardless of zoom or horizontal scroll."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedWidth(HEADER_W)
+
+    def paintEvent(self, _evt):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#f3edd6"))
+        p.setPen(QPen(QColor(208, 196, 160)))       # right-edge separator
+        p.drawLine(self.width() - 1, 0, self.width() - 1, self.height())
+        p.end()
+
+
+class HeaderColumn(QWidget):
+    """The competitor number + analysed result for each row (two lines each),
+    painted for the whole record; FrozenHolder clips and scrolls it."""
+
+    def __init__(self):
+        super().__init__()
+        self._rows = []
+        self.setFixedWidth(HEADER_W)
+
+    def set_data(self, rows):
+        self._rows = rows
+        self.resize(HEADER_W, TOP + len(rows) * ROW_H + 20)
+        self.update()
+
+    def paintEvent(self, _evt):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#f3edd6"))
+        p.setPen(QPen(QColor(208, 196, 160)))       # right-edge separator
+        p.drawLine(self.width() - 1, 0, self.width() - 1, self.height())
+        p.setFont(QFont("DejaVu Sans", 8))
+        for ri, (pid, header, _marks) in enumerate(self._rows):
+            cy = TOP + ri * ROW_H + ROW_H // 2
+            lines = header.split("\n")
+            p.setPen(QPen(QColor(20, 20, 20)))
+            p.drawText(6, cy - 17, HEADER_W - 12, 17, Qt.AlignVCenter,
+                       "#%s  %s" % (pid, lines[0]))
+            if len(lines) > 1 and lines[1]:
+                p.setPen(QPen(QColor(95, 95, 95)))
+                p.drawText(18, cy + 1, HEADER_W - 24, 17, Qt.AlignVCenter, lines[1])
+        p.end()
 
 
 # --- painted timeline widget -----------------------------------------------
@@ -159,14 +237,14 @@ class TimelineWidget(QWidget):
 
     def set_data(self, rows, maxtime, racetime, coef):
         self._rows, self._maxtime, self._racetime, self._coef = rows, maxtime, racetime, coef
-        self.setMinimumSize(int(HEADER_W + coef * maxtime + 40), TOP + len(rows) * ROW_H + 20)
+        self.setMinimumSize(int(PAD + coef * maxtime + 40), TOP + len(rows) * ROW_H + 20)
         self.update()
 
     def x_of(self, t):
-        return HEADER_W + self._coef * t
+        return PAD + self._coef * t
 
     def t_of(self, x):
-        return max(0.0, (x - HEADER_W) / self._coef) if self._coef else 0.0
+        return max(0.0, (x - PAD) / self._coef) if self._coef else 0.0
 
     def row_at(self, y):
         r = int((y - TOP) // ROW_H)
@@ -178,12 +256,10 @@ class TimelineWidget(QWidget):
         p.setFont(QFont("DejaVu Sans", 8))
         for ri, (pid, header, marks) in enumerate(self._rows):
             y = TOP + ri * ROW_H + ROW_H // 2
-            p.setPen(QPen(QColor(20, 20, 20)))
-            p.drawText(6, y - 6, HEADER_W - 10, 24, Qt.AlignVCenter, "#%s  %s" % (pid, header))
             positions = mark_positions(marks)
             end = positions[-1][1] if positions else 0
             p.setPen(QPen(BASELINE, 2))
-            p.drawLine(int(HEADER_W), y, int(self.x_of(end if end else 0)), y)
+            p.drawLine(int(self.x_of(0)), y, int(self.x_of(end if end else 0)), y)
             for kind, t, code, label in positions:
                 x = int(self.x_of(t))
                 color = {"lap": LAP, "inslap": INSLAP, "displap": DISABLED,
@@ -230,11 +306,19 @@ class EditRecordsPanel(QWidget):
         self.window = window
         self._heatkeys = []
         self._zoom = 1
+        # Post-race edits are buffered in an in-memory draft of the current heat
+        # and only written to the store when the operator presses "Save changes",
+        # so an accidental drag of the finish line never silently overwrites a
+        # completed race. Leaving a modified record prompts save/discard/cancel.
+        self._draft = None            # deepcopy of [info, {pid: marks}] or None
+        self._draft_key = None        # (cl, h) the draft belongs to
+        self._dirty = False
+        self._loaded_index = None     # combo index of the loaded draft (for cancel)
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Class / Heat:"))
         self.heat_combo = QComboBox()
-        self.heat_combo.currentIndexChanged.connect(self.refresh)
+        self.heat_combo.currentIndexChanged.connect(self._on_heat_changed)
         top.addWidget(self.heat_combo)
         zin = QPushButton("Zoom +")
         zin.clicked.connect(lambda: self._zoomed(1))
@@ -242,21 +326,48 @@ class EditRecordsPanel(QWidget):
         zout.clicked.connect(lambda: self._zoomed(-1))
         top.addWidget(zin)
         top.addWidget(zout)
+        self.zoom_label = QLabel("Zoom: 1")
+        top.addWidget(self.zoom_label)
+        top.addSpacing(16)
         self.info_label = QLabel("")
         top.addWidget(self.info_label)
         top.addStretch()
+        self.dirty_label = QLabel("")
+        self.dirty_label.setStyleSheet("color:#b00000; font-weight:bold;")
+        top.addWidget(self.dirty_label)
+        self.save_btn = QPushButton("Save changes")
+        self.save_btn.setEnabled(False)
+        self.save_btn.clicked.connect(self.save_draft)
+        top.addWidget(self.save_btn)
         v.addLayout(top)
+        # Frozen header column (left) + horizontally-scrolling timeline (right).
+        # The header lives in a fixed-width clipping holder and is moved by the
+        # timeline's vertical scroll offset, so the row labels stay visible and
+        # pixel-aligned at any zoom or horizontal scroll offset.
+        self.header_holder = FrozenHolder()
+        self.header_col = HeaderColumn()
+        self.header_col.setParent(self.header_holder)
+        self.header_col.move(0, 0)
         self.timeline = TimelineWidget(self)
-        area = QScrollArea()
-        area.setWidgetResizable(True)
-        area.setWidget(self.timeline)
-        v.addWidget(area, 1)
+        self.area = QScrollArea()
+        self.area.setWidgetResizable(True)
+        self.area.setWidget(self.timeline)
+        self.area.verticalScrollBar().valueChanged.connect(self._sync_header_scroll)
+        body = QHBoxLayout()
+        body.setSpacing(0)
+        body.addWidget(self.header_holder)
+        body.addWidget(self.area, 1)
+        v.addLayout(body, 1)
 
     # ---- data ----
     def _record(self):
         return self.window.eventdata.get("record", {})
 
     def reload(self):
+        # A new document: drop any draft (callers flush first via maybe_flush).
+        self._draft = None
+        self._draft_key = None
+        self._dirty = False
         self.heat_combo.blockSignals(True)
         self.heat_combo.clear()
         self._heatkeys = []
@@ -283,72 +394,167 @@ class EditRecordsPanel(QWidget):
             mx = max(mx, t)
         return 1.0 + mx * 1.05
 
+    def _sync_header_scroll(self, value):
+        # Move the header column by exactly the timeline's scroll offset; the
+        # holder clips it, so alignment is exact at every position.
+        self.header_col.move(0, -value)
+
+    # ---- draft buffer (post-race edits held until "Save changes") ----
+    def _load_draft(self):
+        """Take a fresh in-memory copy of the current heat's record."""
+        cl, h = self._cur()
+        if cl is None:
+            self._draft, self._draft_key = None, None
+        else:
+            self._draft = copy.deepcopy(self._record()[cl][h])
+            self._draft_key = (cl, h)
+        self._dirty = False
+        self._loaded_index = self.heat_combo.currentIndex()
+
+    def _on_heat_changed(self, idx):
+        if self._dirty and self._loaded_index is not None and idx != self._loaded_index:
+            if not self.maybe_flush():                # cancelled: stay on the record
+                self.heat_combo.blockSignals(True)
+                self.heat_combo.setCurrentIndex(self._loaded_index)
+                self.heat_combo.blockSignals(False)
+                return
+        self.refresh()
+
+    def _update_save(self):
+        self.save_btn.setEnabled(self._dirty)
+        self.dirty_label.setText("● unsaved changes" if self._dirty else "")
+
     def refresh(self):
         cl, h = self._cur()
         if cl is None:
+            self._draft, self._draft_key, self._dirty = None, None, False
+            self.header_col.set_data([])
             self.timeline.set_data([], 1.0, 0.0, 1.0)
             self.info_label.setText("")
+            self._update_save()
             return
-        rec = self._record()[cl][h]
+        if self._draft_key != (cl, h):
+            self._load_draft()
+        rec = self._draft
         ss = self.window.eventdata.get("scoringsystem", [])
         try:
             res = analyze(h, copy.deepcopy(rec), ss)
             order = getresorder(res)
         except Exception:            # pragma: no cover - degenerate data
             res, order = {}, sorted(rec[1].keys(), key=str)
-        rows = [(str(pid), result_str(res[pid]) if pid in res else "", rec[1][pid])
+        rows = [(str(pid), result_header(res[pid]) if pid in res else "", rec[1][pid])
                 for pid in order]
         maxtime = self._maxtime(rec)
         racetime = rec[0].get("racetime", maxtime)
         width = int((1.4 ** self._zoom) * 600)
         coef = width / maxtime
         self._coef = coef
+        self.header_col.set_data(rows)
         self.timeline.set_data(rows, maxtime, racetime, coef)
-        self.info_label.setText("race time %.1f s" % racetime)
+        self._sync_header_scroll(self.area.verticalScrollBar().value())
+        start = rec[0].get("starttime")
+        starttxt = ("Start: %s      " % time.ctime(start)) if start else ""
+        self.info_label.setText(
+            "%sRace time: %d:%05.2f  (%.1f s)"
+            % (starttxt, int(racetime // 60), racetime % 60, racetime))
+        self.zoom_label.setText("Zoom: %d" % self._zoom)
+        self._update_save()
 
     def _zoomed(self, delta):
-        self._zoom = max(0, min(8, self._zoom + delta))
+        self._zoom = max(0, min(16, self._zoom + delta))
         self.refresh()
 
-    # ---- edits (journaled through the store) ----
+    # ---- edits (buffered into the draft; persisted only on Save) ----
     def _require_store(self):
         if self.window.store is None:
             self.window.on_save_as()
         return self.window.store is not None
 
     def _commit(self, cl, h, pid, marks):
-        self.window.store.record({"op": "replace", "cl": cl, "h": h, "id": pid, "marks": marks})
+        self._draft[1][pid] = marks
+        self._dirty = True
         self.refresh()
 
     def commit_racetime(self, value):
-        cl, h = self._cur()
-        if cl is None or not self._require_store():
+        if self._draft is None:
             return
-        self.window.store.record({"op": "info", "cl": cl, "h": h, "key": "racetime", "value": value})
+        self._draft[0]["racetime"] = value
+        self._dirty = True
         self.refresh()
 
     def insert_rule_mark(self, cl, h, pid, code, ct, note=""):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        marks = [list(m) for m in self._draft[1][pid]]
         insertmark(marks, code, ct, note)
         self._commit(cl, h, pid, marks)
 
     def insert_lap(self, cl, h, pid, ct):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        marks = [list(m) for m in self._draft[1][pid]]
         insert_lap_split(marks, ct)
         self._commit(cl, h, pid, marks)
 
     def toggle_at(self, cl, h, pid, ct):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        marks = [list(m) for m in self._draft[1][pid]]
         if toggle_nearest(marks, ct, self._coef):
             self._commit(cl, h, pid, marks)
 
     def delete_at(self, cl, h, pid, ct):
-        marks = [list(m) for m in self._record()[cl][h][1][pid]]
+        marks = [list(m) for m in self._draft[1][pid]]
         msg = delete_nearest(marks, ct, self._coef)
         if msg:
             self.window.log(msg)
         else:
             self._commit(cl, h, pid, marks)
+
+    # ---- save / discard the draft ----
+    def save_draft(self):
+        """Persist the buffered edits: journal each changed mark set / info key
+        through the store, then snapshot. Returns True on success (nothing to do
+        counts as success), False if no store could be established."""
+        if not self._dirty or self._draft is None or self._draft_key is None:
+            return True
+        if not self._require_store():
+            return False
+        cl, h = self._draft_key
+        stored = self.window.eventdata["record"][cl][h]
+        for key, val in self._draft[0].items():
+            if stored[0].get(key) != val:
+                self.window.store.record(
+                    {"op": "info", "cl": cl, "h": h, "key": key, "value": val})
+        for pid, marks in self._draft[1].items():
+            if stored[1].get(pid) != marks:
+                self.window.store.record(
+                    {"op": "replace", "cl": cl, "h": h, "id": pid, "marks": marks})
+        self.window.store.snapshot()
+        self._dirty = False
+        self._update_save()
+        self.window.log("Saved changes to %s / %s" % (cl, h))
+        return True
+
+    def maybe_flush(self):
+        """Called before leaving the current record (heat/tab switch, quit). If
+        there are unsaved edits, ask save/discard/cancel. Returns True if it's OK
+        to proceed (saved or discarded), False if the user cancelled."""
+        if not self._dirty:
+            return True
+        choice = self._ask_unsaved()
+        if choice == "cancel":
+            return False
+        if choice == "save":
+            return self.save_draft()
+        self._draft, self._draft_key, self._dirty = None, None, False   # discard
+        self._update_save()
+        return True
+
+    def _ask_unsaved(self):      # pragma: no cover - modal dialog
+        cl, h = self._draft_key or ("", "")
+        box = QMessageBox(self)
+        box.setWindowTitle("Unsaved race changes")
+        box.setText("Save changes to race %s / %s?" % (cl, h))
+        box.setStandardButtons(
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+        box.setDefaultButton(QMessageBox.Save)
+        return {QMessageBox.Save: "save", QMessageBox.Discard: "discard",
+                QMessageBox.Cancel: "cancel"}.get(box.exec(), "cancel")
 
     # ---- right-click menu on the timeline ----
     def build_mark_menu(self, pid, ct):
@@ -377,7 +583,7 @@ class EditRecordsPanel(QWidget):
         return menu
 
     def open_mark_menu(self, pid, ct, global_pos):      # pragma: no cover - shows a modal menu
-        if self._cur()[0] is None or not self._require_store():
+        if self._cur()[0] is None or self._draft is None:
             return
         self.build_mark_menu(pid, ct).exec(
             global_pos if isinstance(global_pos, QPoint) else QPoint(0, 0))

@@ -41,6 +41,16 @@ class App(cozer.MyApp):
                     except Exception:
                         pass
                     pg.TimerWin()
+                elif getattr(pg, 'recs', None):        # Edit Race Records: pick fullest heat
+                    best, bestn = 0, -1
+                    for j, (cl, h) in enumerate(pg.recs):
+                        n = sum(len(m) for m in pg.record[cl][h][1].values())
+                        if n > bestn:
+                            bestn, best = n, j
+                    idx = int(os.environ['EDIT_IDX']) if os.environ.get('EDIT_IDX') else best
+                    pg.recchoice.SetSelection(idx)
+                    pg.class_heat = pg.recs[idx]
+                    pg.SelectClassHeat(None)
             f.Refresh()
             wx.SafeYield()
         except Exception, e:

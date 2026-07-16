@@ -215,9 +215,29 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.editor_panel, "Edit Records")
         self.tabs.addTab(self._build_reports_tab(), "Reports")
         self.tabs.addTab(self._build_log_tab(), "Log")
+        self._prev_tab = self.tabs.currentIndex()
+        self.tabs.currentChanged.connect(self._on_tab_changed)
         self._reload_forms()
         self._refresh_title()
         self.log("Ready")
+
+    def _on_tab_changed(self, idx):
+        # Prompt to save/discard unsaved Edit Records edits before leaving the tab.
+        prev = self._prev_tab
+        if self.tabs.widget(prev) is self.editor_panel and idx != prev:
+            if not self.editor_panel.maybe_flush():
+                self.tabs.blockSignals(True)
+                self.tabs.setCurrentIndex(prev)
+                self.tabs.blockSignals(False)
+                return
+        self._prev_tab = idx
+
+    def closeEvent(self, event):
+        # Don't let unsaved race edits vanish on quit.
+        if not self.editor_panel.maybe_flush():
+            event.ignore()
+            return
+        event.accept()
 
     # ---- menu / file operations ----
     def _build_menu(self):
@@ -249,6 +269,8 @@ class MainWindow(QMainWindow):
         self._help_menu.addAction("&Report a bug…", self._on_report_bug)
 
     def on_new(self):
+        if not self.editor_panel.maybe_flush():
+            return
         self.eventdata = copy.deepcopy(DEFAULT_EVENT)
         self.store = None
         self._reload_forms()
@@ -256,6 +278,8 @@ class MainWindow(QMainWindow):
         self.log("New event")
 
     def on_open(self):
+        if not self.editor_panel.maybe_flush():
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Open event", "", "Cozer events (*.cozj *.coz)")
         if path:
             self.load(path)
@@ -284,6 +308,8 @@ class MainWindow(QMainWindow):
         self.log(msg)
 
     def on_import(self):
+        if not self.editor_panel.maybe_flush():
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Import legacy .coz", "", "Legacy events (*.coz)")
         if path:
             self.eventdata = read_legacy_coz(path)

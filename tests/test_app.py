@@ -92,7 +92,7 @@ def test_open_and_import_via_dialog(tmp_path, monkeypatch):
     assert w.store is not None and os.path.exists(str(tmp_path / "ev.cozj"))
 
 
-def test_open_coz_autosaves_edits_without_prompt(tmp_path, monkeypatch):
+def test_open_coz_edits_buffer_then_save_without_prompt(tmp_path, monkeypatch):
     import shutil
     _app()
     coz = str(tmp_path / "ev.coz")
@@ -108,12 +108,17 @@ def test_open_coz_autosaves_edits_without_prompt(tmp_path, monkeypatch):
     assert ep.heat_combo.count() > 0
     jpath = str(tmp_path / "ev.cozj.journal")
     before = os.path.getsize(jpath) if os.path.exists(jpath) else 0
-    ep.commit_racetime(123.0)                              # edits journal, no dialog
-    assert os.path.getsize(jpath) > before
-    # reopening the .coz continues the working copy (never clobbers the edits)
+    ep.commit_racetime(123.0)                              # buffered edit, no dialog
+    assert ep._dirty is True
+    assert (os.path.getsize(jpath) if os.path.exists(jpath) else 0) == before   # not yet journaled
+    assert ep.save_draft() is True                         # snapshot clears the journal
+    assert ep._dirty is False
+    # reopening the .coz continues the working copy with the saved edit
+    cl, h = ep._draft_key
     w2 = MainWindow()
     w2.load(coz)
     assert w2.store is not None
+    assert w2.eventdata["record"][cl][h][0]["racetime"] == 123.0
 
 
 def test_open_in_viewer_linux(monkeypatch):
@@ -416,7 +421,7 @@ def test_toggle_and_delete_nearest_unit():
     assert [m[0] for m in ins] == [1, 1] and ins[1][1] == 21.0
 
 
-def test_editor_panel_journaled_edits(tmp_path, monkeypatch):
+def test_editor_panel_buffers_edits_until_save(tmp_path, monkeypatch):
     _app()
     w = MainWindow(_recorded_event())
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
@@ -424,33 +429,60 @@ def test_editor_panel_journaled_edits(tmp_path, monkeypatch):
     ep.reload()
     assert ep.heat_combo.count() == 1
     assert ep.timeline._rows and ep.timeline._rows[0][1]        # result shown in the row header
-    rec = w.eventdata["record"]["GT"]["1"]
+    rec = w.eventdata["record"]["GT"]["1"]                     # the stored (committed) record
     jpath = str(tmp_path / "e.cozj.journal")
+    before = os.path.getsize(jpath) if os.path.exists(jpath) else 0
+
     ep.insert_rule_mark("GT", "1", "1", 12, 5.0, "foul")        # 12 = DQ, at t=5
-    assert any(m[0] == 12 for m in rec[1]["1"])
     ep.insert_lap("GT", "1", "1", 30.0)                         # split a lap
-    assert any(m[0] == 2 for m in rec[1]["1"])
     ep.toggle_at("GT", "1", "1", 20.0)                          # disable the lap at cumulative 20
-    assert any(m[0] == -1 for m in rec[1]["1"])
     ep.delete_at("GT", "1", "1", 5.0)                           # delete the DQ event mark
-    assert not any(abs(m[0]) == 12 for m in rec[1]["1"])
     ep.commit_racetime(88.0)
-    assert rec[0]["racetime"] == 88.0
-    assert os.path.getsize(jpath) > 0                           # every edit journaled + fsync'd
+
+    # edits are buffered in the draft, NOT written to the store yet
+    assert ep._dirty is True
+    d = ep._draft
+    assert any(m[0] == 2 for m in d[1]["1"])                    # inserted lap split
+    assert any(m[0] == -1 for m in d[1]["1"])                   # disabled lap
+    assert not any(abs(m[0]) == 12 for m in d[1]["1"])          # DQ inserted then deleted
+    assert d[0]["racetime"] == 88.0
+    assert rec[0]["racetime"] == 100.0                          # store untouched
+    assert not any(m[0] == 2 for m in rec[1]["1"])
+    assert (os.path.getsize(jpath) if os.path.exists(jpath) else 0) == before
+
+    assert ep.save_draft() is True                             # persist + snapshot
+    assert ep._dirty is False
+    assert rec[0]["racetime"] == 88.0                          # now committed
+    assert any(m[0] == 2 for m in rec[1]["1"])
+    import json as _json
+    saved = _json.load(open(str(tmp_path / "e.cozj")))
+    assert saved["record"]["GT"]["1"][0]["racetime"] == 88.0    # durably snapshotted
 
 
 def test_timeline_widget_coords():
     _app()
-    from cozer.app.editor import HEADER_W, ROW_H, TOP
+    from cozer.app.editor import PAD, ROW_H, TOP
     w = MainWindow(_recorded_event())
     tl = w.editor_panel.timeline
     tl.set_data([("1", "hdr", [[1, 20.0]])], 100.0, 50.0, 8.0)
-    assert tl.x_of(0) == HEADER_W
-    assert abs(tl.x_of(10) - (HEADER_W + 80)) < 1e-6
+    assert tl.x_of(0) == PAD
+    assert abs(tl.x_of(10) - (PAD + 80)) < 1e-6
     assert abs(tl.t_of(tl.x_of(10)) - 10.0) < 1e-6
     assert tl.row_at(5) == -1                                   # above the first row
     assert tl.row_at(TOP + 5) == 0
     assert tl.row_at(TOP + ROW_H * 5) == -1
+
+
+def test_frozen_header_tracks_timeline_scroll():
+    _app()
+    w = MainWindow(_recorded_event())
+    ep = w.editor_panel
+    ep.reload()
+    assert len(ep.header_col._rows) == len(ep.timeline._rows)   # same rows both panes
+    ep._sync_header_scroll(37)                                   # exact offset, no skew
+    assert ep.header_col.pos().y() == -37
+    ep._sync_header_scroll(0)
+    assert ep.header_col.pos().y() == 0
 
 
 def test_editor_zoom_changes_scale():
@@ -484,8 +516,20 @@ def test_result_str_unit():
           "lapinfo": (0, 0, 0), "notes": {"DQ": 1}}
     assert "–" in result_str(dq) and "DQ" in result_str(dq)
     ok = {"place": 1, "points": 10, "avgspeed": 50.0, "maxlapspeed": 60.0,
-          "lapinfo": (3, 0, 0), "notes": {}}
-    assert result_str(ok).startswith("1.")
+          "lapinfo": (3, 1, 2), "notes": {}}
+    s = result_str(ok)
+    assert s.startswith("1st/10")
+    assert "A/M=50.0/60.0 km/h" in s
+    assert "Laps/Pen/Left=3/1/2" in s
+
+
+def test_result_header_wraps_to_two_lines():
+    from cozer.app.editor import result_header
+    ok = {"place": 1, "points": 10, "avgspeed": 50.0, "maxlapspeed": 60.0,
+          "lapinfo": (3, 1, 2), "notes": {"IR": 1}}
+    top, bottom = result_header(ok).split("\n")
+    assert top == "1st/10  A/M=50.0/60.0 km/h"
+    assert bottom == "Laps/Pen/Left=3/1/2 IR"
 
 
 def test_editor_empty_state():
@@ -504,17 +548,18 @@ def test_build_mark_menu_and_actions(tmp_path, monkeypatch):
     menu = ep.build_mark_menu("1", 10.0)
     assert any("Insert lap" in a.text() for a in menu.actions())
     assert any(a.menu() for a in menu.actions())                # rules submenu present
-    rec = w.eventdata["record"]["GT"]["1"]
+    d = ep._draft                                               # edits land in the draft buffer
     for a in menu.actions():
         if "Insert lap" in a.text():
             a.trigger()
             break
-    assert any(m[0] == 2 for m in rec[1]["1"])
+    assert any(m[0] == 2 for m in d[1]["1"])
     for a in menu.actions():                                    # trigger a rule (DQ) from a submenu
         if a.menu():
             a.menu().actions()[0].trigger()
             break
-    assert any(m[0] == reccodemap["DQ"] for m in rec[1]["1"])
+    assert any(m[0] == reccodemap["DQ"] for m in d[1]["1"])
+    assert ep._dirty is True
 
 
 def test_timeline_mouse_drag_and_rightclick(tmp_path, monkeypatch):
@@ -541,12 +586,72 @@ def test_timeline_mouse_drag_and_rightclick(tmp_path, monkeypatch):
     tl.mouseReleaseEvent(QMouseEvent(QEvent.MouseButtonRelease, QPointF(newx, 5), QPointF(newx, 5),
                                      Qt.LeftButton, Qt.LeftButton, Qt.NoModifier))
     assert not tl._drag
-    assert abs(w.eventdata["record"]["GT"]["1"][0]["racetime"] - 30.0) < 0.5
+    assert abs(ep._draft[0]["racetime"] - 30.0) < 0.5          # buffered until Save
+    assert ep._dirty is True
 
     calls = []
     ep.open_mark_menu = lambda pid, ct, pos: calls.append((pid, round(ct)))
     tl.mousePressEvent(press(tl.x_of(10.0), TOP + 5, Qt.RightButton))
     assert calls and calls[0][0] == "1" and abs(calls[0][1] - 10) < 1
+
+
+def test_edit_records_flush_discard_reverts(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    orig = w.eventdata["record"]["GT"]["1"][0]["racetime"]
+    ep.commit_racetime(555.0)
+    assert ep._dirty is True
+    ep._ask_unsaved = lambda: "discard"                        # user chooses Discard
+    assert ep.maybe_flush() is True
+    assert ep._dirty is False
+    ep.refresh()                                               # reloads a fresh draft
+    assert ep._draft[0]["racetime"] == orig                    # edit reverted
+    assert w.eventdata["record"]["GT"]["1"][0]["racetime"] == orig
+
+
+def test_edit_records_flush_cancel_keeps_draft(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    ep.commit_racetime(555.0)
+    ep._ask_unsaved = lambda: "cancel"                         # user chooses Cancel
+    assert ep.maybe_flush() is False
+    assert ep._dirty is True and ep._draft[0]["racetime"] == 555.0
+
+
+def test_edit_records_flush_save_persists(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    ep.commit_racetime(777.0)
+    ep._ask_unsaved = lambda: "save"                           # user chooses Save
+    assert ep.maybe_flush() is True
+    assert ep._dirty is False
+    assert w.eventdata["record"]["GT"]["1"][0]["racetime"] == 777.0
+
+
+def test_tab_switch_bounces_back_on_cancel(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    editor_idx = w.tabs.indexOf(ep)
+    w.tabs.setCurrentIndex(editor_idx)
+    w._prev_tab = editor_idx
+    ep.commit_racetime(999.0)
+    ep._ask_unsaved = lambda: "cancel"
+    other = (editor_idx + 1) % w.tabs.count()
+    w.tabs.setCurrentIndex(other)                              # try to leave with unsaved edits
+    assert w.tabs.currentIndex() == editor_idx                 # bounced back, edits intact
+    assert ep._dirty is True and ep._draft[0]["racetime"] == 999.0
 
 
 def test_report_exception_captures_and_queues(tmp_path, monkeypatch):
