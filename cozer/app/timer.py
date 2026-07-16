@@ -1,31 +1,29 @@
-"""Live Timer — the safety-critical lap-recording panel.
+"""Live Timer — the safety-critical lap-recording panel (legacy TimerWin1 look).
 
-Per heat there are two halves (legacy ``TimerWin1``):
-  * a **click grid** of boat-number buttons — each click records a lap, which
-    goes straight through ``store.record`` (append + fsync to the journal), so a
-    power loss loses at most nothing that was clicked;
-  * a **running-order column** — the boats sorted into current standings
-    (finished, then most laps, then least elapsed time), refreshed on every lap,
-    so the timekeeper sees who leads and each boat's progress at a glance. This
+Per heat there are two synchronized views, and a lap is recorded by clicking a
+boat in **either** of them:
+  * a **click grid** of boat-number buttons (laid out by tens, `calclayout`);
+  * a **running-order ladder** — `Ready to Start` → boats grouped into the zone
+    after each `Lap N` marker by how many laps they have completed → finished
+    boats (magenta) → `Finish`. A boat's vertical position is its progress; this
     ordering is also what the Phase-7 live feed will publish.
 
-Start clears the heat and stamps a start time; Resume continues an in-progress
-heat without resetting (e.g. after a stop or reopening a part-timed event). The
-running order is always recomputed from the record, so reopening reconstructs
-the display automatically.
+Every click goes straight through `store.record` (append + fsync to the
+journal), so a power loss loses at most nothing that was clicked. Start clears
+the heat and stamps a start time; Resume continues an in-progress heat without
+resetting. The display is always recomputed from the record, so reopening a
+part-timed event reconstructs it. Button size is operator-adjustable (A−/A+) for
+comfortable high-pace tapping, and persisted in the event config.
 
-The recording/ordering logic (``setup_heat`` / ``record_lap`` / ``standings``)
-takes an injectable clock and is driven headlessly by the tests.
+`standings()` / `ladder()` / `calclayout()` are pure and unit-tested.
 """
 import math
 import time
 
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-    QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from cozer._py2compat import round2
@@ -34,11 +32,13 @@ from cozer.racepattern import crack_race_pattern
 from cozer.records import gettimes
 
 # Legacy prefs palette (RGB) — see legacy/cozer/prefs.py mycolors.
+C_READY = "#00ff7f"         # readymark
+C_LAPMARK = "#ff7f00"       # lapmark
+C_FINISH = "#ff00ff"        # finish
+C_FINISHBAR = "#000000"     # finishmark_bg (fg white)
+C_INPROGRESS = "#c8c8c8"    # waiting1 (a lap done, still racing)
 C_WAITING = "#ffffff"       # not started
-C_PROGRESS = "#c8f0c8"      # laps in progress
-C_FINISH = "#ff00ff"        # finished (all course laps)
-_FIN_BG = QColor(255, 0, 255)
-_LEAD_BG = QColor(230, 240, 255)
+DEFAULT_BUTSIZE = 46
 
 
 def _idkey(pid):
@@ -91,6 +91,31 @@ def standings(rec):
     return rows
 
 
+def ladder(rec):
+    """Marker-zone ladder rows for the running-order column, top->bottom:
+    ``('marker', label)`` and ``('boat', standing_dict)``. Each boat sits in the
+    zone right after the ``Lap k`` marker for its completed-lap count; finished
+    boats drop to the bottom (before ``Finish``). Returns ``(rows, need)``."""
+    need = len(rec[0].get("course", []))
+    zones = {}
+    finished = []
+    for b in standings(rec):
+        if b["finished"]:
+            finished.append(b)
+        else:
+            zones.setdefault(min(b["laps"], max(need - 1, 0)), []).append(b)
+    rows = [("marker", "Ready to Start")]
+    for k in range(need):
+        if k > 0:
+            rows.append(("marker", "Lap %d" % k))
+        for b in zones.get(k, []):
+            rows.append(("boat", b))
+    for b in finished:
+        rows.append(("boat", b))
+    rows.append(("marker", "Finish"))
+    return rows, need
+
+
 def heat_course(eventdata, cl, h):
     """(lap-lengths, scored-heats, duration) for class ``cl`` heat ``h``."""
     for l in eventdata.get("classes", []):
@@ -117,8 +142,9 @@ class TimerPanel(QWidget):
         self._clock = clock
         self._started = False
         self._heats = []
-        self._buttons = {}          # (cl, h, pid) -> QPushButton (click grid)
-        self._orderlists = {}       # (cl, h) -> QListWidget (running order)
+        self._buttons = {}          # (cl, h, pid) -> grid QPushButton
+        self._ladder_boats = {}     # (cl, h, pid) -> ladder QPushButton
+        self._ladder_layouts = {}   # (cl, h) -> QVBoxLayout of the ladder
         self._autosave = None
 
         v = QVBoxLayout(self)
@@ -138,6 +164,15 @@ class TimerPanel(QWidget):
         for w in (self.start_btn, self.stop_btn, self.resume_btn, self.autosave_cb):
             top.addWidget(w)
         top.addStretch()
+        top.addWidget(QLabel("Button size:"))
+        smaller = QPushButton("A−")
+        smaller.setFixedWidth(34)
+        smaller.clicked.connect(lambda: self._bump_size(-6))
+        bigger = QPushButton("A+")
+        bigger.setFixedWidth(34)
+        bigger.clicked.connect(lambda: self._bump_size(6))
+        top.addWidget(smaller)
+        top.addWidget(bigger)
         v.addLayout(top)
 
         self.area = QScrollArea()
@@ -173,8 +208,6 @@ class TimerPanel(QWidget):
         return [(e[1], e[2]) for e in race if len(e) > 2 and e[1] and e[2]] if race else []
 
     def _show_race(self):
-        """Show the click grid + running order for the selected race, seeded from
-        any already-recorded data (so reopening reconstructs the display)."""
         self._heats = self._race_heats(self._selected_race())
         self._build()
 
@@ -187,6 +220,23 @@ class TimerPanel(QWidget):
             return sorted(rec[1].keys(), key=_idkey)
         return sorted(class_ids(self.eventdata, cl), key=_idkey)
 
+    # ---- sizing ----
+    def _butsize(self):
+        try:
+            return int(self.eventdata.get("configure", {}).get("id_but_size", DEFAULT_BUTSIZE))
+        except (TypeError, ValueError):
+            return DEFAULT_BUTSIZE
+
+    def _bump_size(self, delta):
+        self.eventdata.setdefault("configure", {})["id_but_size"] = \
+            max(28, min(110, self._butsize() + delta))
+        self._build()
+
+    def _boat_style(self, s):
+        color = C_FINISH if s["finished"] else (C_INPROGRESS if s["laps"] else C_WAITING)
+        sz = self._butsize()
+        return "background-color: %s; font-size: %dpx;" % (color, max(9, int(sz * 0.34)))
+
     # ---- widget building ----
     def _clear(self):
         while self._grid.count():
@@ -194,35 +244,77 @@ class TimerPanel(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         self._buttons = {}
-        self._orderlists = {}
+        self._ladder_boats = {}
+        self._ladder_layouts = {}
 
     def _build(self):
         self._clear()
+        sz = self._butsize()
         for cl, h in self._heats:
             box = QGroupBox("%s  heat %s" % (cl, h))
             row = QHBoxLayout(box)
+
+            ladder_host = QWidget()
+            lv = QVBoxLayout(ladder_host)
+            lv.setSpacing(2)
+            self._ladder_layouts[(cl, h)] = lv
+            row.addWidget(ladder_host, 1)
+
             grid_host = QWidget()
             g = QGridLayout(grid_host)
-            ids = self._heat_ids(cl, h)
             r = 0
-            for line in calclayout(ids):
+            for line in calclayout(self._heat_ids(cl, h)):
                 for c, pid in enumerate(line):
-                    b = QPushButton()
-                    b.setMinimumSize(52, 42)
+                    b = QPushButton(str(pid))
+                    b.setMinimumSize(sz, sz)
                     b.clicked.connect(lambda _=False, cc=cl, hh=h, p=pid: self.record_lap(cc, hh, p))
                     self._buttons[(cl, h, pid)] = b
                     g.addWidget(b, r, c)
                 r += 1
             row.addWidget(grid_host, 2)
-            order = QListWidget()
-            order.setMinimumWidth(220)
-            self._orderlists[(cl, h)] = order
-            row.addWidget(order, 1)
+
             self._grid.addWidget(box)
-            for pid in ids:
+            self._build_ladder(cl, h)
+            for pid in self._heat_ids(cl, h):
                 self._recolor(cl, h, pid)
-            self._refresh_order(cl, h)
         self._grid.addStretch()
+
+    def _build_ladder(self, cl, h):
+        lv = self._ladder_layouts.get((cl, h))
+        if lv is None:
+            return
+        while lv.count():
+            item = lv.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        for k in list(self._ladder_boats):
+            if k[0] == cl and k[1] == h:
+                del self._ladder_boats[k]
+        rec = self._rec(cl, h)
+        if rec is None:
+            return
+        sz = self._butsize()
+        rows, _ = ladder(rec)
+        for r in rows:
+            if r[0] == "marker":
+                lbl = QLabel(r[1])
+                lbl.setAlignment(Qt.AlignCenter)
+                color = C_READY if r[1] == "Ready to Start" else \
+                    (C_FINISHBAR if r[1] == "Finish" else C_LAPMARK)
+                fg = "#ffffff" if r[1] == "Finish" else "#000000"
+                lbl.setStyleSheet("background-color: %s; color: %s; padding: 3px; font-weight: bold;"
+                                  % (color, fg))
+                lv.addWidget(lbl)
+            else:
+                s = r[1]
+                pid = s["id"]
+                b = QPushButton(str(pid))
+                b.setMinimumHeight(max(22, int(sz * 0.6)))
+                b.setStyleSheet(self._boat_style(s))
+                b.clicked.connect(lambda _=False, cc=cl, hh=h, p=pid: self.record_lap(cc, hh, p))
+                self._ladder_boats[(cl, h, pid)] = b
+                lv.addWidget(b)
+        lv.addStretch()
 
     # ---- recording ----
     def _ensure_store(self):
@@ -250,7 +342,7 @@ class TimerPanel(QWidget):
         now = self._clock()
         self._heats = self._race_heats(race)
         for cl, h in self._heats:
-            self.setup_heat(cl, h, now)          # records a fresh heat (clears + starttime)
+            self.setup_heat(cl, h, now)
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
@@ -265,7 +357,6 @@ class TimerPanel(QWidget):
             "(Use Resume to continue timing instead.)") == QMessageBox.Yes
 
     def on_resume(self):
-        """Continue an in-progress heat without resetting — needs a prior start."""
         if not self._ensure_store():
             return
         if not any((self._rec(cl, h) or [{}])[0].get("starttime") for cl, h in self._heats):
@@ -293,7 +384,7 @@ class TimerPanel(QWidget):
         self.window.store.record({"op": "lap", "cl": cl, "h": h, "id": pid,
                                   "mark": [1, laptime]})
         self._recolor(cl, h, pid)
-        self._refresh_order(cl, h)
+        self._build_ladder(cl, h)          # re-slot the boat into its new zone
 
     def on_stop(self):
         self._started = False
@@ -311,25 +402,10 @@ class TimerPanel(QWidget):
         marks = rec[1].get(pid, []) if rec else []
         laps = len([m for m in marks if m and m[0] in (1, 2)])
         need = len(rec[0].get("course", [])) if rec else len(heat_course(self.eventdata, cl, h)[0])
-        color = C_WAITING if laps == 0 else (C_FINISH if need and laps >= need else C_PROGRESS)
-        b.setStyleSheet("background-color: %s;" % color)
-        b.setText("%s\n%d" % (pid, laps))
-
-    def _refresh_order(self, cl, h):
-        lst = self._orderlists.get((cl, h))
-        rec = self._rec(cl, h)
-        if lst is None or rec is None:
-            return
-        need = len(rec[0].get("course", []))
-        lst.clear()
-        for pos, s in enumerate(standings(rec), 1):
-            tag = "FIN" if s["finished"] else "%d/%d" % (s["laps"], need)
-            item = QListWidgetItem("%2d.  #%-4s  %-6s  %6.1fs" % (pos, s["id"], tag, s["time"]))
-            if s["finished"]:
-                item.setBackground(QBrush(_FIN_BG))
-            elif pos == 1 and s["laps"] > 0:
-                item.setBackground(QBrush(_LEAD_BG))
-            lst.addItem(item)
+        color = C_FINISH if (need and laps >= need) else (C_INPROGRESS if laps else C_WAITING)
+        b.setStyleSheet("background-color: %s; font-size: %dpx;"
+                        % (color, max(9, int(self._butsize() * 0.34))))
+        b.setText(str(pid))
 
     # ---- autosave ----
     def _toggle_autosave(self, on):

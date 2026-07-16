@@ -241,7 +241,24 @@ def test_calclayout_keeps_all_ids():
     assert sorted(flat) == sorted(["1", "2", "3", "11", "12", "23"]) and all(rows)
 
 
-def test_timer_running_order_updates(tmp_path, monkeypatch):
+def test_ladder_marker_zones():
+    from cozer.app.timer import ladder
+    rec = [{"course": [1000, 1000, 1000]},                 # 3-lap course
+           {"1": [[1, 20.0]],                               # 1 lap
+            "2": [[1, 19.0], [1, 20.0], [1, 22.0]],          # finished
+            "3": []}]                                        # 0 laps
+    rows, need = ladder(rec)
+    assert need == 3
+    seq = [(r[0], r[1] if r[0] == "marker" else r[1]["id"]) for r in rows]
+    # Ready -> [boat 3 (0 laps)] -> Lap 1 -> [boat 1 (1 lap)] -> Lap 2 -> Lap 3 (no 2-lap) ->
+    #   finished boat 2 -> Finish
+    assert seq[0] == ("marker", "Ready to Start")
+    assert ("boat", "3") in seq[:3] and seq[-1] == ("marker", "Finish")
+    order = [x for kind, x in seq if kind == "boat"]
+    assert order.index("3") < order.index("1") < order.index("2")   # progress -> down
+
+
+def test_timer_running_order_and_both_views_record(tmp_path, monkeypatch):
     _app()
     w = MainWindow(_timer_event())
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
@@ -250,14 +267,25 @@ def test_timer_running_order_updates(tmp_path, monkeypatch):
     tp._clock = lambda: clock[0]
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
-    lst = tp._orderlists[("GT", "1")]
-    assert lst.count() == 2
+    # a boat button exists in BOTH the grid and the ladder
+    assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "1") in tp._ladder_boats
     clock[0] = 1020.0
-    tp.record_lap("GT", "1", "2")             # boat 2 completes a lap first -> leads
-    assert "#2" in lst.item(0).text()
-    clock[0] = 1021.0
-    tp.record_lap("GT", "1", "1")             # boat 1 slower -> boat 2 still leads
-    assert "#2" in lst.item(0).text()
+    tp._ladder_boats[("GT", "1", "1")].click()        # clicking the LADDER records a lap
+    assert len(w.eventdata["record"]["GT"]["1"][1]["1"]) == 1
+    clock[0] = 1041.0
+    tp._buttons[("GT", "1", "2")].click()             # clicking the GRID records a lap
+    assert len(w.eventdata["record"]["GT"]["1"][1]["2"]) == 1
+
+
+def test_timer_button_size_persists(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(_timer_event())
+    tp = w.timer_panel
+    tp.race_combo.setCurrentIndex(0)
+    base = tp._butsize()
+    tp._bump_size(6)
+    assert tp._butsize() == base + 6
+    assert w.eventdata["configure"]["id_but_size"] == base + 6   # persisted in the event
 
 
 def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
@@ -281,8 +309,9 @@ def test_timer_reopen_reconstructs_order():
     w = MainWindow(_recorded_event())          # GT/1 already has recorded laps
     tp = w.timer_panel
     tp.race_combo.setCurrentIndex(0)
-    lst = tp._orderlists.get(("GT", "1"))
-    assert lst is not None and lst.count() == 2 and not tp._started   # shown, not recording
+    # the ladder is reconstructed from the record (both boats present), not recording
+    assert ("GT", "1", "1") in tp._ladder_boats and ("GT", "1", "2") in tp._ladder_boats
+    assert not tp._started
 
 
 def test_timer_shows_buttons_on_race_select():
