@@ -475,6 +475,32 @@ the single-document view; keep the plan as the living design doc.
 - **Deliverable:** new `cozer` is the default; `legacy/` still runs the old program;
   documented install for Win + Linux.
 
+#### 6.1 Distribution & in-app self-update *(owner-agreed direction; build during cutover)*
+
+Non-technical users, so `mamba update cozer` is too much. Chosen model — a **thin stable
+runtime** + an **updatable cozer app-code payload**:
+
+- **Runtime** (Python + PySide6 + weasyprint — rarely change): a **frozen app on Windows**
+  (PyInstaller) and a conda env on Linux, installed once via a real **release**/installer.
+- **App code** (`cozer/` package — changes often, incl. in-event hotfixes) lives in a
+  **writable location** the launcher imports from, so it can be replaced without touching the
+  frozen runtime.
+- **Update mechanism = fetch a GitHub *ref* as a codeload tarball over HTTPS** (stdlib
+  `urllib`+`tarfile`; **no bundled git/gh** — lighter, no extra dependency, public repo needs
+  no auth), verify it imports, **atomically swap** the app-code dir, keep the previous version
+  for **instant rollback**, then prompt restart. The recording journal makes restart safe.
+  - **Stable:** target the latest **release tag** (micro-version bump per fix is fine).
+  - **In-event hotfix:** target the latest commit on `main` (or a `hotfix` branch) — **no
+    release needed**; this closes the loop crash-report → push fix → operator "Update to latest
+    fix" → restart.
+- **UI placement:** `Help → Check for updates…` (with `Help → About` showing the version) +
+  a **dismissible top banner** on a startup check that is *specific* — highlight when a version
+  fixes an issue **this operator reported** (we store their submitted issue URLs in config).
+  **Suppress the banner while a timing session is active**; verify-before-swap; never update
+  mid-race. Reuses the `crashreport` GitHub transport.
+- **Version check** compares `__version__` to the latest release (or to `main`'s HEAD sha for
+  the hotfix channel).
+
 #### Current (legacy) install — captured from the project wiki (to preserve)
 
 - **Windows** (`WindowsUsage`): Python **2.7.3**; wxPython **2.8.12.1**

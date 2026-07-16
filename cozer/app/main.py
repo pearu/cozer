@@ -11,6 +11,7 @@ import copy
 import os
 import subprocess
 import sys
+import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -434,11 +435,16 @@ def run(argv=None):     # pragma: no cover - launches the Qt event loop
     splash = make_splash()
     splash.show()
     app.processEvents()
+    shown_at = time.monotonic()
     win = MainWindow()
     _install_excepthook(win)
     files = [a for a in argv if not a.startswith("-") and os.path.exists(a)]
     if files:
         win.load(files[0])
+    # startup is fast now, so hold the splash briefly so it's actually seen
+    while time.monotonic() - shown_at < 0.8:
+        app.processEvents()
+        time.sleep(0.02)
     win.show()
     splash.finish(win)
     return app.exec()
