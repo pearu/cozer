@@ -262,6 +262,12 @@ def device_poll(cid, device_code, interval=5, timeout=300, transport=None,
     raise TimeoutError("device authorization timed out")
 
 
+def github_login(token, transport=None):
+    """The authenticated user's GitHub login name (for showing signed-in state)."""
+    _, js = _http("GET", GITHUB_API + "/user", token=token, transport=transport)
+    return js.get("login")
+
+
 def search_fingerprint(token, fp, repo=REPO, transport=None):
     q = 'repo:%s in:body "crash-fingerprint:%s"' % (repo, fp)
     _, js = _http("GET", GITHUB_API + "/search/issues?q=" + urllib.parse.quote(q),

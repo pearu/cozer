@@ -74,6 +74,8 @@ def open_in_viewer(path):
 def report_exception(window, exc_type, exc, tb, action=None):
     """Capture an unhandled error: write a local crash report and auto-submit if
     logged in (else queue). Returns (report, issue_url). Never raises."""
+    if exc_type is not None and issubclass(exc_type, (KeyboardInterrupt, SystemExit)):
+        return None, None      # normal termination (Ctrl+C / quit), not a crash
     try:
         store = getattr(window, "store", None)
         path = store.path if store is not None else None
@@ -194,6 +196,8 @@ def _install_excepthook(window):     # pragma: no cover - process-global; needs 
     prev = sys.excepthook
 
     def hook(exc_type, exc, tb):
+        if issubclass(exc_type, (KeyboardInterrupt, SystemExit)):
+            return prev(exc_type, exc, tb)      # normal termination, not a crash
         _report, url = report_exception(window, exc_type, exc, tb)
         try:
             QMessageBox.critical(window, "cozer error",
@@ -239,9 +243,23 @@ class MainWindow(QMainWindow):
                 m.addSeparator()
             else:
                 m.addAction(text, slot)
-        hlp = self.menuBar().addMenu("&Help")
-        hlp.addAction("&Sign in to GitHub…", self._on_signin)
-        hlp.addAction("&Report a bug…", self._on_report_bug)
+        self._help_menu = self.menuBar().addMenu("&Help")
+        self._help_menu.aboutToShow.connect(self._refresh_help_menu)
+        self._refresh_help_menu()
+
+    def _refresh_help_menu(self):
+        """Reflect GitHub sign-in state: show who is signed in + offer sign-out,
+        otherwise offer sign-in."""
+        self._help_menu.clear()
+        cfg = crashreport.load_config()
+        if cfg.get("token"):
+            who = cfg.get("login") or "GitHub"
+            act = self._help_menu.addAction("Signed in to GitHub as %s" % who)
+            act.setEnabled(False)
+            self._help_menu.addAction("Sign &out of GitHub", self._on_signout)
+        else:
+            self._help_menu.addAction("&Sign in to GitHub…", self._on_signin)
+        self._help_menu.addAction("&Report a bug…", self._on_report_bug)
 
     def on_new(self):
         self.eventdata = copy.deepcopy(DEFAULT_EVENT)
@@ -382,11 +400,23 @@ class MainWindow(QMainWindow):
         if dlg.exec() and dlg.token:
             cfg = crashreport.load_config()
             cfg["token"] = dlg.token
+            try:
+                cfg["login"] = crashreport.github_login(dlg.token)
+            except Exception:
+                cfg["login"] = None
             crashreport.save_config(cfg)
             n = len(crashreport.Reporter(config=cfg).submit_pending())
-            self.log("Signed in to GitHub — submitted %d queued report(s)." % n)
+            self.log("Signed in to GitHub%s — submitted %d queued report(s)."
+                     % (" as %s" % cfg["login"] if cfg.get("login") else "", n))
         else:
             self.log("GitHub sign-in cancelled")
+
+    def _on_signout(self):
+        cfg = crashreport.load_config()
+        cfg["token"] = None
+        cfg["login"] = None
+        crashreport.save_config(cfg)
+        self.log("Signed out of GitHub")
 
     def _on_report_bug(self):     # pragma: no cover - modal input dialog
         text, ok = QInputDialog.getMultiLineText(

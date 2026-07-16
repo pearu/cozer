@@ -148,6 +148,15 @@ def test_parse_body_json_or_form_encoded():
     assert cr._parse_body("error=authorization_pending")["error"] == "authorization_pending"
 
 
+def test_github_login():
+    class Who(FakeGitHub):
+        def __call__(self, method, url, headers, data):
+            if url.endswith("/user"):
+                return 200, {"login": "pearu"}
+            return super().__call__(method, url, headers, data)
+    assert cr.github_login("gho_x", transport=Who()) == "pearu"
+
+
 def test_device_flow(tmp_path, monkeypatch):
     _cfg(tmp_path, monkeypatch)
     fake = FakeGitHub()

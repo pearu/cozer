@@ -453,6 +453,39 @@ def test_report_exception_captures_and_queues(tmp_path, monkeypatch):
     assert len(cr.list_pending()) == 1
 
 
+def test_report_exception_ignores_keyboardinterrupt(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    _app()
+    import cozer.app.crashreport as cr
+    w = MainWindow(_timer_event())
+    try:
+        raise KeyboardInterrupt()
+    except KeyboardInterrupt:
+        et, ev, tb = sys.exc_info()
+        report, url = appmain.report_exception(w, et, ev, tb)
+    assert report is None and url is None       # Ctrl+C / quit is not a crash
+    assert cr.list_pending() == []
+
+
+def test_help_menu_reflects_signin_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    _app()
+    import cozer.app.crashreport as cr
+    w = MainWindow(_timer_event())
+    w._refresh_help_menu()
+    texts = [a.text() for a in w._help_menu.actions()]
+    assert any("Sign in to GitHub" in t for t in texts)      # signed out -> offer sign-in
+    cr.save_config({"token": "gho_x", "login": "pearu"})
+    w._refresh_help_menu()
+    texts = [a.text() for a in w._help_menu.actions()]
+    assert any("Signed in to GitHub as pearu" in t for t in texts)
+    assert any("out of GitHub" in t for t in texts)         # "Sign &out of GitHub" (mnemonic &)
+    w._on_signout()
+    assert cr.load_config().get("token") is None            # sign-out clears the token
+
+
 def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
