@@ -1,0 +1,164 @@
+{
+ "classes": [],
+ "classnames": [],
+ "configure": {
+  "language": "English"
+ },
+ "date": "",
+ "kind": "ruleset",
+ "officer": "",
+ "participants": [],
+ "races": [],
+ "record": {},
+ "rules": [
+  [
+   "",
+   "IR",
+   " ",
+   "Interruption"
+  ],
+  [
+   "",
+   "DS",
+   " ",
+   "Did not start"
+  ],
+  [
+   "",
+   "PL4",
+   "902.38 / 905.38",
+   "Fuel infringement (4 laps)"
+  ],
+  [
+   "",
+   "PL3",
+   "902.38 / 905.38",
+   "Race infringements (3 laps)"
+  ],
+  [
+   "",
+   "LL2",
+   "902.38 / 905.38",
+   "Light infringements (no laps scored after 2 laps' notice)"
+  ],
+  [
+   "",
+   "PL4",
+   "902.38 / 905.38",
+   "Craning infringements (4 laps)"
+  ],
+  [
+   "",
+   "PL5",
+   "902.38 / 905.38",
+   "Failure to attend scrutineering or drivers briefing (5 laps)"
+  ],
+  [
+   "",
+   "PL3",
+   "902.38 / 905.38",
+   "Flag infringement (3 laps)"
+  ],
+  [
+   "",
+   "PL5",
+   "902.38 / 905.38",
+   "Priority of boats (5 laps)"
+  ],
+  [
+   "",
+   "PL",
+   "902.38 / 905.38",
+   "Missing a turn buoy (1 lap)"
+  ],
+  [
+   "",
+   "PL3",
+   "902.38 / 905.38",
+   "Dislodging or destroying the first turn buoy (3 laps)"
+  ],
+  [
+   "",
+   "PL5",
+   "902.38 / 905.38",
+   "Dislodging or destroying the second turn buoy (5 laps)"
+  ],
+  [
+   "",
+   "DQ",
+   "902.7 / 905.7",
+   "Using fuel other than that supplied by the organisers"
+  ],
+  [
+   "",
+   "DQ",
+   "902.24 / 905.24",
+   "Team fails to notify the final pilots list in time"
+  ],
+  [
+   "",
+   "DQ",
+   "902.37 / 905.37",
+   "Boat fails to report to parc fermé for inspection"
+  ],
+  [
+   "",
+   "DQ",
+   "902.50 / 905.50",
+   "Refusing or failing a drug/alcohol test"
+  ],
+  [
+   "",
+   "PL",
+   "902.38",
+   "Wrongly taken buoy between co-existing circuits (catamarans)"
+  ],
+  [
+   "",
+   "NC",
+   "902.47",
+   "Boat responsible for a red flag / final stoppage (not classified)"
+  ],
+  [
+   "",
+   "PL15",
+   "905.38",
+   "Overtaking in the safety corridor before bridges (15 laps)"
+  ]
+ ],
+ "scoringsystem": [
+  20,
+  17,
+  15,
+  13,
+  11,
+  10,
+  9,
+  8,
+  7,
+  6,
+  5,
+  4,
+  3,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1
+ ],
+ "secretary": "",
+ "title": "UIM endurance 2026",
+ "venue": ""
+}

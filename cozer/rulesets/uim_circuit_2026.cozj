@@ -1,0 +1,256 @@
+{
+ "classes": [],
+ "classnames": [
+  "R 1000",
+  "R 1500",
+  "R 2000",
+  "R 2500",
+  "R 5000",
+  "R 7000",
+  "F 125",
+  "F 175",
+  "F 250",
+  "F 350",
+  "F 500",
+  "F 700",
+  "O 850",
+  "O 1000",
+  "O 1500",
+  "O 2000",
+  "O 3000",
+  "OSY 400",
+  "JT 250",
+  "T 250",
+  "T 400",
+  "T 550",
+  "T 750",
+  "T 850",
+  "GT15",
+  "GT30",
+  "GT60",
+  "GT90",
+  "GT10",
+  "F1",
+  "F2",
+  "F4",
+  "ET-15",
+  "EH-15"
+ ],
+ "configure": {
+  "language": "English"
+ },
+ "date": "",
+ "kind": "ruleset",
+ "officer": "",
+ "participants": [],
+ "races": [],
+ "record": {},
+ "rules": [
+  [
+   "",
+   "DQ",
+   "306.06",
+   "Infringement of the Rules of the Road before the start"
+  ],
+  [
+   "",
+   "DQ",
+   "306.08",
+   "Approaching the starting line other than at a right angle"
+  ],
+  [
+   "",
+   "DQ",
+   "306.09",
+   "Starting before time"
+  ],
+  [
+   "",
+   "DQ",
+   "306.09",
+   "Crossing the starting line during the five minutes"
+  ],
+  [
+   "",
+   "DS",
+   "306.09",
+   "Leading boat starting before time (restart)"
+  ],
+  [
+   "",
+   "LP2",
+   "307.01",
+   "Not holding the boat at the jetty (lose two positions)"
+  ],
+  [
+   "",
+   "DQ",
+   "307.02",
+   "Manoeuvre causing an accident at the start"
+  ],
+  [
+   "",
+   "PL",
+   "307.02",
+   "Blocking or cutting for advantage at the first turn"
+  ],
+  [
+   "",
+   "LP2",
+   "307.02",
+   "Not keeping the lane to the first turn (lose two positions)"
+  ],
+  [
+   "",
+   "DQ",
+   "307.04",
+   "Engine running during the last 30 seconds"
+  ],
+  [
+   "",
+   "DQ",
+   "307.04",
+   "Leaving the jetty under own power too early"
+  ],
+  [
+   "",
+   "PL",
+   "307.04",
+   "Pushing or lifting a boat with electric starter"
+  ],
+  [
+   "",
+   "LL",
+   "307.04",
+   "Jump start with the red light on"
+  ],
+  [
+   "",
+   "LL",
+   "307.04",
+   "Rotating the engine before the red lights go off"
+  ],
+  [
+   "",
+   "DQ",
+   "307.04",
+   "Crew member swimming or wading out to a boat"
+  ],
+  [
+   "",
+   "DS",
+   "311.01.4",
+   "Caused a stoppage (not scored, no restart)"
+  ],
+  [
+   "",
+   "PL",
+   "311.01.5",
+   "Penalty carried forward to the restart"
+  ],
+  [
+   "",
+   "DS",
+   "311.01.6",
+   "Disqualified in the previous start (no restart)"
+  ],
+  [
+   "",
+   "DS",
+   "311.01.8",
+   "Did not reach the jetty (electric-start restart)"
+  ],
+  [
+   "",
+   "DQ",
+   "312.10",
+   "Driving in the wrong direction (severe)"
+  ],
+  [
+   "",
+   "PL",
+   "312.10",
+   "Driving in the wrong direction (one lap penalty)"
+  ],
+  [
+   "",
+   "DQ",
+   "312.13",
+   "Lapped driver failing to give way when overtaken"
+  ],
+  [
+   "",
+   "LL",
+   "312.15",
+   "Failure to take the mandatory long lap"
+  ],
+  [
+   "",
+   "LL",
+   "313.01",
+   "Rounding a mark in the wrong way"
+  ],
+  [
+   "",
+   "DQ",
+   "313.01",
+   "Repeated rounding of a mark"
+  ],
+  [
+   "",
+   "PL",
+   "313.02",
+   "Damaging or destroying the first buoy"
+  ],
+  [
+   "",
+   "DQ",
+   "313.02",
+   "Damaging/destroying/dislodging the second or single buoy"
+  ],
+  [
+   "",
+   "DQ",
+   "314",
+   "Fouling competing boats"
+  ],
+  [
+   "",
+   "DQ",
+   "316.02",
+   "After finishing, cutting across the course (zero points)"
+  ],
+  [
+   "",
+   "DQ",
+   "317.08",
+   "Boat or motor illegal (post-race inspection)"
+  ]
+ ],
+ "scoringsystem": [
+  400,
+  300,
+  225,
+  169,
+  127,
+  95,
+  71,
+  53,
+  40,
+  30,
+  22,
+  17,
+  13,
+  9,
+  7,
+  5,
+  4,
+  3,
+  2,
+  1,
+  0
+ ],
+ "secretary": "",
+ "title": "UIM circuit 2026",
+ "venue": ""
+}

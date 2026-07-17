@@ -1,0 +1,157 @@
+{
+ "classes": [],
+ "classnames": [],
+ "configure": {
+  "language": "English"
+ },
+ "date": "",
+ "kind": "ruleset",
+ "officer": "",
+ "participants": [],
+ "races": [],
+ "record": {},
+ "rules": [
+  [
+   "",
+   "Q",
+   " ",
+   "Qualification"
+  ],
+  [
+   "",
+   "NQ",
+   " ",
+   "No Qualification"
+  ],
+  [
+   "",
+   "IR",
+   " ",
+   "Interruption"
+  ],
+  [
+   "",
+   "DS",
+   " ",
+   "Did not start"
+  ],
+  [
+   "",
+   "DQ",
+   "205.02.02",
+   "Alcohol test above the limit (zero tolerance)"
+  ],
+  [
+   "",
+   "DQ",
+   "205.10",
+   "No propeller guard fitted"
+  ],
+  [
+   "",
+   "DQ",
+   "205.12",
+   "Lifting a boat with a person aboard"
+  ],
+  [
+   "",
+   "DQ",
+   "206.03",
+   "Absence of race number or part of that"
+  ],
+  [
+   "",
+   "YC",
+   "406.05",
+   "Yellow card for dangerous driving"
+  ],
+  [
+   "",
+   "RC",
+   "406.05",
+   "Red card for extreme or blatant dangerous driving"
+  ],
+  [
+   "",
+   "BC",
+   "406.05",
+   "Blue card for offensive/unsportsmanlike behaviour"
+  ],
+  [
+   "",
+   "DQ",
+   "406.06",
+   "Disqualification (deleted from heat/race results)"
+  ],
+  [
+   "",
+   "DQ",
+   "502",
+   "Outside assistance on the race course"
+  ],
+  [
+   "",
+   "DQ",
+   "503.01.2",
+   "Ignoring Technical Officer instructions"
+  ],
+  [
+   "",
+   "DQ",
+   "503.01.2",
+   "A breach of the technical rules"
+  ],
+  [
+   "",
+   "DQ",
+   "503.01.2",
+   "Refusing boat/motor inspection after a heat or race"
+  ],
+  [
+   "",
+   "DQ",
+   "503.01.2",
+   "Unauthorized leaving of the site before scrutineering"
+  ],
+  [
+   "",
+   "DQ",
+   "503.03",
+   "Refusing the ECU/CDI swap for a standard unit"
+  ],
+  [
+   "",
+   "DQ",
+   "503.04.1",
+   "Changing engine or hull before technical inspection"
+  ],
+  [
+   "",
+   "DQ",
+   "503.04.1",
+   "Visiting pits during the move to parc fermé"
+  ],
+  [
+   "",
+   "DQ",
+   "504.03",
+   "Non-conforming automatic throttle shut-off"
+  ],
+  [
+   "",
+   "DQ",
+   "508.09",
+   "Illegal fuel (timed trials, heats or races)"
+  ],
+  [
+   "",
+   "DQ",
+   "508.09",
+   "Further infringement of the fuel rules"
+  ]
+ ],
+ "scoringsystem": [],
+ "secretary": "",
+ "title": "UIM general 2026",
+ "venue": ""
+}
