@@ -144,3 +144,16 @@ def test_auto_insert_follows_the_ruleset():
 
     assert rule_action_codes({"rules": [["", "DNF", " ", "x"],
                                         ["", "DSQ", "406", "y"]]}) == {"DNF", "DSQ"}
+
+
+def test_deprecation_warning():
+    """A 2026 event (rules use §209 codes) flags deprecated DQ/DS/NQ/IR use;
+    a legacy event never does (backward compatible)."""
+    from cozer.analyzer import deprecation_warning
+    ev2026 = {"rules": [["", "DSQ", "406", "x"], ["", "DNS", " ", "y"]]}
+    evlegacy = {"rules": [["", "DQ", "406", "x"], ["", "DS", " ", "y"]]}
+    assert deprecation_warning(ev2026, "DQ") == "DSQ"
+    assert deprecation_warning(ev2026, "IR") == "DNF"
+    assert deprecation_warning(ev2026, "DSQ") is None    # already §209
+    assert deprecation_warning(ev2026, "PL") is None     # not an outcome code
+    assert deprecation_warning(evlegacy, "DQ") is None   # legacy: never flagged

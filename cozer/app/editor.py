@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from cozer.analyzer import analyze, getresorder, rule_action_codes
+from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
 from cozer.records import insertmark, invreccodemap, reccodemap
 
 LAP = QColor(255, 127, 0)
@@ -491,6 +491,11 @@ class EditRecordsPanel(QWidget):
         marks = [list(m) for m in self._draft[1][pid]]
         insertmark(marks, code, ct, note)
         self._commit(cl, h, pid, marks)
+        name = invreccodemap.get(abs(code))
+        repl = deprecation_warning(self.window.eventdata, name)
+        if repl:
+            self.window.log("%s is deprecated for 2026 events — use %s (UIM §209)"
+                            % (name, repl))
 
     def insert_lap(self, cl, h, pid, ct):
         marks = [list(m) for m in self._draft[1][pid]]

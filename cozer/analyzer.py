@@ -36,6 +36,18 @@ def rule_action_codes(eventdata):
     return {r[1] for r in eventdata.get("rules", []) if len(r) > 1 and r[1]}
 
 
+def deprecation_warning(eventdata, code_name):
+    """If ``eventdata`` is a 2026+ event (its rules use §209 outcome codes) and
+    ``code_name`` is a deprecated pre-§209 code, return the §209 code to use
+    instead; otherwise None. An authoring hint only -- legacy events are never
+    flagged (they correctly keep DQ/DS/NQ/IR)."""
+    from cozer.records import DEPRECATED_209, UIM209_CODES
+    repl = DEPRECATED_209.get(code_name)
+    if repl and (rule_action_codes(eventdata) & UIM209_CODES):
+        return repl
+    return None
+
+
 def getresorder(res):
     rks = []
     for k in res:

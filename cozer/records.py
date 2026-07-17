@@ -54,6 +54,12 @@ reccodemap = {
 }
 invreccodemap = {v: k for k, v in reccodemap.items()}
 
+# The 2026 §209 outcome codes, and the pre-§209 codes they deprecate for 2026+
+# events. Legacy events keep the pre-§209 codes (backward compatible); this only
+# drives an authoring hint, never scoring.
+UIM209_CODES = frozenset(('DSQ', 'DNS', 'DNR', 'ACC', 'DNQ', 'DNF'))
+DEPRECATED_209 = {'DQ': 'DSQ', 'DS': 'DNS', 'NQ': 'DNQ', 'IR': 'DNF'}
+
 
 def insertmark(rec, code, ct, mess=''):
     """Insert a ``(code, ct, mess)`` mark into ``rec`` at time position ``ct``.
