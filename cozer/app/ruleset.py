@@ -97,6 +97,49 @@ def import_ruleset(event, source):
     return changed
 
 
+def accumulate_ruleset(target, source, label=""):
+    """Merge a source's scoring system, class names and rules into ``target`` in
+    place, **non-destructively** (used by the CLI to accumulate several files into
+    one event): add class names and rules that aren't already present, and fill
+    the scoring system only if the target's is empty. Existing target data is
+    never overwritten — a source value that conflicts with existing data is
+    reported but not applied. Returns the list of conflict messages.
+    """
+    reports = []
+    # class names: add new (union, order-preserving)
+    names = target.setdefault("classnames", [])
+    seen = set(names)
+    for n in classnames_of(source):
+        if n and n not in seen:
+            seen.add(n)
+            names.append(n)
+    # rules: add new by (action, paragraph); keep existing on conflict
+    rules = target.setdefault("rules", [])
+    have = {}
+    for r in rules:
+        if len(r) > 2:
+            have[(r[1], r[2])] = (list(r) + ["", "", "", ""])[3]
+    for r in (source.get("rules") or []):
+        r = (list(r) + ["", "", "", ""])[:4]
+        key = (r[1], r[2])
+        if key in have:
+            if have[key] != r[3]:
+                reports.append("%srule %s/%s kept as %r (source has %r)"
+                               % (label, r[1] or "?", r[2] or "?", have[key], r[3]))
+        else:
+            have[key] = r[3]
+            rules.append(list(r))
+    # scoring system: fill only if empty; never overwrite
+    src_score = list(source.get("scoringsystem") or [])
+    if src_score:
+        cur = list(target.get("scoringsystem") or [])
+        if not cur:
+            target["scoringsystem"] = src_score
+        elif cur != src_score:
+            reports.append("%sscoring system kept (source differs)" % label)
+    return reports
+
+
 def new_ruleset(name=""):
     """A blank ruleset eventdata (kind == 'ruleset', no races/records)."""
     return {

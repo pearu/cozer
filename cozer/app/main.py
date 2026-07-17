@@ -345,6 +345,54 @@ class MainWindow(QMainWindow):
         self._refresh_title()
         self.log(msg)
 
+    def open_accumulated(self, paths):
+        """``python -m cozer f1.cozj f2.cozj …`` — open/create one event that
+        accumulates rulesets. With only rulesets, the result is an initial new
+        event (use case 1). With one non-ruleset event file present, that event
+        is the base and the rulesets are applied **non-destructively** — adding
+        new class names/rules and filling empty scoring only, never overwriting
+        the event's data (use case 2). Conflicts are reported to terminal + Log."""
+        loaded = []
+        for p in paths:
+            try:
+                data = (read_legacy_coz(p) if p.lower().endswith(".coz")
+                        else loads(open(p, encoding="utf-8").read()))
+            except Exception as e:      # pragma: no cover - reported, never crashes
+                self._report_accum("cannot read %s: %s" % (p, e))
+                continue
+            loaded.append((p, data))
+        events = [(p, d) for p, d in loaded if not rulesetmod.is_ruleset(d)]
+        rulesets = [(p, d) for p, d in loaded if rulesetmod.is_ruleset(d)]
+        if len(events) > 1:
+            self._report_accum(
+                "multiple event files given; using %s and ignoring %s"
+                % (os.path.basename(events[0][0]),
+                   ", ".join(os.path.basename(p) for p, _ in events[1:])))
+            events = events[:1]
+
+        if events:
+            self.load(events[0][0])                 # store-backed base (never overwritten)
+        else:
+            self.on_new()                           # a fresh event to build from rulesets
+
+        reports = []
+        for p, d in rulesets:                       # non-destructive: add new / fill empty
+            reports += rulesetmod.accumulate_ruleset(
+                self.eventdata, d, "%s: " % os.path.basename(p))
+        self._reload_forms()
+        for msg in reports:
+            self._report_accum(msg)
+        if rulesets:
+            self._report_accum(
+                "accumulated %d ruleset(s) -> %d class names, %d rules%s"
+                % (len(rulesets), len(self.eventdata["classnames"]),
+                   len(self.eventdata["rules"]),
+                   " (%d conflict(s) kept existing)" % len(reports) if reports else ""))
+
+    def _report_accum(self, msg):
+        print("cozer: %s" % msg, file=sys.stderr)
+        self.log(msg)
+
     def on_import(self):
         if not self.editor_panel.maybe_flush():
             return
@@ -591,13 +639,16 @@ class MainWindow(QMainWindow):
                             % (kind, self.store.path if self.store else "(unsaved)"))
 
 
+def _startup_paths(argv):
+    """All .coz/.cozj file arguments, in order (existence checked by the caller)."""
+    return [a for a in argv
+            if not a.startswith("-") and a.lower().endswith((".coz", ".cozj"))]
+
+
 def _startup_file(argv):
-    """The event file to open on launch: the first .coz/.cozj argument (existence
-    checked by the caller so a wrong path can be reported)."""
-    for a in argv:
-        if not a.startswith("-") and a.lower().endswith((".coz", ".cozj")):
-            return a
-    return None
+    """The first .coz/.cozj argument, or None."""
+    paths = _startup_paths(argv)
+    return paths[0] if paths else None
 
 
 def run(argv=None, app=None):     # pragma: no cover - launches the Qt event loop
@@ -606,11 +657,13 @@ def run(argv=None, app=None):     # pragma: no cover - launches the Qt event loo
         app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
     win = MainWindow()
     _install_excepthook(win)
-    path = _startup_file(argv)
-    if path and os.path.exists(path):
-        win.load(path)                             # python -m cozer path/to/file.coz
-    elif path:
-        print("cozer: file not found: %s" % path, file=sys.stderr)
+    paths = _startup_paths(argv)                   # python -m cozer f1.cozj f2.cozj …
+    for p in paths:
+        if not os.path.exists(p):
+            print("cozer: file not found: %s" % p, file=sys.stderr)
+    paths = [p for p in paths if os.path.exists(p)]
+    if paths:
+        win.open_accumulated(paths)
     win.show()
     # Ctrl+C on the terminal should behave like File -> Quit (a clean close).
     # A signal handler alone won't fire while Qt's C++ event loop is blocked, so a

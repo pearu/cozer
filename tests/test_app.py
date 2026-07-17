@@ -987,12 +987,109 @@ def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
 
 
 def test_startup_file_selects_event_arg():
-    from cozer.app.main import _startup_file
+    from cozer.app.main import _startup_file, _startup_paths
     assert _startup_file([]) is None
     assert _startup_file(["--debug"]) is None
     assert _startup_file(["notes.txt"]) is None
     assert _startup_file(["event.coz"]) == "event.coz"
     assert _startup_file(["-x", "a.cozj", "b.coz"]) == "a.cozj"   # first event arg wins
+    assert _startup_paths(["-x", "a.cozj", "notes.txt", "b.coz"]) == ["a.cozj", "b.coz"]
+
+
+def test_accumulate_ruleset_pure():
+    from cozer.app.ruleset import accumulate_ruleset
+    acc = {"classnames": [], "rules": [], "scoringsystem": []}
+    r = accumulate_ruleset(acc, {"scoringsystem": [10, 5], "classnames": ["A", "B"],
+                                 "rules": [["", "DQ", "314", "Foul"]]}, "gen: ")
+    assert r == []
+    assert acc["classnames"] == ["A", "B"] and acc["scoringsystem"] == [10, 5]
+    # non-destructive: class names union; new rule added; same key with different
+    # description is KEPT (not overwritten) and reported; scoring kept (source differs)
+    r = accumulate_ruleset(acc, {"scoringsystem": [9, 9], "classnames": ["B", "C"],
+                                 "rules": [["", "DQ", "314", "Fouling boats"],
+                                           ["", "LL", "310", "Lost lap"]]}, "cir: ")
+    assert acc["classnames"] == ["A", "B", "C"]
+    assert [x[1:] for x in acc["rules"]] == [["DQ", "314", "Foul"], ["LL", "310", "Lost lap"]]
+    assert acc["scoringsystem"] == [10, 5]                     # kept, not overwritten
+    assert any("DQ/314" in m for m in r) and any("scoring" in m for m in r)
+
+
+def test_accumulate_ruleset_fills_empty_scoring():
+    from cozer.app.ruleset import accumulate_ruleset
+    acc = {"classnames": [], "rules": [], "scoringsystem": []}
+    accumulate_ruleset(acc, {"scoringsystem": [20, 17, 15]}, "gen: ")
+    assert acc["scoringsystem"] == [20, 17, 15]                # filled because empty
+
+
+def _write_cozj(path, data):
+    from cozer.store import dumps
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(dumps(data))
+    return path
+
+
+def test_open_accumulated_rulesets_only_builds_initial_event(tmp_path):
+    _app()
+    from cozer.app.ruleset import new_ruleset
+    gen = new_ruleset("gen")
+    gen["scoringsystem"] = [20, 17]
+    gen["classnames"] = ["O-500"]
+    gen["rules"] = [["", "DQ", "314", "Foul"]]
+    cir = new_ruleset("cir")
+    cir["classnames"] = ["O-125"]
+    cir["rules"] = [["", "LL", "310", "Lost lap"]]
+    gp = _write_cozj(str(tmp_path / "gen.cozj"), gen)
+    cp = _write_cozj(str(tmp_path / "cir.cozj"), cir)
+    w = MainWindow()
+    w.open_accumulated([gp, cp])                                 # use case 1: rulesets only
+    assert w.eventdata["kind"] == "event"                       # a fresh initial event
+    assert w.eventdata["scoringsystem"] == [20, 17]             # filled from the first ruleset
+    assert w.eventdata["classnames"] == ["O-500", "O-125"]
+    assert [r[1:3] for r in w.eventdata["rules"]] == [["DQ", "314"], ["LL", "310"]]
+
+
+def test_open_accumulated_event_base_not_overwritten(tmp_path):
+    _app()
+    from cozer.app.ruleset import new_ruleset
+    gen = new_ruleset("gen")
+    gen["classnames"] = ["O-500"]
+    gen["rules"] = [["", "DQ", "314", "Foul"], ["", "LL", "310", "Lost lap"]]
+    cir = new_ruleset("cir")
+    cir["classnames"] = ["O-125", "O-500"]
+    ev = {"kind": "event", "title": "MyEvent", "scoringsystem": [10, 5],
+          "classes": [["", "T-400", "3*(1000):1"]],            # classnames seeded from this
+          "participants": [], "races": [], "rules": [["", "DQ", "314", "Fouling others"]],
+          "record": {}, "configure": {}}
+    gp = _write_cozj(str(tmp_path / "gen.cozj"), gen)
+    cp = _write_cozj(str(tmp_path / "cir.cozj"), cir)
+    ep = _write_cozj(str(tmp_path / "myevent.cozj"), ev)
+
+    w = MainWindow()
+    logged = []
+    w.log = lambda m: logged.append(m)
+    w.open_accumulated([gp, cp, ep])                            # use case 2: event is the base
+
+    assert w.eventdata["kind"] == "event" and w.eventdata["title"] == "MyEvent"
+    dq = next(r for r in w.eventdata["rules"] if r[1:3] == ["DQ", "314"])
+    assert dq[3] == "Fouling others"                            # event kept, NOT overwritten
+    assert any(r[1:3] == ["LL", "310"] for r in w.eventdata["rules"])   # new rule added
+    assert w.eventdata["classnames"] == ["T-400", "O-500", "O-125"]     # union (event first)
+    assert w.eventdata["scoringsystem"] == [10, 5]              # event's scoring kept
+    assert sum("DQ/314" in m for m in logged) == 1             # one conflict reported
+
+
+def test_open_accumulated_rejects_multiple_event_files(tmp_path):
+    _app()
+    ev1 = {"kind": "event", "title": "E1", "classes": [], "rules": [], "scoringsystem": [1]}
+    ev2 = {"kind": "event", "title": "E2", "classes": [], "rules": [], "scoringsystem": [2]}
+    p1 = _write_cozj(str(tmp_path / "e1.cozj"), ev1)
+    p2 = _write_cozj(str(tmp_path / "e2.cozj"), ev2)
+    w = MainWindow()
+    logged = []
+    w.log = lambda m: logged.append(m)
+    w.open_accumulated([p1, p2])
+    assert w.eventdata["title"] == "E1"                          # first event used
+    assert any("ignoring" in m and "e2.cozj" in m for m in logged)
 
 
 def test_startup_file_loads_into_window(tmp_path, monkeypatch):
