@@ -90,6 +90,73 @@ def get_classes(eventdata):
     return [c for c in classes if c]
 
 
+# --- structured circuit-pattern helpers (for the pattern-entry dialog) -------
+# The common circuit form is ``H*(first + (L-1)*other):B`` — H heats, each of L
+# laps (a distinct first-lap length + uniform remaining laps), best B scored.
+
+def _num(x):
+    return "%g" % x                       # 1430.0 -> "1430", 1390.5 -> "1390.5"
+
+
+def format_circuit_pattern(first, other, laps, heats, scored):
+    """Build the pattern string for the common circuit case."""
+    laps = max(1, int(laps))
+    heats = max(1, int(heats))
+    scored = int(scored)
+    if laps == 1:
+        inner = _num(first)
+    elif first == other:
+        inner = "%d*%s" % (laps, _num(other))
+    else:
+        inner = "%s+%d*%s" % (_num(first), laps - 1, _num(other))
+    return "%d*(%s):%d" % (heats, inner, scored)
+
+
+def parse_simple_pattern(pat):
+    """Best-effort parse of a pattern into the common circuit fields
+    ``{first, other, laps, heats, scored}``, or None if it isn't that simple
+    shape (endurance, per-heat differences, non-uniform lap lengths)."""
+    if not pat or "/" in pat:             # endurance is handled via the raw field
+        return None
+    try:
+        heats, sheats = crack_race_pattern(pat)[:2]
+    except Exception:
+        return None
+    if not heats or any(h != heats[0] for h in heats):
+        return None
+    h0 = heats[0]
+    if not h0:
+        return None
+    rest = h0[1:]
+    if rest and any(x != rest[0] for x in rest):
+        return None
+    return {"first": h0[0], "other": rest[0] if rest else h0[0],
+            "laps": len(h0), "heats": len(heats), "scored": sheats}
+
+
+def describe_pattern(pat):
+    """A short human description of a pattern for a summary line."""
+    try:
+        r = crack_race_pattern(pat)
+    except Exception:
+        return "invalid pattern"
+    heats, sheats = r[0], r[1]
+    if not heats or not heats[0]:
+        return "no laps"
+    if len(r) == 3:                        # endurance: (laps, 1, seconds)
+        return "endurance · ~%d laps of %s m · %g h" % (
+            len(heats[0]), _num(heats[0][0]), r[2] / 3600.0)
+    h0 = heats[0]
+    if all(x == h0[0] for x in h0):
+        laps = "%d laps of %s m" % (len(h0), _num(h0[0]))
+    elif len(h0) > 1:
+        laps = "first %s m, then %d×%s m" % (_num(h0[0]), len(h0) - 1, _num(h0[1]))
+    else:
+        laps = "%s m" % _num(h0[0])
+    mixed = "" if all(h == h0 for h in heats) else " (mixed heats)"
+    return "%d heat(s)%s · %s · best %s" % (len(heats), mixed, laps, sheats)
+
+
 def get_allowed_heats(eventdata, cl):
     rpat = None
     for l in eventdata['classes']:

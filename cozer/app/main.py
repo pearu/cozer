@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from cozer.app import crashreport
 from cozer.app import ruleset as rulesetmod
+from cozer.app.classpart import ClassesParticipantsPanel
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import GridTab, RacesTab, StringListEditor, parse_scoring
 from cozer.app.timer import TimerPanel
@@ -389,9 +390,7 @@ class MainWindow(QMainWindow):
         v.addWidget(form_w)
 
         sub = QTabWidget()
-        self.classes_grid = GridTab([(1, "Class"), (2, "Race pattern")], 3)
-        self.participants_grid = GridTab(
-            [(1, "Name"), (2, "Surname"), (3, "From"), (4, "Class"), (5, "Id")], 6)
+        self.classpart_panel = ClassesParticipantsPanel(self)
         self.races_tab = RacesTab()
 
         # The Rules sub-tab is also the editor for ruleset files: scoring system,
@@ -423,8 +422,7 @@ class MainWindow(QMainWindow):
         cols.addLayout(rules_col, 2)
         rv.addLayout(cols)
 
-        sub.addTab(self.classes_grid, "Classes")
-        sub.addTab(self.participants_grid, "Participants")
+        sub.addTab(self.classpart_panel, "Classes && Participants")
         sub.addTab(self.races_tab, "Races")
         sub.addTab(rules_w, "Rules")
         self._geninfo_sub = sub
@@ -444,8 +442,7 @@ class MainWindow(QMainWindow):
         self._ensure_keys()
         for key, _ in _EVENT_FIELDS:
             self._fields[key].setText(str(self.eventdata.get(key, "")))
-        self.classes_grid.set_data(self.eventdata["classes"])
-        self.participants_grid.set_data(self.eventdata["participants"])
+        self.classpart_panel.reload()
         self.races_tab.set_data(self.eventdata["races"])
         self.rules_grid.set_data(self.eventdata["rules"])
         self.classnames_editor.set_data(self.eventdata["classnames"])
@@ -456,8 +453,12 @@ class MainWindow(QMainWindow):
         self._apply_kind()
 
     def _classname_in_use(self, name):
-        """Reason a class name can't be removed from the vocabulary — a participant
-        or a race still uses it — else None."""
+        """Reason a class name can't be removed from the catalog — it is set up as
+        an event class, or a participant or race uses it — else None."""
+        for c in self.eventdata.get("classes", []):
+            if len(c) > 1 and c[1] == name:
+                return "it is set up as a class in this event (remove it under " \
+                       "Classes & Participants first)"
         for p in self.eventdata.get("participants", []):
             if len(p) > 4 and p[4] == name:
                 return "a participant is entered in class %r" % name
@@ -475,7 +476,7 @@ class MainWindow(QMainWindow):
             i = self.tabs.indexOf(w)
             if i >= 0:
                 self.tabs.setTabVisible(i, not ruleset)
-        for w in (self.classes_grid, self.participants_grid, self.races_tab):
+        for w in (self.classpart_panel, self.races_tab):
             i = self._geninfo_sub.indexOf(w)
             if i >= 0:
                 self._geninfo_sub.setTabVisible(i, not ruleset)

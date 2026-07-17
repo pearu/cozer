@@ -137,21 +137,140 @@ def test_generate_cancelled_dialog_is_noop(monkeypatch):
     w.on_generate()                                        # cancelled -> returns, no error
 
 
-def test_data_grids_populate_and_edit():
+def test_classes_participants_panel_populates():
     _app()
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
-    cm = w.classes_grid.model
-    assert cm.rowCount() == len(ed["classes"]) and cm.columnCount() == 2
-    cm.setData(cm.index(0, 1), "9*(2*1000):3")     # col 1 = pattern -> row index 2
-    assert ed["classes"][0][2] == "9*(2*1000):3"
-    n = cm.rowCount()
-    cm.add_row()
-    assert cm.rowCount() == n + 1
-    cm.delete_row(n)
-    assert cm.rowCount() == n
-    assert w.participants_grid.model.rowCount() == len(ed["participants"])
+    cp = w.classpart_panel
+    named = [c[1] for c in ed["classes"] if len(c) > 1 and c[1]]
+    assert cp.tabs.count() == len(named)                       # one subtab per class
+    assert {cp.tabs.tabText(i) for i in range(cp.tabs.count())} == set(named)
     assert w.rules_grid.model.rowCount() == len(ed["rules"])
+
+
+def test_participant_class_model_filter_add_delete_unique():
+    _app()
+    from cozer.app.classpart import ParticipantClassModel
+    parts = [["", "A", "One", "EST", "GT", "1"],
+             ["", "B", "Two", "FIN", "GT", "2"],
+             ["", "C", "Cee", "LAT", "OT", "1"]]
+    m = ParticipantClassModel(parts, "GT")
+    assert m.rowCount() == 2 and m.columnCount() == 4          # filtered to class GT
+    assert m.data(m.index(0, 0)) == "1" and m.data(m.index(1, 1)) == "B"
+    warned = []
+    m2 = ParticipantClassModel(parts, "GT", warn=warned.append)
+    assert m2.setData(m2.index(0, 0), "2") is False and warned  # boat # taken -> rejected
+    assert m2.setData(m2.index(0, 0), "9") is True and parts[0][5] == "9"
+    before = len(parts)
+    m2.add_row()
+    assert m2.rowCount() == 3 and len(parts) == before + 1 and parts[-1][4] == "GT"
+    m2.delete_row(2)
+    assert len(parts) == before
+
+
+def test_from_autocomplete_suggestions_and_delegate():
+    _app()
+    from cozer.app.classpart import (ClassParticipantsWidget, AutoCompleteDelegate,
+                                      ParticipantClassModel)
+    parts = [["", "A", "One", "EST", "GT", "1"],
+             ["", "B", "Two", "FIN", "GT", "2"],
+             ["", "C", "Cee", "EST", "OT", "1"],      # EST recurs (other class)
+             ["", "D", "Dee", "", "GT", "3"]]         # blank From ignored
+    cw = ClassParticipantsWidget(parts, "GT")
+    assert cw._from_suggestions() == ["EST", "FIN"]   # distinct, non-empty, all classes
+    from_col = next(i for i, (f, _) in enumerate(ParticipantClassModel.COLS) if f == 3)
+    deleg = cw.view.itemDelegateForColumn(from_col)
+    assert isinstance(deleg, AutoCompleteDelegate)
+    editor = deleg.createEditor(cw.view.viewport(), None, cw.model.index(0, from_col))
+    comp = editor.completer()
+    vals = [comp.model().data(comp.model().index(i, 0)) for i in range(comp.model().rowCount())]
+    assert "EST" in vals and "FIN" in vals
+
+
+def test_pattern_dialog_fields_and_raw():
+    _app()
+    from cozer.app.classpart import PatternDialog
+    dlg = PatternDialog(None, "O-500", "4*(1430+7*1390):3")
+    assert (dlg.first.value(), dlg.other.value(), dlg.laps.value(),
+            dlg.heats.value(), dlg.scored.value()) == (1430, 1390, 8, 4, 3)
+    assert dlg.raw.text() == "4*(1430+7*1390):3"
+    dlg.heats.setValue(3)                                       # a field edit rebuilds raw
+    assert dlg.raw.text() == "3*(1430+7*1390):3"
+    dlg._accept()
+    assert dlg.pattern() == "3*(1430+7*1390):3"
+    assert PatternDialog(None, "END", "5000/6").raw.text() == "5000/6"   # endurance via raw
+
+
+def test_add_class_dialog_is_catalog_only():
+    _app()
+    from cozer.app.classpart import AddClassDialog
+    dlg = AddClassDialog(None, ["O-500", "O-125"])
+    assert dlg.name.isEditable() is False                       # no free text
+    assert [dlg.name.itemText(i) for i in range(dlg.name.count())] == ["O-500", "O-125"]
+
+
+def test_add_class_strict_refuses_when_catalog_exhausted(monkeypatch):
+    _app()
+    import cozer.app.classpart as classpart
+    w = MainWindow(_recorded_event())          # class GT; catalog seeded to {GT}
+    cp = w.classpart_panel
+    opened = {"dlg": False}
+
+    class Boom:
+        def __init__(self, *a, **k):
+            opened["dlg"] = True
+
+    monkeypatch.setattr(classpart, "AddClassDialog", Boom)
+    monkeypatch.setattr(classpart, "QMessageBox",
+                        type("M", (), {"information": staticmethod(lambda *a, **k: None)}))
+    cp._add_class()                            # GT already a class -> nothing to add
+    assert opened["dlg"] is False and len(w.eventdata["classes"]) == 1
+
+
+def test_classpart_add_and_delete_class(monkeypatch):
+    _app()
+    import cozer.app.classpart as classpart
+    w = MainWindow(_recorded_event())                          # class GT with participants
+    w.eventdata["classnames"] = ["GT", "OSY-400"]             # catalog offers OSY-400
+    cp = w.classpart_panel
+    assert {cp.tabs.tabText(i) for i in range(cp.tabs.count())} == {"GT"}
+
+    class FakeDlg:
+        def __init__(self, *a, **k):
+            pass
+
+        def exec(self):
+            return True
+
+        def class_name(self):
+            return "OSY-400"
+
+    monkeypatch.setattr(classpart, "AddClassDialog", FakeDlg)
+    cp._add_class()
+    assert any(c[1] == "OSY-400" for c in w.eventdata["classes"])
+    assert "OSY-400" in {cp.tabs.tabText(i) for i in range(cp.tabs.count())}
+
+    monkeypatch.setattr(classpart, "QMessageBox",
+                        type("M", (), {"information": staticmethod(lambda *a, **k: None)}))
+    gt = next(i for i in range(cp.tabs.count()) if cp.tabs.tabText(i) == "GT")
+    cp.tabs.setCurrentIndex(gt)
+    cp._delete_class()
+    assert any(c[1] == "GT" for c in w.eventdata["classes"])    # refused: has participants
+    osy = next(i for i in range(cp.tabs.count()) if cp.tabs.tabText(i) == "OSY-400")
+    cp.tabs.setCurrentIndex(osy)
+    cp._delete_class()
+    assert not any(c[1] == "OSY-400" for c in w.eventdata["classes"])   # empty: removed
+
+
+def test_delete_classname_blocked_when_instantiated(monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())          # class GT is set up (in eventdata['classes'])
+    assert w._classname_in_use("GT")           # blocked: instantiated as an event class
+    # remove the GT event class and its participants -> name becomes deletable
+    w.eventdata["classes"] = []
+    w.eventdata["participants"] = []
+    w.eventdata["races"] = []
+    assert w._classname_in_use("GT") is None
 
 
 def test_races_tab():
