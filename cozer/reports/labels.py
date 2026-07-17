@@ -25,7 +25,7 @@ LABELS = {
         "Didntstart": "Didn't start",
         "Interruption": "Interruption", "Disqualif": "Disqualif.", "YellowCard": "Yellow Card",
         "RedCard": "Red Card", "BlueCard": "Blue Card", "NotClassified": "Not classified",
-        "Note": "Note", "Qualified": "Qualified",
+        "LoseTwoPositions": "Lose two positions", "Note": "Note", "Qualified": "Qualified",
         "Notqualified": "Not qualified",
     },
     "Estonian": {
@@ -47,7 +47,8 @@ LABELS = {
         "FifteenPenaltylaps": "15 trahviringi",
         "Didntstart": "Ei startinud", "Interruption": "Katkestas", "Disqualif": "Diskvalif.",
         "YellowCard": "Kollane kaart", "RedCard": "Punane kaart",
-        "BlueCard": "Sinine kaart", "NotClassified": "Klassifitseerimata", "Note": "Märkus",
+        "BlueCard": "Sinine kaart", "NotClassified": "Klassifitseerimata",
+        "LoseTwoPositions": "Kaotab kaks kohta", "Note": "Märkus",
         "Qualified": "Kvalifitseerus", "Notqualified": "Ei kvalifitseerunud",
     },
 }
@@ -58,7 +59,7 @@ RECCODE_LABEL = {
     "PL8": "EightPenaltylaps", "PL10": "TenPenaltylaps", "PL3": "ThreePenaltylaps",
     "PL4": "FourPenaltylaps", "PL15": "FifteenPenaltylaps", "DS": "Didntstart",
     "IR": "Interruption", "DQ": "Disqualif", "YC": "YellowCard", "RC": "RedCard",
-    "BC": "BlueCard", "NC": "NotClassified",
+    "BC": "BlueCard", "NC": "NotClassified", "LP2": "LoseTwoPositions",
     "NT": "Note", "Q": "Qualified", "NQ": "Notqualified",
 }
 

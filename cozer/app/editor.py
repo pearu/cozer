@@ -40,7 +40,7 @@ CODE_COLORS = {
     "PL3": QColor(230, 210, 90), "PL4": QColor(230, 210, 90), "PL15": QColor(230, 210, 90),
     "DS": QColor(150, 150, 150), "IR": QColor(30, 30, 30), "DQ": QColor(220, 0, 0),
     "RC": QColor(220, 0, 0), "YC": QColor(235, 200, 40), "BC": QColor(40, 90, 220),
-    "NC": QColor(150, 70, 70), "NT": QColor(140, 140, 90),
+    "NC": QColor(150, 70, 70), "LP2": QColor(230, 140, 40), "NT": QColor(140, 140, 90),
     "Q": QColor(0, 170, 0), "NQ": QColor(210, 0, 210),
 }
 

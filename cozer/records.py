@@ -30,6 +30,7 @@ PL3 = 17          # 3 penalty laps       -- 2026 UIM endurance
 PL4 = 18          # 4 penalty laps       -- 2026 UIM endurance
 PL15 = 19         # 15 penalty laps      -- 2026 UIM endurance
 NT = 20           # note
+LP2 = 21          # lose two positions  -- 2026 UIM 307.01 / 307.02
 Q = 30            # qualified
 NQ = 31           # not qualified
 
@@ -37,7 +38,7 @@ NQ = 31           # not qualified
 reccodemap = {
     'LL': LL, 'PL': PL, 'LL2': LL2, 'PL5': PL5, 'PL8': PL8, 'PL10': PL10,
     'DS': DS, 'IR': IR, 'DQ': DQ, 'YC': YC, 'RC': RC, 'BC': BC, 'NC': NC,
-    'PL3': PL3, 'PL4': PL4, 'PL15': PL15, 'NT': NT, 'Q': Q, 'NQ': NQ,
+    'PL3': PL3, 'PL4': PL4, 'PL15': PL15, 'LP2': LP2, 'NT': NT, 'Q': Q, 'NQ': NQ,
 }
 invreccodemap = {v: k for k, v in reccodemap.items()}
 

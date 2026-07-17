@@ -13,7 +13,7 @@ from cozer._py2compat import ROUND_OPT, round2, py2_sorted
 from cozer.records import (
     invreccodemap, insertmark, gettimes,
     LAP, INSERTED_LAP, LL, PL, PL5, LL2, PL8, PL10, DS, IR, DQ, YC, RC,
-    BC, NC, PL3, PL4, PL15, NT, Q, NQ,
+    BC, NC, PL3, PL4, PL15, LP2, NT, Q, NQ,
 )
 
 roundopt = ROUND_OPT
@@ -346,6 +346,12 @@ def analyze(heat, record, scoringsystem=[]):
     isqualification = (heat and heat[-1] == 'q')
     istimetrial = (heat and heat[-1] == 't')
     isendurance = duration is not None
+    # LP2 (307.01/307.02): positions to lose per boat, applied after placement.
+    losepos = {}
+    for pid in rec:
+        n2 = 2 * sum(1 for m in rec[pid] if m[0] == LP2 and m[1] <= racetime)
+        if n2:
+            losepos[pid] = n2
     preres = []
     for pid in rec:
         penlaps = 0
@@ -463,6 +469,14 @@ def analyze(heat, record, scoringsystem=[]):
                 if n and n not in notes[k]:
                     notes[k].append(n)
             elif m[0] == BC:  # blue card (note only; a 2nd blue card is recorded as DQ)
+                n = m[2].strip()
+                if n:
+                    k = invreccodemap[m[0]]
+                    if k not in notes:
+                        notes[k] = []
+                    if n not in notes[k]:
+                        notes[k].append(n)
+            elif m[0] == LP2:  # lose two positions (reorder applied after placement)
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -625,6 +639,21 @@ def analyze(heat, record, scoringsystem=[]):
         res[pid]['maxlapspeed'] = maxlapspeed
         res[pid]['lapinfo'] = laps, penlapsleft, lapsleft
         res[pid]['notes'] = notes
+
+    # LP2 (307.01/307.02): each carrying boat drops two places in the classified
+    # order; points stay with positions, so the boats it passes move up and gain
+    # the corresponding points. No effect on unclassified boats (DS/DQ/NC).
+    if losepos and not istimetrial and not isqualification:
+        ordered = [pid for pid in getresorder(res) if res[pid]['place'] > 0]
+        pts_by_pos = [res[pid]['points'] for pid in ordered]
+        for pid in [p for p in ordered if p in losepos]:
+            idx = ordered.index(pid)
+            newidx = min(idx + losepos[pid], len(ordered) - 1)
+            ordered.pop(idx)
+            ordered.insert(newidx, pid)
+        for newi, pid in enumerate(ordered):
+            res[pid]['place'] = newi + 1
+            res[pid]['points'] = pts_by_pos[newi]
 
     return res
 

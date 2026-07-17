@@ -10,7 +10,7 @@ Each uses a with/without comparison so it asserts exactly the new code's effect.
 import copy
 
 from cozer import analyzer
-from cozer.records import BC, NC, PL3, PL4, PL15
+from cozer.records import BC, NC, PL3, PL4, PL15, LP2
 
 
 def _circuit_record(marks_by_pid, nlaps=5):
@@ -65,3 +65,23 @@ def test_nc_excludes_from_classification():
     assert res_nc["B"]["points"] == -1
     assert res_nc["B"]["notes"].get("NC") == ["red flag"]
     assert res_nc["A"]["place"] > 0             # the other boat is unaffected
+
+
+def test_lp2_loses_two_positions():
+    ss = [400, 300, 225, 169]
+    # four boats finishing A(1) B(2) C(3) D(4) by speed (A fastest)
+    base = {"A": [(1, 20.0)] * 5, "B": [(1, 21.0)] * 5,
+            "C": [(1, 22.0)] * 5, "D": [(1, 23.0)] * 5}
+    res_plain = analyzer.analyze("1", _circuit_record(copy.deepcopy(base)), ss)
+    assert [res_plain[x]["place"] for x in "ABCD"] == [1, 2, 3, 4]
+    assert [res_plain[x]["points"] for x in "ABCD"] == [400, 300, 225, 169]
+
+    withlp2 = copy.deepcopy(base)
+    withlp2["B"].append((LP2, 5.0, "not keeping the lane"))
+    res = analyzer.analyze("1", _circuit_record(withlp2), ss)
+    # B drops two places (2 -> 4); C and D each move up one
+    assert res["A"]["place"] == 1 and res["A"]["points"] == 400
+    assert res["C"]["place"] == 2 and res["C"]["points"] == 300
+    assert res["D"]["place"] == 3 and res["D"]["points"] == 225
+    assert res["B"]["place"] == 4 and res["B"]["points"] == 169
+    assert res["B"]["notes"].get("LP2") == ["not keeping the lane"]
