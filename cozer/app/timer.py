@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer._py2compat import round2
+from cozer.app.grids import race_label
 from cozer.classes import getclass
 from cozer.racepattern import crack_race_pattern
 from cozer.records import gettimes
@@ -230,8 +231,8 @@ class TimerPanel(QWidget):
     def reload(self):
         self.race_combo.blockSignals(True)
         self.race_combo.clear()
-        for i in range(len(self.eventdata.get("races", []))):
-            self.race_combo.addItem("Race %d" % (i + 1))
+        for i, race in enumerate(self.eventdata.get("races", [])):
+            self.race_combo.addItem(race_label(i, race))
         self.race_combo.blockSignals(False)
         self.on_stop()
         self._show_race()

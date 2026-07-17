@@ -167,6 +167,42 @@ def test_races_tab():
     assert len(ed["races"]) == before
 
 
+def test_race_label_unit():
+    from cozer.app.grids import race_label
+    assert race_label(0, [["", "", ""]]) == "Race 1"           # empty -> bare label
+    assert race_label(0, []) == "Race 1"
+    assert race_label(0, [["x", "GT", "1"]]) == "Race 1: GT 1"
+    assert race_label(1, [["x", "GT", "1"], ["x", "OSY-400", "2"]]) == \
+        "Race 2: GT 1, OSY-400 2"
+    # blank / short rows are skipped
+    assert race_label(2, [["x", "GT", "1"], ["x", "", ""], ["x"]]) == "Race 3: GT 1"
+
+
+def test_races_tab_label_shows_class_heat_and_updates_live():
+    _app()
+    ed = {
+        "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
+        "scoringsystem": [10], "classes": [], "participants": [],
+        "races": [[["x", "GT", "1"], ["x", "OSY-400", "2"]]],
+        "rules": [], "record": {}, "configure": {},
+    }
+    w = MainWindow(ed)
+    rt = w.races_tab
+    assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2"
+    # editing a class cell in the grid updates the list label live
+    rt.race_list.setCurrentRow(0)
+    rt.grid.model.setData(rt.grid.model.index(0, 0), "S-250")
+    assert rt.race_list.item(0).text() == "Race 1: S-250 1, OSY-400 2"
+
+
+def test_timer_race_combo_label_has_class_heat():
+    _app()
+    w = MainWindow(_timer_event())
+    tp = w.timer_panel
+    tp.reload()
+    assert tp.race_combo.itemText(0) == "Race 1: GT 1"
+
+
 def test_scoring_field_parses():
     _app()
     w = MainWindow()

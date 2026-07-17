@@ -11,6 +11,19 @@ from PySide6.QtWidgets import (
 )
 
 
+def race_label(index, race):
+    """Human label for a race: ``"Race N: CLASS1 HEAT1, CLASS2 HEAT2, ..."``.
+
+    ``race`` is a list of ``[_, class, heat]`` rows (index-0 is the sort field);
+    rows with a blank class or heat are skipped. A race with no filled rows keeps
+    the bare ``"Race N"``. ``index`` is 0-based; the label shows ``N = index+1``.
+    """
+    parts = ["%s %s" % (e[1], e[2]) for e in (race or [])
+             if len(e) > 2 and e[1] and e[2]]
+    base = "Race %d" % (index + 1)
+    return "%s: %s" % (base, ", ".join(parts)) if parts else base
+
+
 def parse_scoring(text):
     """Parse a space-separated scoring system into a list of numbers."""
     out = []
@@ -130,6 +143,11 @@ class RacesTab(QWidget):
         h.addLayout(left, 1)
         self.grid = GridTab([(1, "Class"), (2, "Heat")], 3)
         h.addWidget(self.grid, 2)
+        # Keep the selected race's list label ("Race N: CLASS HEAT, ...") in sync
+        # as its class/heat cells are edited or rows added/removed.
+        self.grid.model.dataChanged.connect(self._update_current_label)
+        self.grid.model.rowsInserted.connect(self._update_current_label)
+        self.grid.model.rowsRemoved.connect(self._update_current_label)
 
     def set_data(self, races):
         self._races = races
@@ -138,11 +156,17 @@ class RacesTab(QWidget):
     def _refill(self):
         self.race_list.clear()
         for i in range(len(self._races)):
-            self.race_list.addItem("Race %d" % (i + 1))
+            self.race_list.addItem(race_label(i, self._races[i]))
         if self._races:
             self.race_list.setCurrentRow(0)
         else:
             self.grid.set_data([])
+
+    def _update_current_label(self, *args):
+        row = self.race_list.currentRow()
+        item = self.race_list.item(row) if 0 <= row < len(self._races) else None
+        if item is not None:
+            item.setText(race_label(row, self._races[row]))
 
     def _select(self, row):
         if 0 <= row < len(self._races):
