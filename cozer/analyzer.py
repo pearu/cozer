@@ -29,6 +29,13 @@ def _warning(*mess):
     _log.debug("Warning: %s", " ".join(str(m) for m in mess))
 
 
+def rule_action_codes(eventdata):
+    """The set of action-code names an event's rules define. Lets the analyzer
+    pick era-appropriate auto-insert codes: §209 DNF/DNS when a 2026+ ruleset
+    defines them, else the pre-§209 IR/DS (the default when unknown)."""
+    return {r[1] for r in eventdata.get("rules", []) if len(r) > 1 and r[1]}
+
+
 def getresorder(res):
     rks = []
     for k in res:
@@ -334,7 +341,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
     return res
 
 
-def analyze(heat, record, scoringsystem=[]):
+def analyze(heat, record, scoringsystem=[], rulecodes=()):
     info, rec = record
     duration = info.get('duration')
     if duration is not None:
@@ -537,17 +544,21 @@ def analyze(heat, record, scoringsystem=[]):
         if lapsleft and (not pastafterstoppage) and (code == 0):
             if t + 2.5 * esttime < racetime and not istimetrial:
                 if laps:
-                    _warning('Appended IR mark for %s' % pid)
+                    # non-finisher: §209 DNF if the ruleset uses it, else legacy IR
+                    nf = DNF if 'DNF' in rulecodes else IR
+                    _warning('Appended %s mark for %s' % (invreccodemap[nf], pid))
                     code = 1
-                    insertmark(rec[pid], IR, t + 2.5 * esttime, '')
-                    k = invreccodemap[IR]
+                    insertmark(rec[pid], nf, t + 2.5 * esttime, '')
+                    k = invreccodemap[nf]
                     if k not in notes:
                         notes[k] = []
                 else:
-                    _warning('Appended DS mark for %s' % pid)
+                    # never started: §209 DNS if the ruleset uses it, else legacy DS
+                    ns = DNS if 'DNS' in rulecodes else DS
+                    _warning('Appended %s mark for %s' % (invreccodemap[ns], pid))
                     code = 10
-                    insertmark(rec[pid], DS, t + 2.5 * esttime, '')
-                    k = invreccodemap[DS]
+                    insertmark(rec[pid], ns, t + 2.5 * esttime, '')
+                    k = invreccodemap[ns]
                     if k not in notes:
                         notes[k] = []
         preres.append((code,

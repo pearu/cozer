@@ -3,7 +3,7 @@ summary (best result + points across heats) when more than one heat is shown."""
 import copy
 import time as _time
 
-from cozer.analyzer import analyze, sumanalyze, getresorder
+from cozer.analyzer import analyze, sumanalyze, getresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
@@ -29,7 +29,8 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
         heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
         if not heats:
             continue
-        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss) for h in heats}
+        rulecodes = rule_action_codes(eventdata)
+        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss, rulecodes) for h in heats}
         curheat = heats[-1]
         multi = len(heats) > 1
         istt = curheat.endswith("t")

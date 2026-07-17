@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from cozer.analyzer import analyze, getresorder
+from cozer.analyzer import analyze, getresorder, rule_action_codes
 from cozer.records import insertmark, invreccodemap, reccodemap
 
 LAP = QColor(255, 127, 0)
@@ -443,7 +443,7 @@ class EditRecordsPanel(QWidget):
         rec = self._draft
         ss = self.window.eventdata.get("scoringsystem", [])
         try:
-            res = analyze(h, copy.deepcopy(rec), ss)
+            res = analyze(h, copy.deepcopy(rec), ss, rule_action_codes(self.window.eventdata))
             order = getresorder(res)
         except Exception:            # pragma: no cover - degenerate data
             res, order = {}, sorted(rec[1].keys(), key=str)

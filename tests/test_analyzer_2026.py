@@ -120,3 +120,27 @@ def test_209_codes_score_identically_to_deprecated():
     base["B"].append((DSQ, 30.0, "fouling"))
     notes = analyzer.analyze("1", _circuit_record(base), ss)["B"]["notes"]
     assert notes.get("DSQ") == ["fouling"] and "DQ" not in notes
+
+
+def test_auto_insert_follows_the_ruleset():
+    """The auto-inserted non-finisher / non-starter mark follows the event's
+    rules: §209 DNF/DNS when the ruleset defines them, else legacy IR/DS
+    (the default, so the golden legacy events are unaffected)."""
+    from cozer.analyzer import rule_action_codes
+    ss = [400, 300]
+
+    def autonote(b_marks, rulecodes):
+        rec = ({"course": [1000] * 5, "racetime": 100000.0},
+               {"A": [(1, 20.0)] * 5, "B": list(b_marks)})
+        return sorted(analyzer.analyze("1", rec, ss, rulecodes)["B"]["notes"])
+
+    started_no_finish = [(1, 20.0), (1, 20.0)]   # 2 of 5 laps -> auto non-finish
+    never_started = []                            # no laps -> auto non-start
+    assert autonote(started_no_finish, ()) == ["IR"]              # default -> legacy
+    assert autonote(started_no_finish, {"IR", "DS"}) == ["IR"]    # legacy ruleset
+    assert autonote(started_no_finish, {"DNF", "DNS"}) == ["DNF"]  # 2026 ruleset
+    assert autonote(never_started, ()) == ["DS"]
+    assert autonote(never_started, {"DNF", "DNS"}) == ["DNS"]
+
+    assert rule_action_codes({"rules": [["", "DNF", " ", "x"],
+                                        ["", "DSQ", "406", "y"]]}) == {"DNF", "DSQ"}

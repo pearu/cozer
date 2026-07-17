@@ -6,7 +6,7 @@ sumanalyze/getsumresorder.
 """
 import copy
 
-from cozer.analyzer import analyze, sumanalyze, getsumresorder
+from cozer.analyzer import analyze, sumanalyze, getsumresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
@@ -46,7 +46,8 @@ def build_endurance_final(eventdata, classes=None, heat_map=None):
         heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
         if not heats:
             continue
-        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss) for h in heats}
+        rulecodes = rule_action_codes(eventdata)
+        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
         h0 = heats[0]
