@@ -340,15 +340,27 @@ class ClassesParticipantsPanel(QWidget):
             self.tabs.setCurrentIndex(self.tabs.count() - 1)
             self.window._reload_classes()
 
+    def _class_in_use(self, name):
+        """Reason class ``name`` can't be removed from the event — a participant
+        or a race uses it — else None."""
+        if any(len(p) > 4 and p[4] == name for p in self._participants()):
+            return "it has participants"
+        for race in self.window.eventdata.get("races", []):
+            for row in race:
+                if len(row) > 1 and row[1] == name:
+                    return "a race uses it"
+        return None
+
     def _delete_class(self):
         i = self.tabs.currentIndex()
         if i < 0:
             return
         name = self.tabs.tabText(i)
-        if any(len(p) > 4 and p[4] == name for p in self._participants()):
+        reason = self._class_in_use(name)
+        if reason:
             QMessageBox.information(
                 self, "Cannot delete",
-                "Cannot delete class %r while it has participants." % name)
+                "Cannot delete class %r while %s." % (name, reason))
             return
         classes = self._classes()
         for j, r in enumerate(classes):

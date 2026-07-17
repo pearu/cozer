@@ -256,10 +256,16 @@ def test_classpart_add_and_delete_class(monkeypatch):
     cp.tabs.setCurrentIndex(gt)
     cp._delete_class()
     assert any(c[1] == "GT" for c in w.eventdata["classes"])    # refused: has participants
+    # OSY-400 has no participants, but put it in a race -> still refused
+    w.eventdata["races"] = [[["", "OSY-400", "1"]]]
     osy = next(i for i in range(cp.tabs.count()) if cp.tabs.tabText(i) == "OSY-400")
     cp.tabs.setCurrentIndex(osy)
+    assert cp._class_in_use("OSY-400") == "a race uses it"
     cp._delete_class()
-    assert not any(c[1] == "OSY-400" for c in w.eventdata["classes"])   # empty: removed
+    assert any(c[1] == "OSY-400" for c in w.eventdata["classes"])   # refused: race uses it
+    w.eventdata["races"] = []                                    # free it -> deletable
+    cp._delete_class()
+    assert not any(c[1] == "OSY-400" for c in w.eventdata["classes"])
 
 
 def test_delete_classname_blocked_when_instantiated(monkeypatch):
