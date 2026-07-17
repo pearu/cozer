@@ -27,6 +27,9 @@ LABELS = {
         "RedCard": "Red Card", "BlueCard": "Blue Card", "NotClassified": "Not classified",
         "LoseTwoPositions": "Lose two positions", "Note": "Note", "Qualified": "Qualified",
         "Notqualified": "Not qualified",
+        "DidNotStart": "Did not start", "DidNotFinish": "Did not finish",
+        "DidNotRestart": "Did not restart", "Disqualified": "Disqualified",
+        "Accident": "Accident", "DidNotQualify": "Did not qualify",
     },
     "Estonian": {
         "OfficeroftheDay": "Peakohtunik", "SecretaryoftheRace": "Võistluste sekretär",
@@ -50,6 +53,9 @@ LABELS = {
         "BlueCard": "Sinine kaart", "NotClassified": "Klassifitseerimata",
         "LoseTwoPositions": "Kaotab kaks kohta", "Note": "Märkus",
         "Qualified": "Kvalifitseerus", "Notqualified": "Ei kvalifitseerunud",
+        "DidNotStart": "Ei startinud", "DidNotFinish": "Ei lõpetanud",
+        "DidNotRestart": "Ei taasstartinud", "Disqualified": "Diskvalifitseeritud",
+        "Accident": "Õnnetus", "DidNotQualify": "Ei kvalifitseerunud",
     },
 }
 
@@ -60,9 +66,11 @@ RECCODE_LABEL = {
     "PL4": "FourPenaltylaps", "PL15": "FifteenPenaltylaps", "DS": "Didntstart",
     "IR": "Interruption", "DQ": "Disqualif", "YC": "YellowCard", "RC": "RedCard",
     "BC": "BlueCard", "NC": "NotClassified", "LP2": "LoseTwoPositions",
+    # 2026 UIM §209 result outcome codes
+    "DNS": "DidNotStart", "DNF": "DidNotFinish", "DNR": "DidNotRestart",
+    "DSQ": "Disqualified", "ACC": "Accident", "DNQ": "DidNotQualify",
     "NT": "Note", "Q": "Qualified", "NQ": "Notqualified",
 }
-
 
 def get_labels(eventdata):
     lang = "English"

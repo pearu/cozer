@@ -31,6 +31,16 @@ PL4 = 18          # 4 penalty laps       -- 2026 UIM endurance
 PL15 = 19         # 15 penalty laps      -- 2026 UIM endurance
 NT = 20           # note
 LP2 = 21          # lose two positions  -- 2026 UIM 307.01 / 307.02
+# 2026 UIM §209 result-outcome codes. New (2026+) events use these; pre-§209
+# events keep the equivalent DS/DQ/NQ so their reports reproduce exactly. Each
+# has the SAME scoring effect as its pre-§209 counterpart -- only the printed
+# abbreviation differs (see analyzer parity + reports/labels.py).
+DSQ = 22          # disqualified      (== DQ)
+DNS = 23          # did not start     (== DS: excluded)
+DNR = 24          # did not restart   (== DS: excluded)
+ACC = 25          # accident/stoppage (== DS: excluded)
+DNQ = 26          # did not qualify   (== NQ)
+DNF = 27          # did not finish    (== IR: started, no finish after stoppage)
 Q = 30            # qualified
 NQ = 31           # not qualified
 
@@ -38,7 +48,9 @@ NQ = 31           # not qualified
 reccodemap = {
     'LL': LL, 'PL': PL, 'LL2': LL2, 'PL5': PL5, 'PL8': PL8, 'PL10': PL10,
     'DS': DS, 'IR': IR, 'DQ': DQ, 'YC': YC, 'RC': RC, 'BC': BC, 'NC': NC,
-    'PL3': PL3, 'PL4': PL4, 'PL15': PL15, 'LP2': LP2, 'NT': NT, 'Q': Q, 'NQ': NQ,
+    'PL3': PL3, 'PL4': PL4, 'PL15': PL15, 'LP2': LP2,
+    'DSQ': DSQ, 'DNS': DNS, 'DNR': DNR, 'ACC': ACC, 'DNQ': DNQ, 'DNF': DNF,
+    'NT': NT, 'Q': Q, 'NQ': NQ,
 }
 invreccodemap = {v: k for k, v in reccodemap.items()}
 

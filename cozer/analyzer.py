@@ -13,7 +13,7 @@ from cozer._py2compat import ROUND_OPT, round2, py2_sorted
 from cozer.records import (
     invreccodemap, insertmark, gettimes,
     LAP, INSERTED_LAP, LL, PL, PL5, LL2, PL8, PL10, DS, IR, DQ, YC, RC,
-    BC, NC, PL3, PL4, PL15, LP2, NT, Q, NQ,
+    BC, NC, PL3, PL4, PL15, LP2, DSQ, DNS, DNR, ACC, DNQ, DNF, NT, Q, NQ,
 )
 
 roundopt = ROUND_OPT
@@ -192,7 +192,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                         notes[k].append(n)
             elif m[0] in (PL, PL5, PL8, PL10, PL3, PL4, PL15):  # penalty laps (counted above)
                 pass
-            elif m[0] == DS:  # did not start
+            elif m[0] in (DS, DNS, DNR, ACC):  # did not start / restart / accident (all excluded)
                 didntstart = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -200,7 +200,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == IR:  # interruption
+            elif m[0] in (IR, DNF):  # interruption / did not finish (excluded)
                 if m[1] <= racetime:
                     interruption = 1
                     n = m[2].strip()
@@ -209,7 +209,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n and n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == DQ:  # disqualified
+            elif m[0] in (DQ, DSQ):  # disqualified
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -233,7 +233,8 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == BC:  # blue card (note only; a 2nd blue card is recorded as DQ)
+            elif m[0] == BC:  # blue card (406.05): note only. Cards accrue across
+                # events/disciplines, so a repeat-offence DSQ is entered manually.
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -427,7 +428,7 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k].append(n)
             elif m[0] in (PL, PL5, PL8):  # penalty laps (counted above)
                 pass
-            elif m[0] == DS:  # did not start
+            elif m[0] in (DS, DNS, DNR, ACC):  # did not start / restart / accident (all excluded)
                 didntstart = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -435,7 +436,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == IR:  # interruption
+            elif m[0] in (IR, DNF):  # interruption / did not finish (excluded)
                 if m[1] <= racetime:
                     interruption = 1
                     n = m[2].strip()
@@ -444,7 +445,7 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n and n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == DQ:  # disqualified
+            elif m[0] in (DQ, DSQ):  # disqualified
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -468,7 +469,8 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == BC:  # blue card (note only; a 2nd blue card is recorded as DQ)
+            elif m[0] == BC:  # blue card (406.05): note only. Cards accrue across
+                # events/disciplines, so a repeat-offence DSQ is entered manually.
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -500,7 +502,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == NQ:  # not qualified
+            elif m[0] in (NQ, DNQ):  # not qualified
                 qualification = 2
                 n = m[2].strip()
                 k = invreccodemap[m[0]]

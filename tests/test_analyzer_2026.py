@@ -10,7 +10,9 @@ Each uses a with/without comparison so it asserts exactly the new code's effect.
 import copy
 
 from cozer import analyzer
-from cozer.records import BC, NC, PL3, PL4, PL15, LP2
+from cozer.records import (
+    BC, NC, PL3, PL4, PL15, LP2, DS, DQ, NQ, IR, DNS, DNR, ACC, DSQ, DNQ, DNF,
+)
 
 
 def _circuit_record(marks_by_pid, nlaps=5):
@@ -35,6 +37,15 @@ def test_bc_is_note_only():
     # ...it is only recorded as a note
     assert res_bc["B"]["notes"].get("BC") == ["dangerous driving"]
     assert "BC" not in res_plain["B"]["notes"]
+
+    # Two blue cards are STILL note-only: a repeat-offence DSQ is a manual
+    # decision (cards accumulate across events, so cozer never auto-DQs a 2nd).
+    two = copy.deepcopy(base)
+    two["B"].extend([(BC, 30.0, "first"), (BC, 60.0, "second")])
+    res_two = analyzer.analyze("1", _circuit_record(two), ss)
+    assert res_two["B"]["place"] == res_plain["B"]["place"] > 0
+    assert res_two["B"]["points"] == res_plain["B"]["points"]
+    assert res_two["B"]["notes"].get("BC") == ["first", "second"]
 
 
 def test_endurance_penalty_lap_magnitudes():
@@ -85,3 +96,27 @@ def test_lp2_loses_two_positions():
     assert res["D"]["place"] == 3 and res["D"]["points"] == 225
     assert res["B"]["place"] == 4 and res["B"]["points"] == 169
     assert res["B"]["notes"].get("LP2") == ["not keeping the lane"]
+
+
+def test_209_codes_score_identically_to_deprecated():
+    """The 2026 §209 codes have the same scoring effect as their pre-§209
+    equivalents (DSQ==DQ, DNS/DNR/ACC==DS, DNQ==NQ) -- only the label differs."""
+    ss = [400, 300]
+
+    def place_pts(heat, code):
+        base = {"A": [(1, 20.0)] * 5, "B": [(1, 22.0)] * 5}
+        base["B"].append((code, 30.0, "x"))
+        r = analyzer.analyze(heat, _circuit_record(base), ss)["B"]
+        return (r["place"], r["points"])
+
+    assert place_pts("1", DSQ) == place_pts("1", DQ)          # disqualified
+    for c in (DNS, DNR, ACC):                                 # excluded outcomes
+        assert place_pts("1", c) == place_pts("1", DS)
+    assert place_pts("1", DNF) == place_pts("1", IR)          # did not finish == interruption
+    assert place_pts("1q", DNQ) == place_pts("1q", NQ)        # not qualified (qual heat)
+
+    # the new code records its OWN label, not the deprecated one
+    base = {"A": [(1, 20.0)] * 5, "B": [(1, 22.0)] * 5}
+    base["B"].append((DSQ, 30.0, "fouling"))
+    notes = analyzer.analyze("1", _circuit_record(base), ss)["B"]["notes"]
+    assert notes.get("DSQ") == ["fouling"] and "DQ" not in notes

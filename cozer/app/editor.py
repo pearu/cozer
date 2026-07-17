@@ -41,6 +41,9 @@ CODE_COLORS = {
     "DS": QColor(150, 150, 150), "IR": QColor(30, 30, 30), "DQ": QColor(220, 0, 0),
     "RC": QColor(220, 0, 0), "YC": QColor(235, 200, 40), "BC": QColor(40, 90, 220),
     "NC": QColor(150, 70, 70), "LP2": QColor(230, 140, 40), "NT": QColor(140, 140, 90),
+    # 2026 §209 outcomes (colours match their pre-§209 equivalents)
+    "DSQ": QColor(220, 0, 0), "DNS": QColor(150, 150, 150), "DNR": QColor(150, 150, 150),
+    "ACC": QColor(150, 150, 150), "DNQ": QColor(210, 0, 210), "DNF": QColor(30, 30, 30),
     "Q": QColor(0, 170, 0), "NQ": QColor(210, 0, 210),
 }
 

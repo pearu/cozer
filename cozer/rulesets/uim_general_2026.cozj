@@ -19,43 +19,43 @@
   ],
   [
    "",
-   "NQ",
+   "DNQ",
    " ",
-   "No Qualification"
+   "No qualification"
   ],
   [
    "",
-   "IR",
+   "DNF",
    " ",
-   "Interruption"
+   "Did not finish"
   ],
   [
    "",
-   "DS",
+   "DNS",
    " ",
    "Did not start"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "205.02.02",
    "Alcohol test above the limit (zero tolerance)"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "205.10",
    "No propeller guard fitted"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "205.12",
    "Lifting a boat with a person aboard"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "206.03",
    "Absence of race number or part of that"
   ],
@@ -79,73 +79,73 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "406.06",
    "Disqualification (deleted from heat/race results)"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "502",
    "Outside assistance on the race course"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.01.2",
    "Ignoring Technical Officer instructions"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.01.2",
    "A breach of the technical rules"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.01.2",
    "Refusing boat/motor inspection after a heat or race"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.01.2",
    "Unauthorized leaving of the site before scrutineering"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.03",
    "Refusing the ECU/CDI swap for a standard unit"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.04.1",
    "Changing engine or hull before technical inspection"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "503.04.1",
    "Visiting pits during the move to parc fermé"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "504.03",
    "Non-conforming automatic throttle shut-off"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "508.09",
    "Illegal fuel (timed trials, heats or races)"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "508.09",
    "Further infringement of the fuel rules"
   ]

@@ -48,31 +48,31 @@
  "rules": [
   [
    "",
-   "DQ",
+   "DSQ",
    "306.06",
    "Infringement of the Rules of the Road before the start"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "306.08",
    "Approaching the starting line other than at a right angle"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "306.09",
    "Starting before time"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "306.09",
    "Crossing the starting line during the five minutes"
   ],
   [
    "",
-   "DS",
+   "DNR",
    "306.09",
    "Leading boat starting before time (restart)"
   ],
@@ -84,7 +84,7 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "307.02",
    "Manoeuvre causing an accident at the start"
   ],
@@ -102,13 +102,13 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "307.04",
    "Engine running during the last 30 seconds"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "307.04",
    "Leaving the jetty under own power too early"
   ],
@@ -132,13 +132,13 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "307.04",
    "Crew member swimming or wading out to a boat"
   ],
   [
    "",
-   "DS",
+   "ACC",
    "311.01.4",
    "Caused a stoppage (not scored, no restart)"
   ],
@@ -150,19 +150,19 @@
   ],
   [
    "",
-   "DS",
+   "DNR",
    "311.01.6",
    "Disqualified in the previous start (no restart)"
   ],
   [
    "",
-   "DS",
+   "DNR",
    "311.01.8",
    "Did not reach the jetty (electric-start restart)"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "312.10",
    "Driving in the wrong direction (severe)"
   ],
@@ -174,7 +174,7 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "312.13",
    "Lapped driver failing to give way when overtaken"
   ],
@@ -192,7 +192,7 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "313.01",
    "Repeated rounding of a mark"
   ],
@@ -204,25 +204,25 @@
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "313.02",
    "Damaging/destroying/dislodging the second or single buoy"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "314",
    "Fouling competing boats"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "316.02",
    "After finishing, cutting across the course (zero points)"
   ],
   [
    "",
-   "DQ",
+   "DSQ",
    "317.08",
    "Boat or motor illegal (post-race inspection)"
   ]
