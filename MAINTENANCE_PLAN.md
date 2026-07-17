@@ -1,6 +1,6 @@
 # COZER Maintenance & Modernization Plan (rebuild the `cozer` package; old program → `legacy/`)
 
-Status: **DRAFT for approval** · Last updated: 2026-07-13 · Owner: Pearu Peterson
+Status: **DRAFT for approval** · Last updated: 2026-07-18 · Owner: Pearu Peterson
 
 This document is the source of truth for modernizing COZER. The original Python-2 program
 has been moved to **`legacy/`** (it must remain functional under Python 2); the new
@@ -281,6 +281,42 @@ otherwise force us to replicate outdated rules or invalidate the proof).
 **Sequencing:** the clause-by-clause audit runs as the *Rules review* workstream **after
 Phase 2** (so we diverge from a proven baseline), and must be complete before the first live
 event run on the new `cozer` (see §6.7).
+
+**Status — circuit Rules review (implemented & pushed, 2026-07-18).** The circuit workstream
+is done; the approach evolved from the sketch above:
+
+- ✅ **Category-A coefficients need no change** — the legacy values already match the 2026
+  rulebook (circuit 75%-for-points, citation moved 318.02_1 → **317.02**; endurance 40%
+  threshold **902.32** and 25/50/75/90 % duration coefficients **902.34/905.34**). So the
+  planned `cozer/rules.py` coefficient-profile module was **not** needed; only citations moved.
+- ✅ **Category-B rules are composable `.cozj` rulesets** (not a `rules_UIM_2026` Python
+  template): `cozer/rulesets/uim_{general,circuit,endurance}_2026.cozj`, combined per event
+  via `cozer/app/ruleset.py` (general + circuit / general + endurance).
+- ✅ **New 2026 record codes** (`records.py` + analyzer parity + labels/colours): `BC` blue
+  card (406.05), `LP2` lose-two-positions (307.01/.02, with analyzer reorder), `PL3/PL4/PL15`
+  endurance penalty laps, and the §209 result-outcome codes **`DSQ/DNS/DNR/ACC/DNQ/DNF`**.
+- ✅ **Backward compatibility is structural, not a per-event profile toggle.** §209 codes are
+  first-class codes recorded at entry time; a pre-§209 event keeps `DQ/DS/NQ/IR` and its
+  reports reproduce exactly (reports print the stored code — no remap). §209 codes score
+  identically to their pre-§209 equivalents (`DSQ`≡`DQ`, `DNS`/`DNR`/`ACC`≡`DS`, `DNQ`≡`NQ`,
+  `DNF`≡`IR`); **all golden equivalence tests stay green.**
+- ✅ **Era inferred from the event's own rules** (no explicit profile field): the analyzer
+  auto-inserts `DNF`/`DNS` when the ruleset defines them, else `IR`/`DS`; a deprecation hint
+  warns when a pre-§209 code is applied in a 2026 event.
+- ✅ **`/T` class convention kept** — load-bearing in `racepattern.py` (`get_allowed_heats`/
+  `get_heats`), shared with `/Q` (a friendlier UI is future TT work). **Long-lap (319)** needs
+  no new code (existing `PL`/`LL` cover the not-taken case).
+- ☐ **Endurance §209 + endurance-ruleset finalization** — held (low priority): 902/905 have
+  their own Art 31/36 and don't reference §209, so whether §209 governs endurance is a domain
+  call. The `uim_endurance_2026.cozj` draft (rules + scoring) exists but is parked.
+- ☐ **Full class vocabulary + canonicalization** beyond the seeded circuit classes —
+  deferred. Principle: the 2026 rulebook is authoritative; where internally inconsistent we
+  define our own canonical (from the class-definition tables), most-recent-source-first.
+
+Tracked as GitHub issues **#8** (time-trial + `/T` UI), **#9** (endurance + §209), **#10**
+(class vocabulary + canonicalization), **#11** (record codes/analyzer — done), **#12**
+(report §209 — resolved). Commits: `099b3f5`, `84c0b8c`, `ed42cfe`, `7becdcf`, `32995a7`,
+`17c6631`.
 
 ### 6.7 First event (anchor & timeline)
 
