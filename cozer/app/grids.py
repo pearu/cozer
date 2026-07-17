@@ -7,9 +7,12 @@ table view with Add/Delete buttons; ``RacesTab`` handles the nested race list
 """
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QInputDialog, QListWidget, QListWidgetItem, QMessageBox,
-    QPushButton, QTableView, QVBoxLayout, QWidget,
+    QComboBox, QHBoxLayout, QInputDialog, QListWidget, QListWidgetItem,
+    QMessageBox, QPushButton, QStyledItemDelegate, QTableView, QVBoxLayout,
+    QWidget,
 )
+
+from cozer.racepattern import get_heats
 
 
 def race_label(index, race):
@@ -39,12 +42,84 @@ def parse_scoring(text):
     return out
 
 
+# A validator returns None, or (message, blocking): blocking=True hard-rejects the
+# edit; blocking=False just logs the message (advisory — the organizer decides).
+
+def validate_rule_cell(row, field, value, rows):
+    """Note when a rule edit duplicates another rule's (action, paragraph).
+    Advisory only. Empty actions are left alone (an in-progress row is fine)."""
+    if field not in (1, 2):
+        return None
+    r = (list(rows[row]) + ["", "", "", ""])[:4]
+    r[field] = value
+    action, paragraph = r[1], r[2]
+    if not action:
+        return None
+    for i, other in enumerate(rows):
+        if i != row and len(other) > 2 and other[1] == action and other[2] == paragraph:
+            return ("Rule %s/%s is already defined (row %d)" % (action, paragraph or "-", i + 1),
+                    False)
+    return None
+
+
+def race_cell_validator(defined_classes, next_heats):
+    """Build a race-grid validator. ``defined_classes()`` returns the event's
+    defined class names; ``next_heats(cl)`` returns the valid *next* heats for a
+    class at this race (from get_heats — encodes ordering N before N+1 and the
+    N -> Nr -> NR restart progression).
+
+    A class that is not defined, or that already appears in the race, is
+    **hard-rejected** (a class runs one heat per race, and the pattern/heat logic
+    depend on a defined class); an out-of-order heat is **advisory** (logged, but
+    accepted — the organizer may overrule for restarts/weather)."""
+    def validate(row, field, value, rows):
+        if field == 1 and value:                      # class column
+            if value not in defined_classes():
+                return ("Class %s is not a defined class" % value, True)   # hard reject
+            for i, other in enumerate(rows):
+                if i != row and len(other) > 1 and other[1] == value:
+                    return ("Class %s is already in this race (row %d)" % (value, i + 1), True)
+        elif field == 2 and value:                    # heat column
+            cl = rows[row][1] if len(rows[row]) > 1 else ""
+            if cl and cl in defined_classes():
+                nh = next_heats(cl)
+                if nh and value not in nh:
+                    return ("Heat %s is not the expected next heat for class %s (expected %s)"
+                            % (value, cl, "/".join(nh)), False)
+        return None
+    return validate
+
+
+class SuggestingDelegate(QStyledItemDelegate):
+    """An editable combo-box cell editor: it offers the suggestions from
+    ``items_fn(index)`` but lets the operator type an override (cozer suggests,
+    the organizer decides)."""
+
+    def __init__(self, items_fn, parent=None):
+        super().__init__(parent)
+        self._items_fn = items_fn
+
+    def createEditor(self, parent, option, index):
+        combo = QComboBox(parent)
+        combo.setEditable(True)
+        combo.addItems([str(x) for x in self._items_fn(index)])
+        return combo
+
+    def setEditorData(self, editor, index):
+        editor.setCurrentText(index.data() or "")
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.currentText().strip(), Qt.EditRole)
+
+
 class ListTableModel(QAbstractTableModel):
-    def __init__(self, data, columns, row_width):
+    def __init__(self, data, columns, row_width, validate=None, warn=None):
         super().__init__()
         self._data = data                # list of rows, edited in place
         self._columns = columns          # [(row_index, header), ...]
         self._row_width = row_width       # total row length incl. index-0 sort field
+        self._validate = validate         # (row, field, value, rows) -> reason or None
+        self._warn = warn                 # called with the reason string on rejection
 
     def set_data(self, data):
         self.beginResetModel()
@@ -74,6 +149,14 @@ class ListTableModel(QAbstractTableModel):
             return False
         row = self._data[index.row()]
         ci = self._columns[index.column()][0]
+        if self._validate is not None:
+            result = self._validate(index.row(), ci, value, self._data)
+            if result:                               # (message, blocking)
+                message, blocking = result
+                if self._warn:
+                    self._warn(message)
+                if blocking:                         # hard reject: do not accept the value
+                    return False
         while len(row) <= ci:
             row.append("")
         row[ci] = value
@@ -206,9 +289,9 @@ class StringListEditor(QWidget):
 
 
 class GridTab(QWidget):
-    def __init__(self, columns, row_width):
+    def __init__(self, columns, row_width, validate=None, warn=None):
         super().__init__()
-        self.model = ListTableModel([], columns, row_width)
+        self.model = ListTableModel([], columns, row_width, validate=validate, warn=warn)
         v = QVBoxLayout(self)
         self.view = QTableView()
         self.view.setModel(self.model)
@@ -234,8 +317,9 @@ class GridTab(QWidget):
 
 
 class RacesTab(QWidget):
-    def __init__(self):
+    def __init__(self, window=None):
         super().__init__()
+        self.window = window
         self._races = []
         h = QHBoxLayout(self)
         left = QVBoxLayout()
@@ -251,13 +335,38 @@ class RacesTab(QWidget):
         lb.addWidget(delete)
         left.addLayout(lb)
         h.addLayout(left, 1)
-        self.grid = GridTab([(1, "Class"), (2, "Heat")], 3)
+        validate = warn = None
+        if window is not None:
+            validate = race_cell_validator(self._defined_classes, self._next_heats)
+            warn = window.log
+        self.grid = GridTab([(1, "Class"), (2, "Heat")], 3, validate=validate, warn=warn)
         h.addWidget(self.grid, 2)
+        if window is not None:      # editable dropdowns suggest classes / valid next heats
+            self.grid.view.setItemDelegateForColumn(
+                0, SuggestingDelegate(lambda idx: self._defined_classes(), self.grid.view))
+            self.grid.view.setItemDelegateForColumn(
+                1, SuggestingDelegate(self._heat_items, self.grid.view))
         # Keep the selected race's list label ("Race N: CLASS HEAT, ...") in sync
         # as its class/heat cells are edited or rows added/removed.
         self.grid.model.dataChanged.connect(self._update_current_label)
         self.grid.model.rowsInserted.connect(self._update_current_label)
         self.grid.model.rowsRemoved.connect(self._update_current_label)
+
+    def _defined_classes(self):
+        return [c[1] for c in self.window.eventdata.get("classes", [])
+                if len(c) > 1 and c[1]]
+
+    def _next_heats(self, cl):
+        """Valid next heats for class ``cl`` at the selected race (from get_heats;
+        encodes the heat/restart ordering). Empty if unknown."""
+        try:
+            return get_heats(self.window.eventdata, self.race_list.currentRow()).get(cl, [])
+        except Exception:
+            return []
+
+    def _heat_items(self, index):
+        cl = self.grid.model.data(self.grid.model.index(index.row(), 0)) or ""
+        return self._next_heats(cl) if cl else []
 
     def set_data(self, races):
         self._races = races

@@ -341,17 +341,90 @@ def test_races_tab_label_shows_class_heat_and_updates_live():
     _app()
     ed = {
         "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
-        "scoringsystem": [10], "classes": [], "participants": [],
+        "scoringsystem": [10],
+        "classes": [["", "GT", ""], ["", "OSY-400", ""], ["", "S-250", ""]],  # defined
+        "participants": [],
         "races": [[["x", "GT", "1"], ["x", "OSY-400", "2"]]],
         "rules": [], "record": {}, "configure": {},
     }
     w = MainWindow(ed)
     rt = w.races_tab
     assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2"
-    # editing a class cell in the grid updates the list label live
+    # editing a class cell to another defined class updates the list label live
     rt.race_list.setCurrentRow(0)
     rt.grid.model.setData(rt.grid.model.index(0, 0), "S-250")
     assert rt.race_list.item(0).text() == "Race 1: S-250 1, OSY-400 2"
+
+
+def test_validate_rule_cell_pure():
+    from cozer.app.grids import validate_rule_cell
+    rows = [["", "DQ", "314", "Foul"], ["", "DQ", "999", "Other"]]
+    msg, blocking = validate_rule_cell(1, 2, "314", rows)       # paragraph -> duplicates DQ/314
+    assert "already defined" in msg and blocking is False       # advisory
+    assert validate_rule_cell(1, 2, "888", rows) is None        # unique
+    assert validate_rule_cell(1, 1, "", rows) is None           # empty action is allowed
+
+
+def test_race_cell_validator_pure():
+    from cozer.app.grids import race_cell_validator
+    v = race_cell_validator(lambda: ["O-500", "S-250"], lambda cl: ["2", "1r", "1R"])
+    rows = [["", "O-500", "1"], ["", "", ""]]
+    msg, blocking = v(1, 1, "XYZ", rows)
+    assert "not a defined class" in msg and blocking is True    # undefined class -> hard reject
+    assert v(1, 1, "S-250", rows) is None                       # defined class ok
+    msg, blocking = v(1, 1, "O-500", rows)
+    assert "already in this race" in msg and blocking is True   # duplicate class -> hard reject
+    msg, blocking = v(0, 2, "9", rows)
+    assert "expected next heat" in msg and blocking is False    # advisory
+    assert v(0, 2, "2", rows) is None                           # a valid next heat
+
+
+def test_rules_grid_advisory_on_duplicate():
+    _app()
+    from cozer.app.grids import GridTab, validate_rule_cell
+    logs = []
+    g = GridTab([(1, "Action"), (2, "Paragraph"), (3, "Description")], 4,
+                validate=validate_rule_cell, warn=logs.append)
+    rows = [["", "DQ", "314", "Foul"], ["", "DQ", "999", "Other"]]
+    g.set_data(rows)
+    m = g.model
+    # advisory: the duplicate is ACCEPTED (organizer decides) but a warning is logged
+    assert m.setData(m.index(1, 1), "314") is True and rows[1][2] == "314"
+    assert logs and "already defined" in logs[-1]
+
+
+def test_races_grid_advisory_and_dropdowns():
+    _app()
+    from cozer.app.grids import RacesTab, SuggestingDelegate
+
+    class FakeWin:
+        def __init__(self, ed):
+            self.eventdata = ed
+            self.logs = []
+
+        def log(self, m):
+            self.logs.append(m)
+
+    ed = {"classes": [["", "GT", "1*(3*1000):1"], ["", "OT", "1*(3*1000):1"]],
+          "races": [[["", "GT", "1"], ["", "", ""]]]}
+    win = FakeWin(ed)
+    rt = RacesTab(win)
+    rt.set_data(ed["races"])
+    rt.race_list.setCurrentRow(0)
+    m = rt.grid.model
+    # class not defined -> HARD REJECT (racepattern/heat logic depend on it), and warned
+    assert m.setData(m.index(1, 0), "XYZ") is False and ed["races"][0][1][1] == ""
+    assert any("not a defined class" in s for s in win.logs)
+    assert m.setData(m.index(1, 0), "OT") is True and ed["races"][0][1][1] == "OT"   # defined ok
+    # class column offers the defined classes and is editable (override allowed)
+    cd = rt.grid.view.itemDelegateForColumn(0)
+    assert isinstance(cd, SuggestingDelegate)
+    ce = cd.createEditor(rt.grid.view.viewport(), None, m.index(0, 0))
+    assert {ce.itemText(i) for i in range(ce.count())} == {"GT", "OT"} and ce.isEditable()
+    # heat column offers the valid next heats for the row's class (via get_heats)
+    hd = rt.grid.view.itemDelegateForColumn(1)
+    he = hd.createEditor(rt.grid.view.viewport(), None, m.index(0, 1))
+    assert "1" in [he.itemText(i) for i in range(he.count())]
 
 
 def test_timer_race_combo_label_has_class_heat():

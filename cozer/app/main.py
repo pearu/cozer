@@ -24,7 +24,9 @@ from cozer.app import crashreport
 from cozer.app import ruleset as rulesetmod
 from cozer.app.classpart import ClassesParticipantsPanel
 from cozer.app.editor import EditRecordsPanel
-from cozer.app.grids import GridTab, RacesTab, StringListEditor, parse_scoring
+from cozer.app.grids import (
+    GridTab, RacesTab, StringListEditor, parse_scoring, validate_rule_cell,
+)
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, loads, read_legacy_coz
@@ -439,7 +441,7 @@ class MainWindow(QMainWindow):
 
         sub = QTabWidget()
         self.classpart_panel = ClassesParticipantsPanel(self)
-        self.races_tab = RacesTab()
+        self.races_tab = RacesTab(self)
 
         # The Rules sub-tab is also the editor for ruleset files: scoring system,
         # class-name vocabulary, penalty rules, and Import ruleset (additive).
@@ -465,7 +467,8 @@ class MainWindow(QMainWindow):
         cols.addLayout(cn_col, 1)
         rules_col = QVBoxLayout()
         rules_col.addWidget(QLabel("Rules:"))
-        self.rules_grid = GridTab([(1, "Action"), (2, "Paragraph"), (3, "Description")], 4)
+        self.rules_grid = GridTab([(1, "Action"), (2, "Paragraph"), (3, "Description")], 4,
+                                  validate=validate_rule_cell, warn=self.log)
         rules_col.addWidget(self.rules_grid)
         cols.addLayout(rules_col, 2)
         rv.addLayout(cols)
