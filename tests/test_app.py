@@ -144,7 +144,7 @@ def test_classes_participants_panel_populates():
     cp = w.classpart_panel
     named = [c[1] for c in ed["classes"] if len(c) > 1 and c[1]]
     assert cp.tabs.count() == len(named)                       # one subtab per class
-    assert {cp.tabs.tabText(i) for i in range(cp.tabs.count())} == set(named)
+    assert {cp._tab_class(i) for i in range(cp.tabs.count())} == set(named)
     assert w.rules_grid.model.rowCount() == len(ed["rules"])
 
 
@@ -201,6 +201,40 @@ def test_pattern_dialog_fields_and_raw():
     assert PatternDialog(None, "END", "5000/6").raw.text() == "5000/6"   # endurance via raw
 
 
+def test_pattern_dialog_validation(monkeypatch):
+    _app()
+    import cozer.app.classpart as classpart
+    from cozer.app.classpart import PatternDialog
+    dlg = PatternDialog(None, "O-500", "4*(1430+7*1390):3")
+    dlg.heats.setValue(2)
+    assert dlg.scored.maximum() == 2                            # scored can't exceed heats
+    msgs = []
+    monkeypatch.setattr(classpart, "QMessageBox",
+                        type("M", (), {"information": staticmethod(lambda *a, **k: msgs.append(a))}))
+    accepted = []
+    dlg.accept = lambda: accepted.append(True)
+    dlg.raw.setText("abc")                                      # unparseable
+    dlg._accept()
+    assert not accepted and msgs                                # rejected with a message
+    dlg.raw.setText("3*(1000):1")                              # valid
+    dlg._accept()
+    assert accepted and dlg.pattern() == "3*(1000):1"
+
+
+def test_class_subtab_shows_participant_count():
+    _app()
+    from cozer.app.classpart import ClassParticipantsWidget
+    w = MainWindow(_recorded_event())                          # class GT has 2 participants
+    cp = w.classpart_panel
+    i = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "GT")
+    assert cp.tabs.tabText(i) == "GT (2)"
+    cw = cp.tabs.widget(i).findChild(ClassParticipantsWidget)
+    cw.model.add_row()
+    assert cp.tabs.tabText(i) == "GT (3)"                       # count updates live
+    cw.model.delete_row(0)
+    assert cp.tabs.tabText(i) == "GT (2)"
+
+
 def test_add_class_dialog_is_catalog_only():
     _app()
     from cozer.app.classpart import AddClassDialog
@@ -233,7 +267,7 @@ def test_classpart_add_and_delete_class(monkeypatch):
     w = MainWindow(_recorded_event())                          # class GT with participants
     w.eventdata["classnames"] = ["GT", "OSY-400"]             # catalog offers OSY-400
     cp = w.classpart_panel
-    assert {cp.tabs.tabText(i) for i in range(cp.tabs.count())} == {"GT"}
+    assert {cp._tab_class(i) for i in range(cp.tabs.count())} == {"GT"}
 
     class FakeDlg:
         def __init__(self, *a, **k):
@@ -248,17 +282,17 @@ def test_classpart_add_and_delete_class(monkeypatch):
     monkeypatch.setattr(classpart, "AddClassDialog", FakeDlg)
     cp._add_class()
     assert any(c[1] == "OSY-400" for c in w.eventdata["classes"])
-    assert "OSY-400" in {cp.tabs.tabText(i) for i in range(cp.tabs.count())}
+    assert "OSY-400" in {cp._tab_class(i) for i in range(cp.tabs.count())}
 
     monkeypatch.setattr(classpart, "QMessageBox",
                         type("M", (), {"information": staticmethod(lambda *a, **k: None)}))
-    gt = next(i for i in range(cp.tabs.count()) if cp.tabs.tabText(i) == "GT")
+    gt = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "GT")
     cp.tabs.setCurrentIndex(gt)
     cp._delete_class()
     assert any(c[1] == "GT" for c in w.eventdata["classes"])    # refused: has participants
     # OSY-400 has no participants, but put it in a race -> still refused
     w.eventdata["races"] = [[["", "OSY-400", "1"]]]
-    osy = next(i for i in range(cp.tabs.count()) if cp.tabs.tabText(i) == "OSY-400")
+    osy = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "OSY-400")
     cp.tabs.setCurrentIndex(osy)
     assert cp._class_in_use("OSY-400") == "a race uses it"
     cp._delete_class()

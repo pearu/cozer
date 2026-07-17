@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from cozer.app import ruleset as rulesetmod
 from cozer.racepattern import (
-    describe_pattern, format_circuit_pattern, parse_simple_pattern,
+    crack_race_pattern, describe_pattern, format_circuit_pattern, parse_simple_pattern,
 )
 
 
@@ -226,10 +226,15 @@ class PatternDialog(QDialog):
                        (self.heats, "heats"), (self.scored, "scored")]:
             w.setValue(int(vals[key]))
         self.raw.setText(pattern or self._from_fields())
+        self._sync_scored_max()
         for w in (self.first, self.other, self.laps, self.heats, self.scored):
             w.valueChanged.connect(self._fields_changed)
+        self.heats.valueChanged.connect(self._sync_scored_max)
         self.raw.textChanged.connect(self._update_preview)
         self._update_preview()
+
+    def _sync_scored_max(self, *_):
+        self.scored.setMaximum(max(1, self.heats.value()))   # can't score more heats than run
 
     @staticmethod
     def _spin(lo, hi, suffix=""):
@@ -251,7 +256,19 @@ class PatternDialog(QDialog):
         self.preview.setText(describe_pattern(self.raw.text().strip()))
 
     def _accept(self):
-        self._result = self.raw.text().strip()
+        raw = self.raw.text().strip()
+        if not raw:
+            QMessageBox.information(self, "Invalid pattern", "The race pattern is empty.")
+            return
+        try:
+            crack_race_pattern(raw)                 # reject unparseable patterns (eval'd later)
+        except Exception:
+            QMessageBox.information(
+                self, "Invalid pattern",
+                "Could not parse the pattern %r.\nExpected e.g. 4*(1430+7*1390):3 "
+                "or 5000/6 (endurance)." % raw)
+            return
+        self._result = raw
         self.accept()
 
     def pattern(self):
@@ -288,10 +305,12 @@ class ClassesParticipantsPanel(QWidget):
         for classrow in self._classes():
             if len(classrow) > 1 and classrow[1]:
                 self.tabs.addTab(self._class_tab(classrow), classrow[1])
+        self._update_counts()
 
     def _class_tab(self, classrow):
         cl = classrow[1]
         w = QWidget()
+        w._cozer_class = cl                          # authoritative name (label carries a count)
         lv = QVBoxLayout(w)
         prow = QHBoxLayout()
         summary = QLabel(self._pattern_summary(classrow))
@@ -302,8 +321,20 @@ class ClassesParticipantsPanel(QWidget):
         prow.addWidget(editp)
         lv.addLayout(prow)
         grid = ClassParticipantsWidget(self._participants(), cl, warn=self.window.log)
+        grid.model.rowsInserted.connect(self._update_counts)
+        grid.model.rowsRemoved.connect(self._update_counts)
         lv.addWidget(grid, 1)
         return w
+
+    def _tab_class(self, i):
+        return getattr(self.tabs.widget(i), "_cozer_class", self.tabs.tabText(i))
+
+    def _update_counts(self, *_):
+        parts = self._participants()
+        for i in range(self.tabs.count()):
+            cl = self._tab_class(i)
+            n = sum(1 for p in parts if len(p) > 4 and p[4] == cl)
+            self.tabs.setTabText(i, "%s (%d)" % (cl, n))
 
     def _pattern_summary(self, classrow):
         pat = classrow[2] if len(classrow) > 2 else ""
@@ -355,7 +386,7 @@ class ClassesParticipantsPanel(QWidget):
         i = self.tabs.currentIndex()
         if i < 0:
             return
-        name = self.tabs.tabText(i)
+        name = self._tab_class(i)
         reason = self._class_in_use(name)
         if reason:
             QMessageBox.information(
