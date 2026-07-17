@@ -29,4 +29,6 @@ Untitled.coz
 *.cozj
 *.cozj.journal
 *.cozj.bak*
+# ...except the bundled seed rulesets shipped with the package
+!cozer/rulesets/*.cozj
 cozer-crashes/

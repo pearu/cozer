@@ -216,6 +216,118 @@ def test_parse_scoring_unit():
     assert parse_scoring("") == []
 
 
+def test_ruleset_import_pure():
+    from cozer.app.ruleset import import_ruleset, is_ruleset, new_ruleset
+    assert is_ruleset(new_ruleset("UIM circuit"))
+    ev = {"kind": "event", "classes": [], "rules": [], "scoringsystem": []}
+    src = {"scoringsystem": [10, 5], "classnames": ["A", "B"], "rules": [["", "DQ", "1", "x"]]}
+    changed = import_ruleset(ev, src)
+    assert set(changed) == {"classnames", "rules", "scoringsystem"}
+    assert ev["classnames"] == ["A", "B"] and ev["scoringsystem"] == [10, 5]
+    # additive union + dedup on a second import
+    import_ruleset(ev, {"classnames": ["B", "C"],
+                        "rules": [["", "DQ", "1", "x"], ["", "LL", "2", "y"]]})
+    assert ev["classnames"] == ["A", "B", "C"] and len(ev["rules"]) == 2
+    # idempotent, and an empty scoring system never clears an existing one
+    assert import_ruleset(ev, src) == []
+    import_ruleset(ev, {"scoringsystem": []})
+    assert ev["scoringsystem"] == [10, 5]
+
+
+def test_classnames_editor_rejects_empty_and_duplicate():
+    _app()
+    from cozer.app.grids import StringListEditor
+    ed = StringListEditor(prompt="Class name:")
+    data = []
+    ed.set_data(data)
+    assert ed.add_value("O-500") is True and data == ["O-500"]
+    assert ed.add_value("  ") is False and data == ["O-500"]      # blank rejected
+    assert ed.add_value("") is False and data == ["O-500"]
+    assert ed.add_value("O-500") is False and data == ["O-500"]   # duplicate rejected
+    assert ed.add_value(" T-400 ") is True and data == ["O-500", "T-400"]  # trimmed
+    # renaming an item to blank is reverted, not stored
+    ed.list.item(0).setText("")
+    assert data[0] == "O-500"
+
+
+def test_classname_delete_blocked_when_in_use(monkeypatch):
+    _app()
+    w = MainWindow(_recorded_event())          # class GT used by participants + a race
+    w.eventdata["classnames"] = ["GT", "UNUSED"]
+    w._reload_forms()
+    ed = w.classnames_editor
+    assert w._classname_in_use("GT") and w._classname_in_use("UNUSED") is None
+    monkeypatch.setattr(appmain.QMessageBox, "information", staticmethod(lambda *a, **k: None))
+    ed.list.setCurrentRow(w.eventdata["classnames"].index("GT"))
+    ed._delete()
+    assert "GT" in w.eventdata["classnames"]    # refused: still in use
+    ed.list.setCurrentRow(w.eventdata["classnames"].index("UNUSED"))
+    ed._delete()
+    assert "UNUSED" not in w.eventdata["classnames"]   # unused: removed
+
+
+def test_classnames_editor_drag_reorder_syncs_backing_list():
+    _app()
+    from cozer.app.grids import StringListEditor
+    ed = StringListEditor()
+    data = ["A", "B", "C"]
+    ed.set_data(data)
+    # simulate a drag that moves the first row to the bottom
+    ed.list.blockSignals(True)
+    ed.list.addItem(ed.list.takeItem(0))
+    ed.list.blockSignals(False)
+    ed._resync()
+    assert data == ["B", "C", "A"]      # backing list follows the visual order, in place
+
+
+def test_classnames_of_includes_event_classes():
+    from cozer.app.ruleset import classnames_of
+    ev = {"classnames": ["A"], "classes": [["", "B", "p"], ["", "A", "p"], ["", "", ""]]}
+    assert classnames_of(ev) == ["A", "B"]      # union, order-preserving, blanks skipped
+
+
+def test_ruleset_mode_hides_race_tabs():
+    _app()
+    w = MainWindow()
+    w.on_new_ruleset()
+    vis = [w.tabs.tabText(i) for i in range(w.tabs.count()) if w.tabs.isTabVisible(i)]
+    assert "Timer" not in vis and "Edit Records" not in vis and "Reports" not in vis
+    assert "General Information" in vis
+    sub = w._geninfo_sub
+    assert [sub.tabText(i) for i in range(sub.count()) if sub.isTabVisible(i)] == ["Rules"]
+    w.on_new()                                   # back to a full event restores the tabs
+    vis2 = [w.tabs.tabText(i) for i in range(w.tabs.count()) if w.tabs.isTabVisible(i)]
+    assert {"Timer", "Edit Records", "Reports"} <= set(vis2)
+
+
+def test_open_legacy_coz_seeds_classnames(tmp_path):
+    import shutil
+    _app()
+    coz = str(tmp_path / "ev.coz")
+    shutil.copy(EVENT, coz)                       # wc2000 legacy .coz
+    w = MainWindow()
+    w.load(coz)
+    names = w.eventdata["classnames"]
+    assert "O-500" in names and "S-250" in names
+    assert set(names) == {c[1] for c in w.eventdata["classes"] if len(c) > 1 and c[1]}
+    assert w.classnames_editor.list.count() == len(names)   # shown in the editor
+
+
+def test_import_bundled_rulesets_via_window(monkeypatch):
+    _app()
+    import os
+    from cozer.app.ruleset import bundled_dir
+    w = MainWindow()                             # blank event
+    for fname in ("uim_general_2013.cozj", "uim_circuit_2013.cozj"):
+        p = os.path.join(bundled_dir(), fname)
+        monkeypatch.setattr(appmain.QFileDialog, "getOpenFileName",
+                            staticmethod(lambda *a, _p=p, **k: (_p, "")))
+        w.on_import_ruleset()
+    assert w.eventdata["scoringsystem"] and len(w.eventdata["rules"]) >= 20
+    assert "O-500" in w.eventdata["classnames"]
+    assert w.classnames_editor.list.count() == len(w.eventdata["classnames"])
+
+
 def _timer_event():
     return {
         "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",

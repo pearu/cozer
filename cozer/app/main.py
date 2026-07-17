@@ -21,11 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import crashreport
+from cozer.app import ruleset as rulesetmod
 from cozer.app.editor import EditRecordsPanel
-from cozer.app.grids import GridTab, RacesTab, parse_scoring
+from cozer.app.grids import GridTab, RacesTab, StringListEditor, parse_scoring
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
-from cozer.store import EventStore, read_legacy_coz
+from cozer.store import EventStore, loads, read_legacy_coz
 
 # App-wide light color scheme; editable inputs get the legacy tan tint (edit_bg).
 APP_QSS = (
@@ -44,8 +45,9 @@ APP_QSS = (
 
 DEFAULT_EVENT = {
     "title": "", "venue": "", "date": "", "officer": "", "secretary": "",
-    "scoringsystem": [], "classes": [], "participants": [], "races": [],
-    "rules": [], "record": {}, "configure": {"language": "English"},
+    "kind": "event", "scoringsystem": [], "classnames": [], "classes": [],
+    "participants": [], "races": [], "rules": [], "record": {},
+    "configure": {"language": "English"},
 }
 
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
@@ -213,7 +215,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.timer_panel, "Timer")
         self.editor_panel = EditRecordsPanel(self)
         self.tabs.addTab(self.editor_panel, "Edit Records")
-        self.tabs.addTab(self._build_reports_tab(), "Reports")
+        self._reports_tab = self._build_reports_tab()
+        self.tabs.addTab(self._reports_tab, "Reports")
         self.tabs.addTab(self._build_log_tab(), "Log")
         self._prev_tab = self.tabs.currentIndex()
         self.tabs.currentChanged.connect(self._on_tab_changed)
@@ -242,8 +245,10 @@ class MainWindow(QMainWindow):
     # ---- menu / file operations ----
     def _build_menu(self):
         m = self.menuBar().addMenu("&File")
-        for text, slot in [("&New", self.on_new), ("&Open…", self.on_open),
-                           ("&Import legacy .coz…", self.on_import), (None, None),
+        for text, slot in [("&New", self.on_new), ("New &ruleset…", self.on_new_ruleset),
+                           ("&Open…", self.on_open),
+                           ("&Import legacy .coz…", self.on_import),
+                           ("Import &ruleset…", self.on_import_ruleset), (None, None),
                            ("&Save", self.on_save), ("Save &As…", self.on_save_as),
                            (None, None), ("&Quit", self.close)]:
             if text is None:
@@ -277,6 +282,36 @@ class MainWindow(QMainWindow):
         self._refresh_title()
         self.log("New event")
 
+    def on_new_ruleset(self):
+        if not self.editor_panel.maybe_flush():
+            return
+        self.eventdata = rulesetmod.new_ruleset()
+        self.store = None
+        self._reload_forms()
+        self._refresh_title()
+        self.log("New ruleset — define scoring, class names and rules, then Save As")
+
+    def on_import_ruleset(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import ruleset", rulesetmod.bundled_dir(),
+            "Cozer rulesets/events (*.cozj *.coz)")
+        if not path:
+            return
+        try:
+            if path.endswith(".coz"):
+                source = read_legacy_coz(path)
+            else:
+                with open(path, encoding="utf-8") as f:
+                    source = loads(f.read())
+        except Exception as e:      # pragma: no cover - surfaced, never crashes
+            QMessageBox.critical(self, "Import error", "%s: %s" % (type(e).__name__, e))
+            return
+        changed = rulesetmod.import_ruleset(self.eventdata, source)
+        self._reload_forms()      # persists with the event on the next File > Save
+        name = source.get("title") or os.path.basename(path)
+        self.log("Imported ruleset '%s' (%s)"
+                 % (name, ", ".join(changed) if changed else "no new items"))
+
     def on_open(self):
         if not self.editor_panel.maybe_flush():
             return
@@ -296,6 +331,8 @@ class MainWindow(QMainWindow):
                 msg = "Opened %s — continuing working copy %s" % (path, cozj)
             else:
                 self.eventdata = read_legacy_coz(path)
+                # seed the class-name vocabulary from the classes defined in the file
+                self.eventdata["classnames"] = rulesetmod.classnames_of(self.eventdata)
                 self.store = EventStore(cozj, self.eventdata)
                 self.store.snapshot()
                 msg = "Opened %s — auto-saving to %s" % (path, cozj)
@@ -357,6 +394,8 @@ class MainWindow(QMainWindow):
             [(1, "Name"), (2, "Surname"), (3, "From"), (4, "Class"), (5, "Id")], 6)
         self.races_tab = RacesTab()
 
+        # The Rules sub-tab is also the editor for ruleset files: scoring system,
+        # class-name vocabulary, penalty rules, and Import ruleset (additive).
         rules_w = QWidget()
         rv = QVBoxLayout(rules_w)
         srow = QHBoxLayout()
@@ -365,20 +404,41 @@ class MainWindow(QMainWindow):
         self.scoring_edit.textChanged.connect(
             lambda text: self.eventdata.__setitem__("scoringsystem", parse_scoring(text)))
         srow.addWidget(self.scoring_edit)
+        imp = QPushButton("Import ruleset…")
+        imp.clicked.connect(self.on_import_ruleset)
+        srow.addWidget(imp)
         rv.addLayout(srow)
+        cols = QHBoxLayout()
+        cn_col = QVBoxLayout()
+        cn_col.addWidget(QLabel("Class names:"))
+        self.classnames_editor = StringListEditor(
+            add_label="Add class name", prompt="Class name:",
+            can_delete=self._classname_in_use)
+        cn_col.addWidget(self.classnames_editor)
+        cols.addLayout(cn_col, 1)
+        rules_col = QVBoxLayout()
+        rules_col.addWidget(QLabel("Rules:"))
         self.rules_grid = GridTab([(1, "Action"), (2, "Paragraph"), (3, "Description")], 4)
-        rv.addWidget(self.rules_grid)
+        rules_col.addWidget(self.rules_grid)
+        cols.addLayout(rules_col, 2)
+        rv.addLayout(cols)
 
         sub.addTab(self.classes_grid, "Classes")
         sub.addTab(self.participants_grid, "Participants")
         sub.addTab(self.races_tab, "Races")
         sub.addTab(rules_w, "Rules")
+        self._geninfo_sub = sub
         v.addWidget(sub)
         return w
 
     def _ensure_keys(self):
         for key in ("classes", "participants", "races", "rules", "scoringsystem"):
             self.eventdata.setdefault(key, [])
+        if "classnames" not in self.eventdata:
+            # seed the class-name vocabulary from any classes already defined
+            # (e.g. a legacy .coz / older working copy with no explicit list)
+            self.eventdata["classnames"] = rulesetmod.classnames_of(self.eventdata)
+        self.eventdata.setdefault("kind", "event")
 
     def _reload_forms(self):
         self._ensure_keys()
@@ -388,10 +448,40 @@ class MainWindow(QMainWindow):
         self.participants_grid.set_data(self.eventdata["participants"])
         self.races_tab.set_data(self.eventdata["races"])
         self.rules_grid.set_data(self.eventdata["rules"])
+        self.classnames_editor.set_data(self.eventdata["classnames"])
         self.scoring_edit.setText(" ".join(str(x) for x in self.eventdata["scoringsystem"]))
         self._reload_classes()
         self.timer_panel.reload()
         self.editor_panel.reload()
+        self._apply_kind()
+
+    def _classname_in_use(self, name):
+        """Reason a class name can't be removed from the vocabulary — a participant
+        or a race still uses it — else None."""
+        for p in self.eventdata.get("participants", []):
+            if len(p) > 4 and p[4] == name:
+                return "a participant is entered in class %r" % name
+        for race in self.eventdata.get("races", []):
+            for row in race:
+                if len(row) > 1 and row[1] == name:
+                    return "a race uses class %r" % name
+        return None
+
+    def _apply_kind(self):
+        """A ruleset file (kind == 'ruleset') only defines scoring / class names /
+        rules, so hide the race-specific tabs and show the Rules editor."""
+        ruleset = rulesetmod.is_ruleset(self.eventdata)
+        for w in (self.timer_panel, self.editor_panel, self._reports_tab):
+            i = self.tabs.indexOf(w)
+            if i >= 0:
+                self.tabs.setTabVisible(i, not ruleset)
+        for w in (self.classes_grid, self.participants_grid, self.races_tab):
+            i = self._geninfo_sub.indexOf(w)
+            if i >= 0:
+                self._geninfo_sub.setTabVisible(i, not ruleset)
+        if ruleset:
+            self.tabs.setCurrentIndex(0)
+            self._geninfo_sub.setCurrentIndex(self._geninfo_sub.count() - 1)   # Rules
 
     # ---- log tab ----
     def _build_log_tab(self):
@@ -495,7 +585,9 @@ class MainWindow(QMainWindow):
         open_in_viewer(path)
 
     def _refresh_title(self):
-        self.setWindowTitle("COZER — %s" % (self.store.path if self.store else "(unsaved)"))
+        kind = " [ruleset]" if rulesetmod.is_ruleset(self.eventdata) else ""
+        self.setWindowTitle("COZER%s — %s"
+                            % (kind, self.store.path if self.store else "(unsaved)"))
 
 
 def _startup_file(argv):

@@ -7,7 +7,8 @@ table view with Add/Delete buttons; ``RacesTab`` handles the nested race list
 """
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QListWidget, QPushButton, QTableView, QVBoxLayout, QWidget,
+    QHBoxLayout, QInputDialog, QListWidget, QListWidgetItem, QMessageBox,
+    QPushButton, QTableView, QVBoxLayout, QWidget,
 )
 
 
@@ -93,6 +94,115 @@ class ListTableModel(QAbstractTableModel):
             self.beginRemoveRows(QModelIndex(), row, row)
             del self._data[row]
             self.endRemoveRows()
+
+
+class _DragReorderList(QListWidget):
+    """Single-selection list whose rows can be reordered by dragging up/down;
+    calls ``on_reordered`` after a drop so the owner can resync its backing list."""
+
+    def __init__(self, on_reordered):
+        super().__init__()
+        self._on_reordered = on_reordered
+        self.setSelectionMode(QListWidget.SingleSelection)
+        self.setDragDropMode(QListWidget.InternalMove)
+        self.setDefaultDropAction(Qt.MoveAction)
+
+    def dropEvent(self, event):
+        self.blockSignals(True)             # suppress spurious itemChanged mid-move
+        super().dropEvent(event)
+        self.blockSignals(False)
+        self._on_reordered()
+
+
+class StringListEditor(QWidget):
+    """An editable list of non-empty, unique strings (e.g. the class-name
+    vocabulary), backed by a Python list edited in place. Add prompts for a value
+    and rejects blank or duplicate entries; items can be renamed inline (a rename
+    to blank is reverted) and reordered by dragging up/down; Delete removes the
+    selected one."""
+
+    def __init__(self, add_label="Add", delete_label="Delete", prompt="Value:",
+                 can_delete=None):
+        super().__init__()
+        self._data = []
+        self._prompt = prompt
+        self._can_delete = can_delete       # value -> reason string (blocked) or None
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        self.list = _DragReorderList(self._resync)
+        self.list.itemChanged.connect(self._changed)
+        v.addWidget(self.list)
+        buttons = QHBoxLayout()
+        add = QPushButton(add_label)
+        add.clicked.connect(self._add)
+        delete = QPushButton(delete_label)
+        delete.clicked.connect(self._delete)
+        buttons.addWidget(add)
+        buttons.addWidget(delete)
+        buttons.addStretch()
+        v.addLayout(buttons)
+
+    def set_data(self, data):
+        self._data = data                       # edited in place
+        self.list.blockSignals(True)
+        self.list.clear()
+        for s in data:
+            item = QListWidgetItem(str(s))
+            # editable + draggable, but not a drop target, so drags reorder rows
+            item.setFlags((item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+                          & ~Qt.ItemIsDropEnabled)
+            self.list.addItem(item)
+        self.list.blockSignals(False)
+
+    def _resync(self):
+        """Rewrite the backing list in place to match the current row order
+        (called after a drag reorder)."""
+        self._data[:] = [self.list.item(i).text() for i in range(self.list.count())]
+
+    def add_value(self, text):
+        """Append ``text`` if it is non-empty and not already present. Returns
+        True if it was added."""
+        text = (text or "").strip()
+        if not text or text in self._data:
+            return False
+        self._data.append(text)
+        self.set_data(self._data)
+        self.list.setCurrentRow(len(self._data) - 1)
+        return True
+
+    def _changed(self, item):
+        row = self.list.row(item)
+        if not (0 <= row < len(self._data)):
+            return
+        text = item.text().strip()
+        if text and text != item.text():        # normalise surrounding whitespace
+            self.list.blockSignals(True)
+            item.setText(text)
+            self.list.blockSignals(False)
+        if text:
+            self._data[row] = text
+        else:                                    # reject a rename to blank: restore
+            self.list.blockSignals(True)
+            item.setText(str(self._data[row]))
+            self.list.blockSignals(False)
+
+    def _add(self):
+        text, ok = QInputDialog.getText(self, "Add", self._prompt)
+        if ok:
+            self.add_value(text)
+
+    def _delete(self):
+        row = self.list.currentRow()
+        if not (0 <= row < len(self._data)):
+            return
+        value = self._data[row]
+        reason = self._can_delete(value) if self._can_delete else None
+        if reason:
+            QMessageBox.information(self, "Cannot delete",
+                                    "Cannot delete %r: %s." % (value, reason))
+            return
+        del self._data[row]
+        self.set_data(self._data)
 
 
 class GridTab(QWidget):

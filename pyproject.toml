@@ -14,6 +14,9 @@ readme = "README.md"
 include = ["cozer*"]
 exclude = ["legacy*", "tests*", "tools*", "led*"]
 
+[tool.setuptools.package-data]
+cozer = ["rulesets/*.cozj"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Put the repo root on sys.path so `import cozer` works under the bare `pytest`
