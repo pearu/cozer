@@ -37,8 +37,10 @@ BASELINE = QColor(60, 60, 120)
 CODE_COLORS = {
     "LL": QColor(230, 200, 0), "LL2": QColor(230, 200, 0), "PL": QColor(230, 210, 90),
     "PL5": QColor(230, 210, 90), "PL8": QColor(230, 210, 90), "PL10": QColor(230, 210, 90),
+    "PL3": QColor(230, 210, 90), "PL4": QColor(230, 210, 90), "PL15": QColor(230, 210, 90),
     "DS": QColor(150, 150, 150), "IR": QColor(30, 30, 30), "DQ": QColor(220, 0, 0),
-    "RC": QColor(220, 0, 0), "YC": QColor(235, 200, 40), "NT": QColor(140, 140, 90),
+    "RC": QColor(220, 0, 0), "YC": QColor(235, 200, 40), "BC": QColor(40, 90, 220),
+    "NC": QColor(150, 70, 70), "NT": QColor(140, 140, 90),
     "Q": QColor(0, 170, 0), "NQ": QColor(210, 0, 210),
 }
 

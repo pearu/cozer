@@ -20,9 +20,12 @@ LABELS = {
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",
         "Lostalap": "Lost a lap", "LostTwoLaps": "Lost two laps", "Penaltylap": "Penalty lap",
         "FivePenaltylaps": "5 penalty laps", "EightPenaltylaps": "8 penalty laps",
-        "TenPenaltylaps": "10 penalty laps", "Didntstart": "Didn't start",
+        "TenPenaltylaps": "10 penalty laps", "ThreePenaltylaps": "3 penalty laps",
+        "FourPenaltylaps": "4 penalty laps", "FifteenPenaltylaps": "15 penalty laps",
+        "Didntstart": "Didn't start",
         "Interruption": "Interruption", "Disqualif": "Disqualif.", "YellowCard": "Yellow Card",
-        "RedCard": "Red Card", "Note": "Note", "Qualified": "Qualified",
+        "RedCard": "Red Card", "BlueCard": "Blue Card", "NotClassified": "Not classified",
+        "Note": "Note", "Qualified": "Qualified",
         "Notqualified": "Not qualified",
     },
     "Estonian": {
@@ -40,8 +43,11 @@ LABELS = {
         "Lostalap": "Kaotas ringi", "LostTwoLaps": "Kaotas kaks ringi",
         "Penaltylap": "Trahviring", "FivePenaltylaps": "5 trahviringi",
         "EightPenaltylaps": "8 trahviringi", "TenPenaltylaps": "10 trahviringi",
+        "ThreePenaltylaps": "3 trahviringi", "FourPenaltylaps": "4 trahviringi",
+        "FifteenPenaltylaps": "15 trahviringi",
         "Didntstart": "Ei startinud", "Interruption": "Katkestas", "Disqualif": "Diskvalif.",
-        "YellowCard": "Kollane kaart", "RedCard": "Punane kaart", "Note": "Märkus",
+        "YellowCard": "Kollane kaart", "RedCard": "Punane kaart",
+        "BlueCard": "Sinine kaart", "NotClassified": "Klassifitseerimata", "Note": "Märkus",
         "Qualified": "Kvalifitseerus", "Notqualified": "Ei kvalifitseerunud",
     },
 }
@@ -49,8 +55,10 @@ LABELS = {
 # record code -> label key (for note legends)
 RECCODE_LABEL = {
     "LL": "Lostalap", "LL2": "LostTwoLaps", "PL": "Penaltylap", "PL5": "FivePenaltylaps",
-    "PL8": "EightPenaltylaps", "PL10": "TenPenaltylaps", "DS": "Didntstart",
+    "PL8": "EightPenaltylaps", "PL10": "TenPenaltylaps", "PL3": "ThreePenaltylaps",
+    "PL4": "FourPenaltylaps", "PL15": "FifteenPenaltylaps", "DS": "Didntstart",
     "IR": "Interruption", "DQ": "Disqualif", "YC": "YellowCard", "RC": "RedCard",
+    "BC": "BlueCard", "NC": "NotClassified",
     "NT": "Note", "Q": "Qualified", "NQ": "Notqualified",
 }
 

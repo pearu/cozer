@@ -7,11 +7,37 @@ A race record for one competitor is a list of marks ``(code, time[, mess])``:
 plus the event codes below.
 """
 
+# Record-code constants. The integer VALUES are the on-disk / legacy ``.coz``
+# encoding and MUST NOT change. A completed lap is ``LAP`` and an inserted lap is
+# ``INSERTED_LAP``; a *negative* code is that same mark disabled (see the
+# analyzer's ``abs(m[0])`` handling).
+LAP = 1
+INSERTED_LAP = 2
+LL = 3            # lost a lap
+PL = 4            # penalty lap (1)
+PL5 = 5           # 5 penalty laps
+LL2 = 6           # lost two laps
+PL8 = 8           # 8 penalty laps
+PL10 = 9          # 10 penalty laps
+DS = 10           # did not start
+IR = 11           # interruption
+DQ = 12           # disqualified
+YC = 13           # yellow card
+RC = 14           # red card
+BC = 15           # blue card            -- 2026 UIM 406.05
+NC = 16           # not classified       -- 2026 UIM endurance 902.47
+PL3 = 17          # 3 penalty laps       -- 2026 UIM endurance
+PL4 = 18          # 4 penalty laps       -- 2026 UIM endurance
+PL15 = 19         # 15 penalty laps      -- 2026 UIM endurance
+NT = 20           # note
+Q = 30            # qualified
+NQ = 31           # not qualified
+
+# name -> code, used by the record editor's rules menu and the reports layer.
 reccodemap = {
-    'LL': 3, 'PL': 4, 'LL2': 6,
-    'PL5': 5, 'PL8': 8, 'PL10': 9,
-    'DS': 10, 'IR': 11, 'DQ': 12, 'YC': 13, 'RC': 14,
-    'NT': 20, 'Q': 30, 'NQ': 31,
+    'LL': LL, 'PL': PL, 'LL2': LL2, 'PL5': PL5, 'PL8': PL8, 'PL10': PL10,
+    'DS': DS, 'IR': IR, 'DQ': DQ, 'YC': YC, 'RC': RC, 'BC': BC, 'NC': NC,
+    'PL3': PL3, 'PL4': PL4, 'PL15': PL15, 'NT': NT, 'Q': Q, 'NQ': NQ,
 }
 invreccodemap = {v: k for k, v in reccodemap.items()}
 

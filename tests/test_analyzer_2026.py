@@ -1,0 +1,67 @@
+"""Tests for the 2026 UIM record-code additions (GitHub #11):
+
+- ``BC`` blue card: note-only, no effect on points/placement (a *second* blue
+  card is recorded manually as ``DQ``).
+- ``NC`` not-classified (endurance 902.47): excluded from classification.
+- ``PL3`` / ``PL4`` / ``PL15``: endurance penalty-lap magnitudes 3 / 4 / 15.
+
+Each uses a with/without comparison so it asserts exactly the new code's effect.
+"""
+import copy
+
+from cozer import analyzer
+from cozer.records import BC, NC, PL3, PL4, PL15
+
+
+def _circuit_record(marks_by_pid, nlaps=5):
+    return ({"course": [1000] * nlaps, "racetime": 100000.0}, marks_by_pid)
+
+
+def _endurance_record(marks_by_pid):
+    return ({"course": [1000], "duration": 100000.0, "racetime": 100000.0}, marks_by_pid)
+
+
+def test_bc_is_note_only():
+    base = {"A": [(1, 20.0)] * 5, "B": [(1, 22.0)] * 5}
+    ss = [400, 300]
+    res_plain = analyzer.analyze("1", _circuit_record(copy.deepcopy(base)), ss)
+    withbc = copy.deepcopy(base)
+    withbc["B"].append((BC, 30.0, "dangerous driving"))
+    res_bc = analyzer.analyze("1", _circuit_record(withbc), ss)
+
+    # a blue card changes neither points nor placement...
+    assert res_bc["B"]["points"] == res_plain["B"]["points"] > 0
+    assert res_bc["B"]["place"] == res_plain["B"]["place"] > 0
+    # ...it is only recorded as a note
+    assert res_bc["B"]["notes"].get("BC") == ["dangerous driving"]
+    assert "BC" not in res_plain["B"]["notes"]
+
+
+def test_endurance_penalty_lap_magnitudes():
+    ss = [20, 17]
+    for code, laps in [(PL3, 3), (PL4, 4), (PL15, 15)]:
+        base = {"A": [(1, 10.0)] * 20}
+        res_plain = analyzer.analyze("1", _endurance_record(copy.deepcopy(base)), ss)
+        withpen = copy.deepcopy(base)
+        withpen["A"].append((code, 5.0, "infringement"))
+        res_pen = analyzer.analyze("1", _endurance_record(withpen), ss)
+
+        plain_laps = res_plain["A"]["totallaps"][1]
+        pen_laps = res_pen["A"]["totallaps"][1]
+        assert pen_laps == plain_laps - laps, (code, plain_laps, pen_laps)
+
+
+def test_nc_excludes_from_classification():
+    ss = [20, 17]
+    base = {"A": [(1, 10.0)] * 10, "B": [(1, 11.0)] * 10}
+    res_plain = analyzer.analyze("1", _endurance_record(copy.deepcopy(base)), ss)
+    assert res_plain["B"]["place"] > 0          # B is normally classified
+
+    withnc = copy.deepcopy(base)
+    withnc["B"].append((NC, 5.0, "red flag"))
+    res_nc = analyzer.analyze("1", _endurance_record(withnc), ss)
+
+    assert res_nc["B"]["place"] == -1           # not classified
+    assert res_nc["B"]["points"] == -1
+    assert res_nc["B"]["notes"].get("NC") == ["red flag"]
+    assert res_nc["A"]["place"] > 0             # the other boat is unaffected

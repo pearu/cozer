@@ -10,7 +10,11 @@ import logging
 import math
 
 from cozer._py2compat import ROUND_OPT, round2, py2_sorted
-from cozer.records import invreccodemap, insertmark, gettimes
+from cozer.records import (
+    invreccodemap, insertmark, gettimes,
+    LAP, INSERTED_LAP, LL, PL, PL5, LL2, PL8, PL10, DS, IR, DQ, YC, RC,
+    BC, NC, PL3, PL4, PL15, NT, Q, NQ,
+)
 
 roundopt = ROUND_OPT
 _log = logging.getLogger("cozer.analyzer")
@@ -90,7 +94,7 @@ def get_racetime(record):
         for pid in rec:
             t = 0
             for m in rec[pid]:
-                if abs(m[0]) in (1, 2):
+                if abs(m[0]) in (LAP, INSERTED_LAP):
                     t = t + m[1]
                 else:
                     racetime = max(racetime, m[1])
@@ -128,12 +132,13 @@ def analyze_endurance(heat, record, scoringsystem=[]):
         ignorelaps = 0
         interruption = 0
         disqualification = 0
+        notclassified = 0
         didntstart = 0
         notes = {}
         for m in rec[pid]:
-            if m[0] in (4, 5, 8, 9):
+            if m[0] in (PL, PL5, PL8, PL10, PL3, PL4, PL15):
                 if m[1] <= racetime:
-                    penlaps = penlaps + {4: 1, 5: 5, 8: 8, 9: 10}[m[0]]
+                    penlaps = penlaps + {PL: 1, PL5: 5, PL8: 8, PL10: 10, PL3: 3, PL4: 4, PL15: 15}[m[0]]
                     n = m[2].strip()
                     k = invreccodemap[m[0]]
                     if k not in notes:
@@ -150,7 +155,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
         dt = 0
         li = 0
         for m in rec[pid]:
-            if abs(m[0]) in (1, 2):
+            if abs(m[0]) in (LAP, INSERTED_LAP):
                 if (not ignorelaps) and t + m[1] <= racetime + 10 * 60:
                     if t + m[1] > racetime:
                         ignorelaps = 1
@@ -176,22 +181,18 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                 else:
                     pastafterstoppage = 1
                     ignorelaps = 1
-            elif m[0] in (3, 6):  # lost one or two laps
+            elif m[0] in (LL, LL2):  # lost one or two laps
                 if m[1] <= racetime:
-                    lapslost = lapslost + {3: 1, 6: 2}[m[0]]
+                    lapslost = lapslost + {LL: 1, LL2: 2}[m[0]]
                     n = m[2].strip()
                     k = invreccodemap[m[0]]
                     if k not in notes:
                         notes[k] = []
                     if n:
                         notes[k].append(n)
-            elif m[0] == 4:  # penalty lap
+            elif m[0] in (PL, PL5, PL8, PL10, PL3, PL4, PL15):  # penalty laps (counted above)
                 pass
-            elif m[0] == 5:  # 5 penalty laps
-                pass
-            elif m[0] == 8:  # 8 penalty laps
-                pass
-            elif m[0] == 10:  # DS
+            elif m[0] == DS:  # did not start
                 didntstart = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -199,7 +200,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 11:  # IR
+            elif m[0] == IR:  # interruption
                 if m[1] <= racetime:
                     interruption = 1
                     n = m[2].strip()
@@ -208,7 +209,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n and n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == 12:  # DQ
+            elif m[0] == DQ:  # disqualified
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -216,7 +217,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 13:  # yellow card
+            elif m[0] == YC:  # yellow card
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -224,7 +225,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == 14:  # red card
+            elif m[0] == RC:  # red card
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -232,7 +233,23 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 20:
+            elif m[0] == BC:  # blue card (note only; a 2nd blue card is recorded as DQ)
+                n = m[2].strip()
+                if n:
+                    k = invreccodemap[m[0]]
+                    if k not in notes:
+                        notes[k] = []
+                    if n not in notes[k]:
+                        notes[k].append(n)
+            elif m[0] == NC:  # not classified (endurance 902.47)
+                notclassified = 1
+                n = m[2].strip()
+                k = invreccodemap[m[0]]
+                if k not in notes:
+                    notes[k] = []
+                if n and n not in notes[k]:
+                    notes[k].append(n)
+            elif m[0] == NT:  # note
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -246,7 +263,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
         if laps and t > 0:
             avgspeed = round2(3.6 * distcovered / float(t), roundopt)
 
-        code = 10 * didntstart + interruption + 100 * disqualification
+        code = 10 * didntstart + interruption + 100 * disqualification + 100 * notclassified
         preres.append((code,
                        -(laps - penlaps - lapslost),
                        -avgspeed, -maxlapspeed, lapstime,
@@ -341,9 +358,9 @@ def analyze(heat, record, scoringsystem=[]):
         didntstart = 0
         notes = {}
         for m in rec[pid]:
-            if m[0] in (4, 5, 8):
+            if m[0] in (PL, PL5, PL8):
                 if m[1] <= racetime:
-                    penlaps = penlaps + {4: 1, 5: 5, 8: 8}[m[0]]
+                    penlaps = penlaps + {PL: 1, PL5: 5, PL8: 8}[m[0]]
                     n = m[2].strip()
                     k = invreccodemap[m[0]]
                     if k not in notes:
@@ -365,7 +382,7 @@ def analyze(heat, record, scoringsystem=[]):
         dt = 0
         li = 0
         for m in rec[pid]:
-            if abs(m[0]) in (1, 2):
+            if abs(m[0]) in (LAP, INSERTED_LAP):
                 if (not ignorelaps) and t + m[1] <= racetime and laps < lapsrequired + penlaps:
                     t = t + m[1]
                     if m[0] < 0:
@@ -393,7 +410,7 @@ def analyze(heat, record, scoringsystem=[]):
                 else:
                     pastafterstoppage = 1
                     ignorelaps = 1
-            elif m[0] == 3:
+            elif m[0] == LL:  # lost a lap
                 if m[1] <= racetime and laps < lapsrequired + penlaps:
                     lapslost = lapslost + 1
                     n = m[2].strip()
@@ -402,13 +419,9 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n:
                         notes[k].append(n)
-            elif m[0] == 4:  # penalty lap
+            elif m[0] in (PL, PL5, PL8):  # penalty laps (counted above)
                 pass
-            elif m[0] == 5:  # 5 penalty laps
-                pass
-            elif m[0] == 8:  # 8 penalty laps
-                pass
-            elif m[0] == 10:  # DS
+            elif m[0] == DS:  # did not start
                 didntstart = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -416,7 +429,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 11:  # IR
+            elif m[0] == IR:  # interruption
                 if m[1] <= racetime:
                     interruption = 1
                     n = m[2].strip()
@@ -425,7 +438,7 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n and n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == 12:  # DQ
+            elif m[0] == DQ:  # disqualified
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -433,7 +446,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 13:  # yellow card
+            elif m[0] == YC:  # yellow card
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -441,7 +454,7 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == 14:  # red card
+            elif m[0] == RC:  # red card
                 disqualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -449,7 +462,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 20:
+            elif m[0] == BC:  # blue card (note only; a 2nd blue card is recorded as DQ)
                 n = m[2].strip()
                 if n:
                     k = invreccodemap[m[0]]
@@ -457,7 +470,15 @@ def analyze(heat, record, scoringsystem=[]):
                         notes[k] = []
                     if n not in notes[k]:
                         notes[k].append(n)
-            elif m[0] == 30:  # Q
+            elif m[0] == NT:  # note
+                n = m[2].strip()
+                if n:
+                    k = invreccodemap[m[0]]
+                    if k not in notes:
+                        notes[k] = []
+                    if n not in notes[k]:
+                        notes[k].append(n)
+            elif m[0] == Q:  # qualified
                 qualification = 1
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -465,7 +486,7 @@ def analyze(heat, record, scoringsystem=[]):
                     notes[k] = []
                 if n and n not in notes[k]:
                     notes[k].append(n)
-            elif m[0] == 31:  # NQ
+            elif m[0] == NQ:  # not qualified
                 qualification = 2
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
@@ -502,15 +523,15 @@ def analyze(heat, record, scoringsystem=[]):
                 if laps:
                     _warning('Appended IR mark for %s' % pid)
                     code = 1
-                    insertmark(rec[pid], 11, t + 2.5 * esttime, '')
-                    k = invreccodemap[11]
+                    insertmark(rec[pid], IR, t + 2.5 * esttime, '')
+                    k = invreccodemap[IR]
                     if k not in notes:
                         notes[k] = []
                 else:
                     _warning('Appended DS mark for %s' % pid)
                     code = 10
-                    insertmark(rec[pid], 10, t + 2.5 * esttime, '')
-                    k = invreccodemap[10]
+                    insertmark(rec[pid], DS, t + 2.5 * esttime, '')
+                    k = invreccodemap[DS]
                     if k not in notes:
                         notes[k] = []
         preres.append((code,
@@ -633,7 +654,7 @@ def countlaps(heat, record):
         for pid in rec:
             t = 0
             for m in rec[pid]:
-                if abs(m[0]) in (1, 2):
+                if abs(m[0]) in (LAP, INSERTED_LAP):
                     t = t + m[1]
                 else:
                     racetime = max(racetime, m[1])
