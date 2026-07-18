@@ -33,6 +33,7 @@ from cozer.app.grids import (
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
 from cozer.store import EventStore, loads, read_legacy_coz
+from cozer import validate
 
 # App-wide light color scheme; editable inputs get the legacy tan tint (edit_bg).
 APP_QSS = (
@@ -247,6 +248,17 @@ class MainWindow(QMainWindow):
         self.resize(980, 640)
         self.setStyleSheet(APP_QSS)
         self._build_menu()
+        # Persistent "data warnings" indicator in the status bar (see validate.py).
+        self._findings = []
+        self._warn_btn = QPushButton()
+        self._warn_btn.setFlat(True)
+        self._warn_btn.setStyleSheet(
+            "QPushButton { color: #b36b00; font-weight: bold; border: none; padding: 0 8px; }")
+        self._warn_btn.setCursor(Qt.PointingHandCursor)
+        self._warn_btn.setToolTip("Click to list the data warnings")
+        self._warn_btn.clicked.connect(self._show_warnings)
+        self._warn_btn.hide()
+        self.statusBar().addPermanentWidget(self._warn_btn)
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
         self.tabs.addTab(self._build_geninfo_tab(), "General Information")
@@ -273,6 +285,7 @@ class MainWindow(QMainWindow):
                 self.tabs.blockSignals(False)
                 return
         self._prev_tab = idx
+        self._refresh_warnings()   # data may have changed on the tab we just left
 
     def closeEvent(self, event):
         # Don't let unsaved race edits vanish on quit.
@@ -540,6 +553,7 @@ class MainWindow(QMainWindow):
         self.timer_panel.reload()
         self.editor_panel.reload()
         self._apply_kind()
+        self._refresh_warnings()
 
     def _classname_in_use(self, name):
         """Reason a class name can't be removed from the catalog — it is set up as
@@ -572,6 +586,35 @@ class MainWindow(QMainWindow):
         if ruleset:
             self.tabs.setCurrentIndex(0)
             self._geninfo_sub.setCurrentIndex(self._geninfo_sub.count() - 1)   # Rules
+
+    # ---- data-validation warnings (see cozer/validate.py) ----
+    def _refresh_warnings(self):
+        """Recompute non-fatal data warnings and update the status-bar indicator."""
+        self._findings = validate.check_results(self.eventdata)
+        n = len(self._findings)
+        if n:
+            self._warn_btn.setText("⚠ %d data warning%s" % (n, "" if n == 1 else "s"))
+            self._warn_btn.show()
+        else:
+            self._warn_btn.hide()
+
+    def _show_warnings(self):
+        """List the current data warnings (the status-bar indicator was clicked)."""
+        findings = validate.check_results(self.eventdata)
+        if not findings:
+            QMessageBox.information(self, "Data warnings", "No data warnings.")
+            return
+        QMessageBox.warning(self, "Data warnings (%d)" % len(findings),
+                            "\n".join(validate.format_findings(findings)))
+
+    def _warn_before_report(self):
+        """Loudly flag suspicious data before generating a report (non-blocking)."""
+        findings = validate.check_results(self.eventdata)
+        if findings:
+            QMessageBox.warning(
+                self, "Data warnings (%d)" % len(findings),
+                "This report is generated from data with warnings:\n\n"
+                + "\n".join(validate.format_findings(findings)))
 
     # ---- log tab ----
     def _build_log_tab(self):
@@ -712,6 +755,7 @@ class MainWindow(QMainWindow):
         event_path = self.store.path if self.store else None
         latest, posting = report_output_paths(event_path, label, stamp)
         os.makedirs(os.path.dirname(posting), exist_ok=True)   # makes <dir> and <dir>/postings
+        self._warn_before_report()
         if not self._render_report(label, funcname, tc, th, latest):
             return
         try:
@@ -732,6 +776,7 @@ class MainWindow(QMainWindow):
             return
         if not path.endswith(".pdf"):
             path += ".pdf"
+        self._warn_before_report()
         if self._render_report(label, funcname, tc, th, path):
             self.log("Exported %s" % path)
             open_in_viewer(path)

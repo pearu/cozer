@@ -72,6 +72,7 @@ def test_export_report_writes_and_opens(tmp_path, monkeypatch):
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (out, "")))
     monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
+    monkeypatch.setattr(appmain.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
     w.report_combo.setCurrentIndex(2)                      # Full Final
     w.on_export()
     assert os.path.exists(out) and opened == [out]
@@ -86,12 +87,48 @@ def test_view_report_uses_event_reports_dir(tmp_path, monkeypatch):
     w.on_save_as()                                         # establish the event path
     opened = []
     monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
+    monkeypatch.setattr(appmain.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
     w.report_combo.setCurrentIndex(2)                      # Full Final
-    w.on_view()                                            # no dialog
+    w.on_view()                                            # no Save dialog
     rdir = tmp_path / "ev.reports"
     latest = rdir / "full_final.pdf"
     assert latest.exists() and opened == [str(latest)]     # written to <event>.reports/, opened
     assert len(list((rdir / "postings").glob("full_final_*.pdf"))) == 1  # archived posting
+
+
+def test_validation_indicator_reflects_findings(monkeypatch):
+    _app()
+    w = MainWindow(read_legacy_coz(EVENT))                 # wc2000 -> 2 findings
+    assert len(w._findings) == 2
+    assert not w._warn_btn.isHidden() and "2 data warning" in w._warn_btn.text()
+    shown = {}
+    monkeypatch.setattr(appmain.QMessageBox, "warning",
+                        staticmethod(lambda parent, title, text, *a, **k:
+                                     shown.update(title=title, text=text)))
+    w._show_warnings()                                     # clicking the indicator lists them
+    assert "2" in shown["title"] and "1st place" in shown["text"]
+
+
+def test_validation_indicator_hidden_when_clean():
+    _app()
+    clean = os.path.join(REPO, "legacy", "events", "EMV_3_Parnu_2006.coz")
+    w = MainWindow(read_legacy_coz(clean))
+    assert w._findings == [] and w._warn_btn.isHidden()
+
+
+def test_report_generation_warns_on_findings(tmp_path, monkeypatch):
+    _app()
+    w = MainWindow(read_legacy_coz(EVENT))                 # has findings
+    warned = []
+    monkeypatch.setattr(appmain.QMessageBox, "warning",
+                        staticmethod(lambda parent, title, *a, **k: warned.append(title)))
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
+    monkeypatch.setattr(appmain, "open_in_viewer", lambda *a, **k: None)
+    w.report_combo.setCurrentIndex(2)                     # Full Final
+    w.on_export()
+    assert any("Data warnings" in t for t in warned)      # loud warning before generating
+    assert (tmp_path / "r.pdf").exists()                  # ...and it still generated
 
 
 def test_open_and_import_via_dialog(tmp_path, monkeypatch):
