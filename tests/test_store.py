@@ -42,6 +42,46 @@ def test_codec_roundtrip_and_idempotent():
     assert to_jsonable(back) == j
 
 
+def test_codec_reserved_map_key_roundtrips():
+    # A dict that literally contains the reserved "$map" tag must not be mistaken
+    # for a tuple-keyed encoding on decode -- it used to crash ({"$map": "x"}) or
+    # silently corrupt ({"$map": [["a", 1]]} -> {"a": 1}).
+    for x in [{store._MAP: "hello"}, {store._MAP: [["a", 1]]},
+              {store._MAP: "v", "other": 2}, {"configure": {store._MAP: "x"}},
+              {("a", "b"): 1}]:
+        assert loads(dumps(x)) == x, x
+        assert loads(dumps(loads(dumps(x)))) == x         # stable under re-encoding
+
+
+def test_codec_idempotent_fuzz():
+    import random
+
+    def gen(rng, depth=0):
+        r = rng.random()
+        if depth > 3 or r < 0.3:
+            return rng.choice([0, 1, -5, 3.5, "s", store._MAP, True, False, None, ""])
+        if r < 0.55:
+            return [gen(rng, depth + 1) for _ in range(rng.randint(0, 3))]
+        out = {}
+        for _ in range(rng.randint(0, 4)):
+            kt = rng.random()
+            if kt < 0.4:
+                k = rng.choice(["a", "b", store._MAP, "x", "1"])
+            elif kt < 0.6:
+                k = rng.randint(0, 5)
+            elif kt < 0.72:
+                k = rng.choice([True, False])
+            else:
+                k = tuple(rng.choice(["p", "q", 1, 2]) for _ in range(rng.randint(1, 2)))
+            out[k] = gen(rng, depth + 1)
+        return out
+
+    rng = random.Random(20260722)
+    for _ in range(1500):
+        d1 = dumps(gen(rng))
+        assert dumps(loads(d1)) == d1                     # idempotent; never raises
+
+
 def test_dumps_loads_roundtrip():
     ed = {"a": [1, 2, (3, 4)], "b": {"x": None, "y": True}}
     assert loads(dumps(ed)) == {"a": [1, 2, [3, 4]], "b": {"x": None, "y": True}}

@@ -42,10 +42,13 @@ def to_jsonable(obj):
     if isinstance(obj, (list, tuple)):
         return [to_jsonable(x) for x in obj]
     if isinstance(obj, dict):
-        if all(isinstance(k, str) for k in obj):
+        # A dict that literally contains the reserved ``$map`` key must use the
+        # $map encoding too, otherwise on decode it is mistaken for a tuple-keyed
+        # dict ({"$map": ...} collides) -- crashing or silently corrupting it.
+        if _MAP not in obj and all(isinstance(k, str) for k in obj):
             return {k: to_jsonable(v) for k, v in obj.items()}
-        if all(isinstance(k, int) and not isinstance(k, bool) or isinstance(k, str)
-               for k in obj):
+        if _MAP not in obj and all(isinstance(k, int) and not isinstance(k, bool) or isinstance(k, str)
+                                   for k in obj):
             return {str(k): to_jsonable(v) for k, v in obj.items()}
         return {_MAP: [[to_jsonable(k), to_jsonable(v)] for k, v in obj.items()]}
     return obj
