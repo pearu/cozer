@@ -237,11 +237,11 @@ class EventStore:
             except OSError:
                 pass
             return None
-        os.replace(staged, path)
         try:
-            os.remove(path + _JOURNAL)
-        except OSError:
-            pass
+            os.remove(path + _JOURNAL)    # drop the redundant journal BEFORE installing:
+        except OSError:                   # a crash between the two must never leave the new
+            pass                          # snapshot AND its journal (that replays into a double)
+        os.replace(staged, path)
         _fsync_dir(os.path.dirname(os.path.abspath(path)))
         return eventdata
 

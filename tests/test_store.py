@@ -1,5 +1,6 @@
 """Tests for the crash-safe persistence layer (cozer/store.py), including
 atomic-write failure and power-loss (journal replay) simulations."""
+import copy
 import glob
 import json
 import os
@@ -239,6 +240,139 @@ def test_journal_creation_dir_fsync_is_deferred_once(tmp_path, monkeypatch):
     s._flush()
     assert len(calls) == 1                                 # nothing new -> no extra dir fsync
     s.close()
+
+
+# --- EventStore: systematic crash fault-injection --------------------------
+
+_FI_SYS = {"fsync": os.fsync, "replace": os.replace, "remove": os.remove}
+
+
+class _Boom(Exception):
+    pass
+
+
+class _CrashAt:
+    """Raise _Boom on the N-th fsync/replace/remove call -- a simulated crash at
+    that exact durability syscall."""
+    def __init__(self, at):
+        self.at, self.n = at, 0
+
+    def _wrap(self, name):
+        f = _FI_SYS[name]
+
+        def w(*a, **k):
+            self.n += 1
+            if self.n == self.at:
+                raise _Boom("%s#%d" % (name, self.n))
+            return f(*a, **k)
+        return w
+
+    def __enter__(self):
+        for name in _FI_SYS:
+            setattr(os, name, self._wrap(name))
+        return self
+
+    def __exit__(self, *exc):
+        for name, f in _FI_SYS.items():
+            setattr(os, name, f)
+
+
+def _release(store):
+    """Simulate the process dying: the OS closes the store's file handles."""
+    store._stop.set()
+    if store._jfh is not None:
+        try:
+            store._jfh.close()
+        except OSError:
+            pass
+        store._jfh = None
+
+
+def _disk(d):
+    out = {}
+    for f in os.listdir(d):
+        with open(os.path.join(d, f), "rb") as fh:
+            out[f] = fh.read()
+    return out
+
+
+def _restore(d, snap):
+    for f in os.listdir(d):
+        os.remove(os.path.join(d, f))
+    for f, data in snap.items():
+        with open(os.path.join(d, f), "wb") as fh:
+            fh.write(data)
+
+
+_FI_HEAT = {"record": {"C": {"1": [{}, {"1": [["A"], ["B"], ["C"]], "2": [["X"]]}]}}}
+_FI_SCENARIOS = [
+    # non-idempotent ops (the corruption-catchers): a re-applied delete / lap-append
+    ("editmark-delete", _FI_HEAT,
+     [{"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 1, "mark": None}]),
+    ("lap-append", _FI_HEAT,
+     [{"op": "lap", "cl": "C", "h": "1", "id": "2", "mark": ["Y"]},
+      {"op": "lap", "cl": "C", "h": "1", "id": "2", "mark": ["Z"]}]),
+    # a heat op resets its marks (re-apply reconstructs), replace is idempotent
+    ("new-heat", {"record": {}},
+     [{"op": "heat", "cl": "C", "h": "1", "info": {"course": [1000]}, "ids": ["1", "2"]},
+      {"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]}]),
+    ("replace", _FI_HEAT,
+     [{"op": "replace", "cl": "C", "h": "1", "id": "1", "marks": [["P"], ["Q"]]}]),
+]
+
+
+def test_snapshot_and_recovery_crash_at_every_syscall(tmp_path):
+    """Crash at every fsync/replace/remove during snapshot() AND during the
+    recovery open(), then a clean reopen must reconstruct the exact pre-snapshot
+    state -- never a lost or duplicated op. Guards the ordering fences in both
+    snapshot() and _install_staged (this found a recovery-path double-apply)."""
+    def build(path, baseline, ops):
+        s = EventStore(path, copy.deepcopy(baseline), sync_interval=3600)  # syncer idle
+        s.snapshot()                       # durable baseline, journal cleared
+        for op in ops:
+            s.record(op)                   # journaled (write+flush)
+        return s
+
+    mismatches = []
+    for i, (label, baseline, ops) in enumerate(_FI_SCENARIOS):
+        d = str(tmp_path / ("sc%d" % i))
+        os.makedirs(d)
+        p = os.path.join(d, "e.cozj")
+        expect = copy.deepcopy(build(p, baseline, ops).eventdata)   # S1 snapshot() must persist
+        for at in range(1, 25):
+            s2 = build(p, baseline, ops)
+            _release(s2)
+            crashed = False
+            try:
+                with _CrashAt(at):
+                    s2.snapshot()
+            except _Boom:
+                crashed = True
+            _release(s2)
+            crashed_disk = _disk(d)
+
+            rec = EventStore.open(p)                       # clean recovery -> must be S1
+            if copy.deepcopy(rec.eventdata) != expect:
+                mismatches.append((label, "snap@%d" % at))
+            _release(rec)
+
+            for rat in range(1, 20):                       # crash during recovery too
+                _restore(d, crashed_disk)
+                rcrashed = False
+                try:
+                    with _CrashAt(rat):
+                        _release(EventStore.open(p))
+                except _Boom:
+                    rcrashed = True
+                r2 = EventStore.open(p)                     # clean reopen after recovery-crash
+                if copy.deepcopy(r2.eventdata) != expect:
+                    mismatches.append((label, "snap@%d+rec@%d" % (at, rat)))
+                _release(r2)
+                if not rcrashed:
+                    break
+            if not crashed:
+                break
+    assert not mismatches, mismatches
 
 
 # --- EventStore: background fsync (responsive recording) -------------------
