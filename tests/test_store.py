@@ -212,6 +212,26 @@ def test_truncated_final_journal_line_is_skipped(tmp_path):
     assert s.eventdata["record"]["C"]["1"][1]["1"] == [[1, 9.0]]   # complete op only
 
 
+def test_unapplyable_journal_op_is_skipped_not_crashed(tmp_path):
+    """A journal line that is valid JSON but cannot be applied -- a torn final line
+    that happened to parse, an op written by a newer cozer, or on-disk bit-rot --
+    must never make the event unopenable. Recovery keeps the consistent prefix
+    already applied and stops there, rather than raising out of open()."""
+    p = str(tmp_path / "e.cozj")
+    good = json.dumps({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": [1, 9.0]})
+    for bad in (
+        {"op": "lap", "cl": "Z", "h": "9", "id": "1", "mark": [1, 5.0]},   # references missing heat
+        {"op": "frobnicate", "x": 1},                                      # unknown op kind
+        {"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 99, "mark": [1, 1.0]},  # bad index
+    ):
+        EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}).snapshot()
+        with open(p + ".journal", "w", encoding="utf-8") as f:
+            f.write(good + "\n")
+            f.write(json.dumps(bad) + "\n")
+        s = EventStore.open(p)                                             # must not raise
+        assert s.eventdata["record"]["C"]["1"][1]["1"] == [[1, 9.0]]       # good op kept, bad dropped
+
+
 # --- EventStore: crash INSIDE snapshot() (staged-snapshot fence) -----------
 
 def _crash_snapshot_before_install(s, p, monkeypatch):

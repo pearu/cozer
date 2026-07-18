@@ -18,12 +18,15 @@ Guarantees:
   hand-recoverable. Legacy ``.coz`` (pickle) remains importable.
 """
 import json
+import logging
 import os
 import pickle
 import shutil
 import tempfile
 import threading
 import weakref
+
+_log = logging.getLogger("cozer.store")
 
 _MAP = "$map"   # reserved tag for dicts with non-string/int (e.g. tuple) keys
 _JOURNAL = ".journal"   # append-only op-log sidecar
@@ -261,7 +264,17 @@ class EventStore:
                     op = json.loads(line)
                 except ValueError:
                     break   # torn final line from a crash: stop, keep the rest
-                apply_op(self.eventdata, op)
+                try:
+                    apply_op(self.eventdata, op)
+                except Exception:
+                    # Valid JSON but unapplyable -- a torn final line that happened
+                    # to parse, an op from a newer cozer, or on-disk bit-rot.
+                    # Recovery must never crash (that would make the event
+                    # unopenable): stop and keep the consistent prefix, but log it
+                    # so the dropped tail is visible in the Log tab, not silent.
+                    _log.warning("journal replay stopped at an unapplyable op "
+                                 "(%d applied before it): %r", applied, op)
+                    break
                 applied += 1
         return applied
 
