@@ -166,6 +166,31 @@ def test_submit_pending_drains_queue(tmp_path, monkeypatch):
     assert len(done) == 1 and not cr.list_pending()        # drained
 
 
+def test_submit_pending_same_fingerprint_files_one_issue(tmp_path, monkeypatch):
+    # A recurring crash queued several times offline must file exactly ONE issue.
+    # GitHub's issue search is eventually consistent, so a just-created issue is not
+    # yet searchable while the queue drains; _submit must dedupe on the local
+    # `submitted` record, else each queued report creates a duplicate issue.
+    _cfg(tmp_path, monkeypatch)
+    offline = cr.Reporter(config={"token": None})
+    for now in (1000, 1001, 1002):                         # same traceback -> same fp
+        try:
+            _boom()
+        except ValueError:
+            et, ev, tb = sys.exc_info()
+            offline.handle(cr.build_report(et, ev, tb, now=now))
+    assert len(cr.list_pending()) == 3                     # three queued files
+
+    fake = FakeGitHub()                                    # search always empty (=lag)
+    rep = cr.Reporter(config={"token": "gho_test", "auto_submit": True, "submitted": {}},
+                      transport=fake)
+    done = rep.submit_pending()
+    assert len(fake.created) == 1                          # exactly one issue, not three
+    assert len(cr.list_pending()) == 0                     # all three queue files drained
+    assert len(done) == 3                                  # every queued report accounted for
+    assert len(set(done)) == 1                             # all point at the one issue URL
+
+
 def test_parse_body_json_or_form_encoded():
     # GitHub's device endpoints reply form-encoded unless asked for JSON — accept both
     assert cr._parse_body("") == {}

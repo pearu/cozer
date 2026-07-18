@@ -314,8 +314,14 @@ class Reporter:
             return None
 
     def _submit(self, report):
-        token = self.config["token"]
         fp = report["fingerprint"]
+        known = self.config.get("submitted", {}).get(fp)
+        if known:
+            return known         # already filed this fingerprint -> trust our local record,
+                                 # not GitHub search (which lags: a just-created issue isn't
+                                 # searchable for seconds, so draining N same-fp queued reports
+                                 # would otherwise create N duplicate issues)
+        token = self.config["token"]
         url = (search_fingerprint(token, fp, transport=self.transport)
                or create_issue(token, report_title(report), report_body(report),
                                transport=self.transport))
