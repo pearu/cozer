@@ -263,3 +263,32 @@ def test_reenact_one_heat_matches_wc2000(tmp_path, monkeypatch):
     for boat, ms in source_heat[1].items():
         assert [list(m) for m in got.get(boat, [])] == [list(m) for m in ms], boat
     assert not {b for b in got if b not in source_heat[1] and got[b]}      # no spurious boats
+
+
+def test_report_generation_error_is_filed(tmp_path, monkeypatch):
+    """A report-generation failure must reach the crash reporter, not die silently
+    in a message box. Regression guard for the gap the owner hit: reproducing a
+    report crash filed no bug report because on_generate swallowed the exception."""
+    _app()
+    w = MainWindow(build_wc2000_2026())
+    label, funcname, _takes = _REPORTS[w.report_combo.currentIndex()]
+
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
+    monkeypatch.setattr(appmain.QMessageBox, "critical",
+                        staticmethod(lambda *a, **k: None))          # no modal in the test
+    import cozer.reports as R
+    monkeypatch.setattr(R, funcname,
+                        lambda *a, **k: (_ for _ in ()).throw(KeyError("83")))
+
+    seen = {}
+
+    def fake_report(window, et, ev, tb, action=None):
+        seen["action"], seen["exc"] = action, ev
+        return object(), "https://github.com/x/y/issues/1"
+    monkeypatch.setattr(appmain, "report_exception", fake_report)
+
+    w.on_generate()                                                  # must not raise
+
+    assert isinstance(seen.get("exc"), KeyError)                     # the real defect was filed
+    assert seen["action"] == "Generate report: %s" % label

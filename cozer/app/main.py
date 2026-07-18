@@ -630,8 +630,16 @@ class MainWindow(QMainWindow):
                 func(self.eventdata, path, classes=self.selected_classes())
             else:
                 func(self.eventdata, path)
-        except Exception as e:      # pragma: no cover - surfaced to the user, never crashes
-            QMessageBox.critical(self, "Report error", "%s: %s" % (type(e).__name__, e))
+        except Exception as e:      # surfaced to the user AND filed as a bug (never crashes)
+            # A report-generation failure is a real defect in cozer, not user error;
+            # route it through the crash reporter (files if signed in, else queues)
+            # so it surfaces to the maintainer instead of dying in a message box.
+            _report, url = report_exception(self, type(e), e, e.__traceback__,
+                                            action="Generate report: %s" % label)
+            QMessageBox.critical(
+                self, "Report error",
+                "Could not generate the report; the error was recorded locally%s.\n\n%s: %s"
+                % (" and reported" if url else "", type(e).__name__, e))
             return
         self.log("Wrote %s" % path)
         open_in_viewer(path)
