@@ -96,9 +96,16 @@ def test_view_report_uses_event_reports_dir(tmp_path, monkeypatch):
     assert len(list((rdir / "postings").glob("full_final_*.pdf"))) == 1  # archived posting
 
 
+# The three tests below exercise the *surfacing* (indicator + dialog), so they
+# monkeypatch validate.check_results with fixed findings and stay independent of
+# what the validate layer actually flags (that is covered by test_validate.py).
 def test_validation_indicator_reflects_findings(monkeypatch):
     _app()
-    w = MainWindow(read_legacy_coz(EVENT))                 # wc2000 -> 2 findings
+    from cozer.validate import Finding
+    fakes = [Finding("warning", "T-400", "2", "place-gap", "placings are not contiguous"),
+             Finding("warning", "O-500", "3", "incomplete-heat", "stopped early")]
+    monkeypatch.setattr(appmain.validate, "check_results", lambda ed: fakes)
+    w = MainWindow(read_legacy_coz(EVENT))
     assert len(w._findings) == 2
     assert not w._warn_btn.isHidden() and "2 data warning" in w._warn_btn.text()
     shown = {}
@@ -106,19 +113,22 @@ def test_validation_indicator_reflects_findings(monkeypatch):
                         staticmethod(lambda parent, title, text, *a, **k:
                                      shown.update(title=title, text=text)))
     w._show_warnings()                                     # clicking the indicator lists them
-    assert "2" in shown["title"] and "1st place" in shown["text"]
+    assert "2" in shown["title"] and "T-400" in shown["text"] and "O-500" in shown["text"]
 
 
-def test_validation_indicator_hidden_when_clean():
+def test_validation_indicator_hidden_when_clean(monkeypatch):
     _app()
-    clean = os.path.join(REPO, "legacy", "events", "EMV_3_Parnu_2006.coz")
-    w = MainWindow(read_legacy_coz(clean))
+    monkeypatch.setattr(appmain.validate, "check_results", lambda ed: [])
+    w = MainWindow(read_legacy_coz(EVENT))
     assert w._findings == [] and w._warn_btn.isHidden()
 
 
 def test_report_generation_warns_on_findings(tmp_path, monkeypatch):
     _app()
-    w = MainWindow(read_legacy_coz(EVENT))                 # has findings
+    from cozer.validate import Finding
+    monkeypatch.setattr(appmain.validate, "check_results",
+                        lambda ed: [Finding("warning", "T-400", "2", "place-gap", "x")])
+    w = MainWindow(read_legacy_coz(EVENT))
     warned = []
     monkeypatch.setattr(appmain.QMessageBox, "warning",
                         staticmethod(lambda parent, title, *a, **k: warned.append(title)))
