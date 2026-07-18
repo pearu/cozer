@@ -21,11 +21,11 @@
 | cozer/records.py              |       60 |        0 |       20 |        2 |     98% |77-\>71, 92-\>91 |
 | cozer/reports/\_\_init\_\_.py |        7 |        0 |        0 |        0 |    100% |           |
 | cozer/reports/common.py       |       60 |        5 |       24 |        3 |     90% |35, 47, 50, 66-67 |
-| cozer/reports/endurance.py    |       67 |        1 |       22 |        2 |     97% |37-\>39, 43 |
-| cozer/reports/final.py        |      127 |        1 |       46 |        3 |     98% |55-\>53, 70, 165-\>167 |
-| cozer/reports/intermediate.py |       91 |        1 |       30 |        3 |     97% |21-\>23, 27, 121-\>98 |
+| cozer/reports/endurance.py    |       68 |        1 |       22 |        2 |     97% |37-\>39, 43 |
+| cozer/reports/final.py        |      128 |        1 |       46 |        3 |     98% |55-\>53, 70, 166-\>168 |
+| cozer/reports/intermediate.py |       92 |        1 |       30 |        2 |     98% |27, 122-\>99 |
 | cozer/reports/labels.py       |        9 |        0 |        0 |        0 |    100% |           |
-| cozer/reports/laps.py         |       48 |        1 |       14 |        2 |     95% |16-\>18, 21 |
+| cozer/reports/laps.py         |       49 |        1 |       14 |        1 |     97% |        21 |
 | cozer/reports/latexish.py     |       74 |        4 |       44 |        4 |     93% |59, 78, 104, 114 |
 | cozer/reports/letters.py      |       54 |        2 |       10 |        0 |     97% |     55-56 |
 | cozer/reports/output.py       |       12 |        0 |        2 |        0 |    100% |           |
@@ -33,7 +33,7 @@
 | cozer/reports/render.py       |       10 |        0 |        0 |        0 |    100% |           |
 | cozer/store.py                |      209 |        4 |       68 |        2 |     98% |240-241, 280-\>282, 314-\>exit, 317-318 |
 | cozer/validate.py             |       57 |        6 |       18 |        0 |     92% |39-40, 68-69, 108-109 |
-| **TOTAL**                     | **3901** |  **193** | **1398** |  **151** | **93%** |           |
+| **TOTAL**                     | **3905** |  **193** | **1398** |  **149** | **93%** |           |
 
 
 ## Setup coverage badge
