@@ -809,6 +809,65 @@ def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
     assert len(w.eventdata["record"]["GT"]["1"][1]["1"]) == 1   # prior data kept
 
 
+def _record_then_reboot(tmp_path, monkeypatch, path):
+    """Record two laps (cumulative 41 s from wall start 1000), then simulate a reboot:
+    close the store and open the saved event in a fresh window (journal replay)."""
+    w = MainWindow(_timer_event())
+    _save_as(w, path, monkeypatch)
+    tp = w.timer_panel
+    clock = [1000.0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    for t in (1020.0, 1041.0):
+        clock[0] = t
+        tp.record_lap("GT", "1", "1")
+    w.store.close()
+    w2 = MainWindow()
+    w2.load(path)
+    tp2 = w2.timer_panel
+    tp2.reload()
+    tp2.race_combo.setCurrentIndex(0)
+    return w2, tp2
+
+
+def test_timer_survives_reboot_and_resume(tmp_path, monkeypatch):
+    """A reboot loses the monotonic origin but not the journal: resume bridges the
+    downtime via the persistent wall clock, so a post-reboot lap includes the time
+    the machine was down."""
+    _app()
+    w2, tp2 = _record_then_reboot(tmp_path, monkeypatch, str(tmp_path / "e.cozj"))
+    rec = w2.eventdata["record"]["GT"]["1"]
+    assert rec[1]["1"] == [[1, 20.0], [1, 21.0]] and rec[0]["starttime"] == 1000.0  # replayed
+    clock = [1200.0]                          # correct clock: 200 s after start (incl. downtime)
+    tp2._wall = lambda: clock[0]
+    tp2._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
+    tp2.on_resume()
+    clock[0] = 1205.0
+    tp2.record_lap("GT", "1", "1")
+    laps = w2.eventdata["record"]["GT"]["1"][1]["1"]
+    assert laps == [[1, 20.0], [1, 21.0], [1, 164.0]]   # 1205-1041: downtime included
+    assert sum(m[1] for m in laps) == 205.0             # = wall 1205 - start 1000
+
+
+def test_timer_reboot_resume_floors_at_recorded_when_wall_clock_is_wrong(tmp_path, monkeypatch):
+    """If the machine boots with a wrong/backward clock reading earlier than the last
+    recorded lap (dead RTC, NTP not synced), resume must NOT rewind the race and drop
+    new crossings: it floors the elapsed at the furthest recorded lap."""
+    _app()
+    w2, tp2 = _record_then_reboot(tmp_path, monkeypatch, str(tmp_path / "e.cozj"))
+    clock = [1005.0]                          # WRONG: reads 5 s in, below the 41 s recorded
+    tp2._wall = lambda: clock[0]
+    tp2._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
+    tp2.on_resume()                           # floors at 41 s, not the bogus 5 s
+    clock[0] = 1010.0                          # a crossing 5 s after resume
+    tp2.record_lap("GT", "1", "1")
+    laps = w2.eventdata["record"]["GT"]["1"][1]["1"]
+    assert len(laps) == 3                     # new lap kept, not dropped as negative
+    assert laps[2] == [1, 5.0]                # 5 s since resume, off the floored point
+
+
 def test_timer_reopen_reconstructs_order():
     _app()
     w = MainWindow(_recorded_event())          # GT/1 already has recorded laps

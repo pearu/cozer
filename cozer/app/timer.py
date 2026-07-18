@@ -403,10 +403,22 @@ class TimerPanel(QWidget):
         if not starts:
             self.status.setText("Nothing to resume — press Start.")
             return
-        # the race clock reset when the process restarted, so bridge the downtime via
-        # the wall clock: resume the race at (wall now - start) elapsed. Within the
-        # resumed session the clock is monotonic/NTP-immune again.
-        self._clock.start(int((self._wall() - min(starts)) * 1e9))
+        # The race clock reset when the process restarted, so bridge the downtime via
+        # the wall clock: resume at (wall now - start) elapsed. Within the resumed
+        # session the clock is monotonic/NTP-immune again.
+        ref = min(starts)
+        bridged = self._wall() - ref
+        # But the race has provably run at least as long as its furthest recorded lap.
+        # Floor the resume there, so a wrong/backward wall clock at reboot (dead RTC or
+        # NTP not yet synced) can't rewind the race and silently drop new crossings.
+        recorded = 0.0
+        for cl, h in self._heats:
+            rec = self._rec(cl, h)
+            st = (rec or [{}])[0].get("starttime")
+            if rec and st is not None:
+                for marks in rec[1].values():
+                    recorded = max(recorded, (st - ref) + sum(gettimes(marks)))
+        self._clock.start(int(max(bridged, recorded) * 1e9))
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
