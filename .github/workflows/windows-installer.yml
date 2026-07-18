@@ -42,13 +42,20 @@ jobs:
           Start-Process -Wait -FilePath ".\${{ steps.find.outputs.exe }}" -ArgumentList '/S','/D=C:\cozer'
           if (!(Test-Path 'C:\cozer\python.exe')) { throw 'install failed: no python.exe' }
 
-      - name: List bundled native DLLs (diagnostic)
+      - name: Diagnose WeasyPrint DLL load
         shell: pwsh
+        continue-on-error: true   # always report; the smoke test still gates the job
         run: |
-          foreach ($p in 'gobject','pango','cairo','fontconfig') {
-            Get-ChildItem C:\cozer\Library\bin -Filter "*$p*" -ErrorAction SilentlyContinue |
-              Select-Object -ExpandProperty Name
+          $bin = 'C:\cozer\Library\bin'
+          "=== candidate DLLs present in Library\bin ==="
+          foreach ($p in 'gobject','glib','gio','gmodule','intl','pcre','iconv',
+                         'ffi','pango','cairo','fontconfig','freetype','harfbuzz',
+                         'expat','zlib','pixman','png') {
+            Get-ChildItem $bin -Filter "*$p*.dll" -ErrorAction SilentlyContinue |
+              ForEach-Object { $_.Name }
           }
+          "=== absolute-path load of gobject (isolates a missing dependency) ==="
+          C:\cozer\python.exe -c "import os, ctypes, sys; d = os.path.join(sys.prefix, 'Library', 'bin'); _h = os.add_dll_directory(d); ctypes.WinDLL(os.path.join(d, 'gobject-2.0-0.dll')); print('gobject abs-path load OK -> deps resolve; issue is by-name search')"
 
       - name: Smoke test (offscreen — no display in CI)
         shell: pwsh
