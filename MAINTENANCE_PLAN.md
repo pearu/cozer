@@ -164,7 +164,8 @@ until the current bug-hunt stabilizes):** add a release-on-tag workflow step tha
 publishes the `.exe` as a **GitHub Release** asset named exactly
 `COZER-Setup-Windows.exe`, so the guide's direct link
 `…/releases/latest/download/COZER-Setup-Windows.exe` gives a public, one-click,
-account-free download (replacing the login-gated CI artifact).
+account-free download (replacing the login-gated CI artifact). The same release step
+also attaches the cozer **wheel** — the Tier-1 in-app self-update payload (see §6.1).
 
 ---
 
@@ -574,29 +575,44 @@ the single-document view; keep the plan as the living design doc.
 
 #### 6.1 Distribution & in-app self-update *(owner-agreed direction; build during cutover)*
 
-Non-technical users, so `mamba update cozer` is too much. Chosen model — a **thin stable
-runtime** + an **updatable cozer app-code payload**:
+Non-technical Windows users must **never touch `pip`, `mamba`, or a shell** — every update
+happens behind a button. Chosen model — a **thin stable runtime** + an **updatable cozer
+code payload**, in **two tiers** (updated 2026-07-18 to match the `constructor` installer;
+supersedes the earlier PyInstaller + codeload-tarball sketch):
 
-- **Runtime** (Python + PySide6 + weasyprint — rarely change): a **frozen app on Windows**
-  (PyInstaller) and a conda env on Linux, installed once via a real **release**/installer.
-- **App code** (`cozer/` package — changes often, incl. in-event hotfixes) lives in a
-  **writable location** the launcher imports from, so it can be replaced without touching the
-  frozen runtime.
-- **Update mechanism = fetch a GitHub *ref* as a codeload tarball over HTTPS** (stdlib
-  `urllib`+`tarfile`; **no bundled git/gh** — lighter, no extra dependency, public repo needs
-  no auth), verify it imports, **atomically swap** the app-code dir, keep the previous version
-  for **instant rollback**, then prompt restart. The recording journal makes restart safe.
-  - **Stable:** target the latest **release tag** (micro-version bump per fix is fine).
-  - **In-event hotfix:** target the latest commit on `main` (or a `hotfix` branch) — **no
-    release needed**; this closes the loop crash-report → push fix → operator "Update to latest
-    fix" → restart.
-- **UI placement:** `Help → Check for updates…` (with `Help → About` showing the version) +
-  a **dismissible top banner** on a startup check that is *specific* — highlight when a version
-  fixes an issue **this operator reported** (we store their submitted issue URLs in config).
-  **Suppress the banner while a timing session is active**; verify-before-swap; never update
-  mid-race. Reuses the `crashreport` GitHub transport.
-- **Version check** compares `__version__` to the latest release (or to `main`'s HEAD sha for
-  the hotfix channel).
+- **Runtime** (Python + PySide6 + WeasyPrint + native libs — rarely change): the
+  **`constructor` Windows installer** (§4; `installer/`) — a self-contained conda bundle
+  installed once. (Linux: the conda env.)
+- **cozer code** (`cozer/` package — **pure Python**, changes often incl. in-event hotfixes):
+  a small **wheel** installed into the bundled env.
+
+**Tier 1 — cozer-code update (frequent, light, fully in-app):**
+- Each fix/feature ships as a **cozer wheel** attached to a **GitHub Release** (KBs–MBs).
+  Cutting these is cheap → expected to be **frequent**.
+- `Help → Check for updates…` compares `__version__` to the latest release, downloads the
+  wheel over HTTPS (reusing the `crashreport` GitHub transport; auth via the existing
+  device-flow sign-in if the repo is private), **verifies it imports**, then runs
+  `pip install --upgrade` into `sys.prefix` **programmatically behind the button — the user
+  never sees pip**, keeps the previous version for **instant rollback**, and prompts restart.
+  The recording journal makes restart safe.
+- Closes the loop **crash-report → push fix → publish wheel → operator "Update to latest" →
+  restart**, with no new installer. (Optional zero-release hotfix channel: install the wheel
+  from `main`'s latest CI run.)
+
+**Tier 2 — full runtime update (rare):**
+- Only when a release also bumps the **bundled native deps** (Python/Qt/WeasyPrint). Then the
+  operator downloads the **new installer** and reinstalls (still a double-click; no shell).
+- Release metadata carries a **needs-reinstall / minimum-runtime** marker; if a wheel would be
+  incompatible with the installed runtime, the in-app updater says "download the new installer"
+  instead of pip-updating.
+
+**UI / safety (both tiers):** `Help → Check for updates…` + `Help → About` (version); a
+**dismissible startup banner** that is *specific* — highlight when a new version fixes an issue
+**this operator reported** (submitted issue URLs stored in config). **Suppress the banner
+during an active timing session; verify-before-swap; never update mid-race.** Reuses the
+`crashreport` GitHub transport.
+
+**Version check** compares `__version__` to the latest release tag.
 
 #### Current (legacy) install — captured from the project wiki (to preserve)
 
