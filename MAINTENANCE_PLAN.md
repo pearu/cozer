@@ -469,9 +469,13 @@ the single-document view; keep the plan as the living design doc.
   that renders any of the 9 reports to PDF and opens it in the OS viewer (this replaces the
   legacy `os.popen4`/viewer calls). `python -m cozer` launches it; offscreen headless smoke
   tests run in CI.
-- ✅ **5b:** data-entry grids under the General Information tab — Classes / Participants /
-  Rules (editable Qt tables, add/delete rows) + nested Races (race list + class/heat grid) +
-  scoring-system field. Edits are made in place on eventdata; Save snapshots via the store.
+- ✅ **5b:** data entry under the General Information tab — event fields plus **Classes &
+  Participants** (one subtab per class: its race pattern + a participant spreadsheet
+  Boat#/Name/Surname/From, boat-# unique within a class, From-column autocomplete),
+  **Races** (race list + class/heat grid), and **Rules** (scoring system + class-name
+  vocabulary + penalty rules). Edits are made in place on eventdata; Save snapshots via the
+  store. Add-Class is a strict picker over the rule-set catalog and grid input is validated
+  (see 5e).
 - ✅ **5c:** live **Timer** — race selector + per-boat buttons; each click records a lap
   through the store (append + **fsync to the journal immediately**), so a power loss loses
   nothing; autosave toggle; button colors carry state (white=idle / green=in-progress /
@@ -483,11 +487,38 @@ the single-document view; keep the plan as the living design doc.
   Insert-lap / Enable-Disable / Delete on the nearest mark, and zoom. Every edit committed
   through the store (journaled). Geometry + edit ops (`mark_positions`, `insert_lap_split`,
   `toggle_nearest`, `delete_nearest`) are pure/unit-tested; the widget paints them and turns
-  mouse events into them. **Log** pane captures status messages.
-  **GUI complete: 104 tests, 94% (editor 94%).** UX polish welcome after live trial.
-- **UX:** provide a friendlier race-pattern editor — the current
-  `NofHeats*(NofLaps*LapLength+..):Scored` syntax is cryptic — while keeping the internal
-  pattern-string representation unchanged (parsed by `crack_race_pattern`).
+  mouse events into them. **Log** pane captures status messages. Post-race edits are now
+  **buffered** (a per-heat draft) and written only on "Save changes" — leaving a modified
+  record prompts save/discard/cancel, so an accidental finish-line drag can't silently
+  overwrite a completed race; the row-header column is frozen (always visible when zoomed).
+- ✅ **5e (rule sets, patterns, validation, CLI, reporting):**
+  - **Composable rule sets** on the ordinary `.coz`/`.cozj` structure — no new format. Two
+    additive `eventdata` keys: `kind` (`"event"`/`"ruleset"`) and a `classnames` vocabulary
+    (the `classes`/`participants` representations are unchanged). A *ruleset* file defines only
+    scoring / class names / rules and opens in a **restricted editor**; an event **imports**
+    rulesets **non-destructively** (adds new class names + rules, fills empty scoring, never
+    overwrites). Bundled UIM rulesets ship under `cozer/rulesets/`; opening a legacy `.coz`
+    seeds class names from its classes. `python -m cozer f1.cozj f2.cozj …` accumulates
+    several files (rulesets → a fresh event, or applied to one event file), reporting any
+    conflicts to the terminal + Log.
+  - **Race-pattern dialog** — structured circuit fields (first/other lap, laps, heats, scored)
+    + live preview + an editable raw string for endurance/exotic patterns; the internal
+    pattern string is unchanged (parsed by `crack_race_pattern`).
+  - **Input validation** (parity with legacy `ValidateTable`; *cozer suggests, the organizer
+    decides*): Races class/heat are editable dropdowns offering the defined classes and the
+    valid next heats from `get_heats` (encoding the `N`→`N+1` and `N`→`Nr`→`NR` ordering);
+    an undefined or duplicated class is **hard-rejected**, an out-of-order heat is advisory;
+    duplicate `(action, paragraph)` rules are advisory; blank paragraphs and status markers
+    (Q/NQ/IR/DS) are never flagged.
+  - **Crash & bug reporting** — uncaught exceptions and in-app bug reports file to the cozer
+    GitHub issues via **device-flow OAuth**, attaching the event/journal for reproduction;
+    offline reports queue and submit on sign-in. Feeds the §6.1 self-update loop.
+  **GUI + app suite runs green in CI (offscreen, Linux + Windows).** UX polish welcome after
+  the live trial.
+- ✅ **UX:** friendlier race-pattern editor — the cryptic
+  `NofHeats*(NofLaps*LapLength+..):Scored` syntax now has a structured dialog with a live
+  preview (5e), keeping the internal pattern-string representation unchanged
+  (parsed by `crack_race_pattern`).
 - **UX:** apply a **color scheme** (the app is currently default black-and-white). Reuse the
   legacy palette from `legacy/cozer/prefs.py` — `edit_bg`/`warning_bg`/`disableedit_bg` for
   cells, and `mycolors`/`reccodecolours` for the Timer button states (waiting/coming/late/
