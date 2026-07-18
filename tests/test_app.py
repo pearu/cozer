@@ -160,17 +160,22 @@ def test_system_child_env_drops_conda_fontconfig(monkeypatch):
     # cozer exports FONTCONFIG_FILE (a private conf) + a conda LD_LIBRARY_PATH; a
     # system viewer must inherit NEITHER, else it parses cozer's env confs with the
     # system libfontconfig (xsi:nil warnings) or loads incompatible conda libs.
-    monkeypatch.setattr(appmain.sys, "prefix", "/opt/conda/envs/cozer")
+    # Paths built with os.sep/os.pathsep so the assertion holds on POSIX and Windows.
+    prefix = os.sep + os.path.join("opt", "conda", "envs", "cozer")
+    conda_lib = os.path.join(prefix, "lib")
+    other = os.sep + os.path.join("usr", "local", "lib")
+    monkeypatch.setattr(appmain.sys, "prefix", prefix)
     monkeypatch.delenv("CONDA_PREFIX", raising=False)
-    monkeypatch.setenv("FONTCONFIG_FILE", "/opt/conda/envs/cozer/etc/cozer-fonts.conf")
-    monkeypatch.setenv("FONTCONFIG_PATH", "/opt/conda/envs/cozer/etc/fonts")
-    monkeypatch.setenv("LD_LIBRARY_PATH", "/opt/conda/envs/cozer/lib:/usr/local/lib")
+    monkeypatch.setenv("FONTCONFIG_FILE", os.path.join(prefix, "etc", "cozer-fonts.conf"))
+    monkeypatch.setenv("FONTCONFIG_PATH", os.path.join(prefix, "etc", "fonts"))
+    monkeypatch.setenv("LD_LIBRARY_PATH", os.pathsep.join([conda_lib, other]))
     env = appmain._system_child_env()
     assert "FONTCONFIG_FILE" not in env and "FONTCONFIG_PATH" not in env
-    assert env["LD_LIBRARY_PATH"] == "/usr/local/lib"      # conda entry stripped, rest kept
+    assert env["LD_LIBRARY_PATH"] == other                # conda entry stripped, rest kept
 
 
 def test_open_in_viewer_uses_clean_env(monkeypatch):
+    monkeypatch.setattr(appmain.sys, "platform", "linux")  # force the xdg-open branch
     monkeypatch.setattr(appmain.sys, "prefix", "/opt/conda/envs/cozer")
     monkeypatch.delenv("CONDA_PREFIX", raising=False)
     monkeypatch.setenv("FONTCONFIG_FILE", "/opt/conda/envs/cozer/etc/cozer-fonts.conf")
@@ -181,7 +186,7 @@ def test_open_in_viewer_uses_clean_env(monkeypatch):
         return object()
     monkeypatch.setattr(appmain.subprocess, "Popen", fake_popen)
     appmain.open_in_viewer("/tmp/x.pdf")
-    assert captured["argv"][0] in ("xdg-open", "open")    # system opener spawned
+    assert captured["argv"][0] == "xdg-open"             # system opener spawned
     assert "FONTCONFIG_FILE" not in captured["env"]       # child env sanitized
 
 
