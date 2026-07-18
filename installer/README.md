@@ -25,11 +25,14 @@ PyInstaller/briefcase have with WeasyPrint.
 - `dist/` — build output: the cozer wheel goes here before running constructor
   (gitignored).
 
-> The first CI run surfaced the classic conda-on-Windows gotcha: WeasyPrint's
+> The first CI runs surfaced the classic conda-on-Windows gotcha: WeasyPrint's
 > `libgobject-2.0-0.dll` (and glib/pango/cairo/fontconfig) live in
-> `<prefix>\Library\bin`, which isn't on the DLL search path for a directly-run
-> `python.exe` — hence `cozer-launch.pyw`'s `os.add_dll_directory` and the same
-> setup mirrored in the smoke test.
+> `<prefix>\Library\bin`, off the DLL search path for a directly-run `python.exe`.
+> Fix: `cozer-launch.pyw` sets `WEASYPRINT_DLL_DIRECTORIES=<prefix>\Library\bin`
+> (WeasyPrint's supported hook — it splits on `;` and `add_dll_directory`s each,
+> loading with `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS`) plus a **bound**
+> `os.add_dll_directory` for Qt (the returned handle must be kept, else the dir is
+> removed on GC). The smoke test mirrors this exactly.
 
 ## Source of truth
 `construct.yaml`'s `specs` mirror the **runtime subset** of the top-level
