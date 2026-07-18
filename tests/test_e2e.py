@@ -20,6 +20,7 @@ import cozer.app.main as appmain  # noqa: E402
 from cozer.app.main import MainWindow, _REPORTS  # noqa: E402
 from cozer.app.ruleset import bundled_dir, import_ruleset  # noqa: E402
 from cozer.store import EventStore, loads, read_legacy_coz  # noqa: E402
+from cozer.raceclock import RaceClock  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -109,7 +110,8 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
     tp.reload()
     tp.race_combo.setCurrentIndex(0)
     clock = [1000.0]
-    tp._clock = lambda: clock[0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))   # fake race clock, seconds->ns
     tp.on_start()
     assert ("O-500", "1", "1") in tp._buttons
     for boat in ("1", "2"):
@@ -219,7 +221,8 @@ def _reenact_heat(w, cl, h, source_heat):
               if any(len(r) > 2 and r[1] == cl and r[2] == h for r in race))
     tp.race_combo.setCurrentIndex(ri)
     clock = [0.0]                                   # start-time is 0; arrivals are cumulative
-    tp._clock = lambda: clock[0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))   # fake race clock, seconds->ns
     tp.on_start()
     arrivals = []
     for boat, marks in marks_by_boat.items():

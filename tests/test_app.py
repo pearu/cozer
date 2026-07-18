@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt  # noqa: E402
 
 from cozer.store import read_legacy_coz  # noqa: E402
 from cozer.racepattern import get_classes  # noqa: E402
+from cozer.raceclock import RaceClock  # noqa: E402
 import cozer.app.main as appmain  # noqa: E402
 from cozer.app.main import MainWindow  # noqa: E402
 
@@ -684,7 +685,8 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     tp = w.timer_panel
     clock = [1000.0]
-    tp._clock = lambda: clock[0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))   # fake race clock, seconds->ns
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
     assert tp._started and ("GT", "1", "1") in tp._buttons
@@ -749,7 +751,8 @@ def test_timer_running_order_and_both_views_record(tmp_path, monkeypatch):
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     tp = w.timer_panel
     clock = [1000.0]
-    tp._clock = lambda: clock[0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))   # fake race clock, seconds->ns
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
     # a boat button exists in BOTH the grid and the ladder
@@ -792,9 +795,12 @@ def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
     w = MainWindow(_timer_event())
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     tp = w.timer_panel
-    tp._clock = lambda: 100.0
+    clock = [100.0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
+    clock[0] = 130.0                          # 30 s lap (above the bounce floor)
     tp.record_lap("GT", "1", "1")
     tp.on_stop()
     assert not tp._started
@@ -836,7 +842,7 @@ def test_timer_reload_stop_autosave(tmp_path, monkeypatch):
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     tp = w.timer_panel
     assert tp.race_combo.count() == 1
-    tp._clock = lambda: 100.0
+    tp._wall = lambda: 100.0                  # no laps recorded here; default race clock is fine
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
     assert tp._started

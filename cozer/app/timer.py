@@ -30,7 +30,13 @@ from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
 from cozer.racepattern import crack_race_pattern
+from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
+
+# A click within this of a boat's last is a hardware/double-click bounce, not a lap
+# -> dropped. Genuine near-simultaneous mis-clicks (>= this, within ~10 s) are kept
+# for the editor/analyzer to resolve. Owner-set floor.
+_MIN_LAP = 0.01     # seconds
 
 # Legacy prefs palette (RGB) — see legacy/cozer/prefs.py mycolors.
 C_READY = "#00ff7f"         # readymark
@@ -182,10 +188,11 @@ class GridButtons(QWidget):
 
 
 class TimerPanel(QWidget):
-    def __init__(self, window, clock=time.time):
+    def __init__(self, window, wall=time.time, clock=None):
         super().__init__()
         self.window = window
-        self._clock = clock
+        self._wall = wall                          # wall clock: displayed start time + resume bridge
+        self._clock = clock or make_race_clock()   # race elapsed: monotonic, NTP-immune, sleep-safe
         self._started = False
         self._heats = []
         self._buttons = {}          # (cl, h, pid) -> grid QPushButton
@@ -370,7 +377,8 @@ class TimerPanel(QWidget):
             return
         if self._has_data() and not self._confirm_overwrite():   # pragma: no cover - dialog
             return
-        now = self._clock()
+        now = self._wall()              # wall start time, stored for display
+        self._clock.start()             # race elapsed starts at 0
         self._heats = self._race_heats(race)
         for cl, h in self._heats:
             self.setup_heat(cl, h, now)
@@ -390,9 +398,15 @@ class TimerPanel(QWidget):
     def on_resume(self):
         if not self._ensure_store():
             return
-        if not any((self._rec(cl, h) or [{}])[0].get("starttime") for cl, h in self._heats):
+        starts = [(self._rec(cl, h) or [{}])[0].get("starttime") for cl, h in self._heats]
+        starts = [s for s in starts if s is not None]
+        if not starts:
             self.status.setText("Nothing to resume — press Start.")
             return
+        # the race clock reset when the process restarted, so bridge the downtime via
+        # the wall clock: resume the race at (wall now - start) elapsed. Within the
+        # resumed session the clock is monotonic/NTP-immune again.
+        self._clock.start(int((self._wall() - min(starts)) * 1e9))
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
@@ -411,7 +425,10 @@ class TimerPanel(QWidget):
             return
         rec = self.eventdata["record"][cl][h]
         prev = sum(gettimes(rec[1].get(pid, [])))
-        laptime = round2(self._clock() - rec[0]["starttime"] - prev)
+        laptime = round2(self._clock.read_ns() / 1e9 - prev)
+        if laptime < _MIN_LAP:             # hardware/double-click bounce, not a lap -> drop
+            self.status.setText("Ignored a %.3fs bounce for boat %s" % (laptime, pid))
+            return
         self.window.store.record({"op": "lap", "cl": cl, "h": h, "id": pid,
                                   "mark": [1, laptime]})
         grid = self._grids.get((cl, h))
