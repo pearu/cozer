@@ -533,11 +533,16 @@ the single-document view; keep the plan as the living design doc.
 
 ### Phase 6 — Cutover
 - Full **mock event end-to-end**, in two complementary forms:
-  - ☐ **Automated e2e integration test** (CI) — drives the *real* code through the whole
-    pipeline in one run: new event → import rulesets → add classes/participants/patterns →
-    create races → record laps through the Timer/store (journaled) → edit records → render
-    **all 9 reports** to a temp dir → simulate a crash + journal-replay recovery → assert
-    consistency. Catches cross-part regressions the per-part unit tests can't.
+  - ✅ **Automated e2e integration tests** (`tests/test_e2e.py`, CI): (1) a from-scratch run —
+    new event + store → import rulesets → classes/participants/patterns/races → record laps
+    through the Timer/store (journaled) → power-loss journal-replay recovery → edit records +
+    save → render **all 9 reports**; (2) **wc2000 updated to 2026 rules** (real data, class
+    names remapped to the 2026 catalog) → analysis comparability + snapshot round-trip +
+    representative reports; (3) **full heat re-enactment** — rebuilds a real wc2000 heat
+    *purely through button clicks + Edit Records* (the recording paths, not by initialising
+    the structures) and asserts it matches the historical record exactly. Catches cross-part
+    regressions the per-part unit tests can't. *(Extending the re-enactment to every heat is a
+    future slow test.)*
   - ☐ **Manual acceptance pass** — a human runs the same flow for what a test can't judge:
     UX flow and report *quality/appearance*.
 - ☐ **User guide / tutorial** *(follow-up to the e2e test)* — a non-technical-operator
