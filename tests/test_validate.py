@@ -10,65 +10,96 @@ from cozer.validate import check_results, format_findings
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _event(course_laps, boat_laps, ss=(400, 300, 225), classname="C", extra_heats=None):
-    """One class with heat '1': a `course_laps`-lap course where boat i completes
-    boat_laps[i] laps (clean laps ~30s apart)."""
+def _complete_event(course_laps, boat_laps, ss=(400, 300, 225)):
+    """A class whose boats each complete `boat_laps[i]` clean laps of a
+    `course_laps`-lap course."""
     rec = {str(i): [(1, 30.0 + i * 0.1)] * nl for i, nl in enumerate(boat_laps, 1)}
-    heats = {"1": [{"course": [1000] * course_laps}, rec]}
-    if extra_heats:
-        heats.update(extra_heats)
-    return {"record": {classname: heats},
-            "classes": [["", classname, "1*(%d*1000):1" % course_laps]],
+    return {"record": {"C": {"1": [{"course": [1000] * course_laps}, rec]}},
+            "classes": [["", "C", "1*(%d*1000):1" % course_laps]],
             "scoringsystem": list(ss), "races": [], "rules": [], "participants": []}
+
+
+def _stopped_heat(course, lap_secs, ss=(400, 300, 225), extra=None, cfg=None, classname="C"):
+    """A stopped heat: each boat runs `nl` laps at a constant `sec`/lap, so the
+    fastest boat finishes first (defining the race-stop time) and slower boats
+    cross AFTER it -- so they score while the fast 'leader' is DNF (no lap after
+    the stop line). This is the real shape of a stopped fixed-lap heat."""
+    rec = {str(i): [(1, float(sec))] * nl for i, (nl, sec) in enumerate(lap_secs, 1)}
+    heats = {"1": [{"course": [1000] * course}, rec]}
+    if extra:
+        heats.update(extra)
+    ed = {"record": {classname: heats},
+          "classes": [["", classname, "1*(%d*1000):1" % course]],
+          "scoringsystem": list(ss), "races": [], "rules": [], "participants": []}
+    if cfg is not None:
+        ed["configure"] = cfg
+    return ed
 
 
 def _codes(findings):
     return sorted(f.code for f in findings)
 
 
+# a leader 6/10 laps = 60% < the UIM 70% threshold (int(0.7*10)=7)
+_SUB70 = [(6, 20.0), (6, 22.0), (6, 24.0)]
+
+
 def test_complete_heat_is_clean():
-    ed = _event(course_laps=2, boat_laps=[2, 2, 2])       # everyone finishes the 2-lap course
-    assert check_results(ed) == []
+    assert check_results(_complete_event(course_laps=2, boat_laps=[2, 2, 2])) == []
 
 
-def test_incomplete_heat_without_restart_warns():
-    ed = _event(course_laps=3, boat_laps=[2, 2, 2])       # nobody finishes the 3-lap course
-    codes = _codes(check_results(ed))
-    assert "incomplete-heat" in codes
+def test_stopped_heat_below_threshold_warns():
+    codes = _codes(check_results(_stopped_heat(10, _SUB70)))
+    assert "incomplete-heat" in codes                      # leader < 70% -> a restart is missing
 
 
-def test_incomplete_heat_with_restart_is_ok():
-    restart = {"1r": [{"course": [1000] * 3}, {"1": [(1, 30.0)] * 3}]}   # a restart was run
-    ed = _event(course_laps=3, boat_laps=[2, 2, 2], extra_heats=restart)
+def test_restart_suppresses_incomplete_heat():
+    restart = {"1r": [{"course": [1000] * 10}, {"1": [(1, 20.0)] * 10}]}
+    assert "incomplete-heat" not in _codes(check_results(_stopped_heat(10, _SUB70, extra=restart)))
+
+
+def test_inserted_lap_stop_crossing_suppresses_incomplete_heat():
+    ed = _stopped_heat(10, _SUB70)
+    ed["record"]["C"]["1"][1]["2"] = [(1, 22.0)] * 5 + [(2, 22.0)]   # inserted lap after the stop line
+    assert "incomplete-heat" not in _codes(check_results(ed))
+
+
+def test_threshold_is_discipline_configurable():
+    # a non-UIM 50% threshold -> int(0.5*10)=5; leader did 6 >= 5 -> no restart needed
+    ed = _stopped_heat(10, _SUB70, cfg={"requiredlapscoef": 0.5})
     assert "incomplete-heat" not in _codes(check_results(ed))
 
 
 def test_endurance_heat_not_flagged_incomplete():
-    ed = _event(course_laps=3, boat_laps=[2, 2, 2])
-    ed["record"]["C"]["1"][0]["duration"] = 3600          # duration race: not lap-completion
+    ed = _stopped_heat(10, _SUB70)
+    ed["record"]["C"]["1"][0]["duration"] = 3600           # duration race: not lap-completion
     assert "incomplete-heat" not in _codes(check_results(ed))
 
 
 def test_qualification_heat_skipped():
-    ed = _event(course_laps=3, boat_laps=[2, 2], classname="C/Q")
+    ed = _stopped_heat(10, _SUB70, classname="C/Q")
     ed["record"]["C/Q"] = {"1q": ed["record"]["C/Q"].pop("1")}
-    assert check_results(ed) == []                        # q heat: scored differently, not flagged
+    assert check_results(ed) == []                          # q heats: scored differently, not flagged
 
 
 def test_empty_scoring_system_warns():
-    ed = _event(course_laps=2, boat_laps=[2, 2], ss=())
-    assert "empty-scoring" in _codes(check_results(ed))
+    assert "empty-scoring" in _codes(check_results(_complete_event(2, [2, 2], ss=())))
 
 
-def test_liepaja_real_incomplete_and_no_first_place():
+def test_liepaja_real_place_gap_but_not_incomplete():
     ed = store.read_legacy_coz(os.path.join(REPO, "legacy", "events", "Liepaja_2006.coz"))
-    f = check_results(ed)
-    f2h3 = [x for x in f if x.cl == "F-2" and x.heat == "3"]
-    assert {x.code for x in f2h3} == {"incomplete-heat", "no-first-place"}
-    assert all(isinstance(line, str) and line for line in format_findings(f))
+    f2h3 = {x.code for x in check_results(ed) if x.cl == "F-2" and x.heat == "3"}
+    assert "place-gap" in f2h3                 # places [2,3], no 1st: leader has no post-stop-line lap
+    assert "incomplete-heat" not in f2h3       # leader did 10/12 (>=70%) -> no restart required
+
+
+def test_messages_are_actionable():
+    lines = format_findings(check_results(_stopped_heat(10, _SUB70)))
+    joined = " ".join(lines)
+    assert "stop" in joined and "restart" in joined and all(l for l in lines)
 
 
 def test_never_raises_on_garbage():
     for bad in ({}, {"record": None}, {"record": {"C": {"1": "nonsense"}}},
                 {"record": {"C": {"1": [{}, {"x": [("?",)]}]}}, "scoringsystem": None}):
-        assert isinstance(check_results(bad), list)       # returns a list, never raises
+        assert isinstance(check_results(bad), list)

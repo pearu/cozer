@@ -24,6 +24,23 @@ def _laps(marks):
     return sum(1 for m in marks if abs(m[0]) in (LAP, INSERTED_LAP) and m[0] > 0)
 
 
+# The "restart required" lap fraction is a DISCIPLINE rule, not a fixed constant:
+# U.I.M. 311.02.1 uses 0.70, but non-UIM competitions may differ. Read it from
+# event config (defaulting to the UIM value) so it can be exposed/edited per event
+# in the Rules tab. NOTE: the analyzer still hardcodes requiredlapscoef=0.70; the
+# follow-up (Rules-tab exposure) should thread this same value into analyze() so
+# the two agree. Keep the default in sync with the analyzer until then.
+_DEFAULT_REQUIRED_LAPS_COEF = 0.70
+
+
+def _required_laps_coef(eventdata):
+    try:
+        v = (eventdata.get("configure") or {}).get("requiredlapscoef")
+        return float(v) if v is not None else _DEFAULT_REQUIRED_LAPS_COEF
+    except (TypeError, ValueError):
+        return _DEFAULT_REQUIRED_LAPS_COEF
+
+
 def check_results(eventdata):
     """Return a list of :class:`Finding` warnings about suspicious result data.
 
@@ -55,25 +72,40 @@ def check_results(eventdata):
                 if not places:
                     continue
 
-                # A fixed-lap heat nobody finished, with no restart recorded, was
-                # probably stopped early (accident/red flag) -- the classic case
-                # that yields a confusing report (e.g. Liepaja 2006 F-2 heat 3).
+                # A stopped fixed-lap heat only needs a restart if the leader
+                # finished under the discipline threshold (U.I.M. 311.02.1: 70%);
+                # and a stop already recorded via inserted-lap crossings is handled.
+                # Flag only a genuinely missing restart, and say what to do.
                 course_len = len(info.get("course", []) or [])
                 if info.get("duration") is None and course_len:
                     maxlaps = max((_laps(rec[p]) for p in rec), default=0)
-                    if maxlaps < course_len and not (
-                            (h + "r") in heats or (h + "R") in heats):
+                    coef = _required_laps_coef(eventdata)
+                    minrequired = int(coef * course_len)
+                    stop_handled = any(abs(m[0]) == INSERTED_LAP for p in rec for m in rec[p])
+                    has_restart = (h + "r") in heats or (h + "R") in heats
+                    if maxlaps < minrequired and not has_restart and not stop_handled:
+                        pct = int(coef * 100)
                         findings.append(Finding(
                             "warning", cl, h, "incomplete-heat",
-                            "no boat completed the %d-lap course (best %d laps) and no restart is "
-                            "recorded — the heat may have been stopped early" % (course_len, maxlaps)))
+                            "leader completed only %d of %d laps (< %d%%) and no restart is "
+                            "recorded — the heat may have been stopped early. A boat scores only "
+                            "with a lap after the race stop line: record each finished boat's "
+                            "stop-race-line crossing (or insert a lap mark after it), or run a "
+                            "restart (required only if the leader finished under %d%% of the "
+                            "course)." % (maxlaps, course_len, pct, pct)))
 
-                # Scored results with no 1st place: a leading boat is unclassified.
-                if 1 not in places:
+                # Scored placings should be a contiguous 1..N. Any gap (or a missing
+                # 1st) means a boat that would place is unclassified -- commonly a
+                # stopped heat where it has no lap after the race stop line, so it is
+                # DNF (see the analyzer's leadertime rule).
+                if places != list(range(1, len(places) + 1)):
+                    missing = sorted(set(range(1, len(places) + 1)) - set(places))
                     findings.append(Finding(
-                        "warning", cl, h, "no-first-place",
-                        "results have places %s but no 1st place — a leading boat is unclassified"
-                        % (places[:6],)))
+                        "warning", cl, h, "place-gap",
+                        "scored placings are %s, not a contiguous 1..%d (missing %s) — a boat that "
+                        "would place is unclassified (commonly DNF: no lap recorded after the race "
+                        "stop line); if it finished, record its stop-line crossing"
+                        % (places[:8], len(places), missing or "n/a")))
     except Exception:                               # validation must never break the app
         pass
     return findings
