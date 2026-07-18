@@ -52,16 +52,19 @@ def ruleset_payload(source):
 
 
 def _rule_key(r):
-    # dedup rules by (action, paragraph, description), ignoring the index-0 sort field
-    padded = (list(r) + ["", "", "", ""])[:4]
-    return tuple(str(x) for x in padded[1:4])
+    # A rule's identity is (action, paragraph); the index-0 sort field and the
+    # index-3 human description are NOT part of it, so a reworded same-paragraph
+    # rule is the same rule (deduped, existing kept), matching accumulate_ruleset.
+    padded = (list(r) + ["", "", ""])[:3]   # 3 pads: a short/empty rule can't IndexError
+    return (str(padded[1]), str(padded[2]))
 
 
 def import_ruleset(event, source):
-    """Additively merge ``source`` (a ruleset or event dict) into ``event`` in
-    place. Class names and rules are unioned (order-preserving, deduped); a
-    non-empty imported scoring system replaces the event's (an empty one leaves
-    it untouched). Returns the list of changed ``event`` keys."""
+    """Additively, **non-destructively** merge ``source`` (a ruleset or event dict)
+    into ``event`` in place. Class names and rules are unioned (order-preserving,
+    deduped by (action, paragraph)); the imported scoring system fills the event's
+    only if it has none -- an existing scoring system is never overwritten.
+    Returns the list of changed ``event`` keys."""
     payload = ruleset_payload(source)
     changed = []
 
@@ -89,8 +92,9 @@ def import_ruleset(event, source):
         event["rules"] = rules
         changed.append("rules")
 
-    if payload["scoringsystem"] and \
-            payload["scoringsystem"] != list(event.get("scoringsystem") or []):
+    # scoring system: fill only if the event has none -- never overwrite. An event
+    # that already scores keeps it; an import then contributes only names + rules.
+    if payload["scoringsystem"] and not (event.get("scoringsystem") or []):
         event["scoringsystem"] = list(payload["scoringsystem"])
         changed.append("scoringsystem")
 
