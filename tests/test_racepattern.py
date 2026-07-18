@@ -63,3 +63,28 @@ def test_crack_never_executes_code(tmp_path):
     with pytest.raises(Exception):
         crack_race_pattern(payload)
     assert not marker.exists()
+
+
+def test_crack_bounds_heats_and_laps():
+    """A fat-fingered or pasted huge count raises a clean ValueError instead of
+    hanging range() -- the parser runs live on every keystroke of the pattern
+    preview, so a hang would freeze the UI. The caps are generous (100 heats,
+    10000 laps/heat) so no real pattern is ever rejected: a class races well under
+    10 heats, and even a long endurance heat (~300 laps) is far under the ceiling."""
+    assert len(crack_race_pattern("100*1000")[0]) == 100          # exactly at the heat cap
+    assert len(crack_race_pattern("1*(300*1000)")[0][0]) == 300   # endurance-scale laps ok
+    with pytest.raises(ValueError):
+        crack_race_pattern("101*1000")                            # over the heat cap
+    with pytest.raises(ValueError):
+        crack_race_pattern("10000000*1000")                       # fat-finger heats (would hang)
+    with pytest.raises(ValueError):
+        crack_race_pattern("1*(10000000*1000)")                   # fat-finger laps (would hang)
+
+
+@pytest.mark.parametrize("bad", ["", "3*", ":5", "+*1000", "1.5*1000",
+                                 "1000/2/3", "1000/", "()", "abc"])
+def test_crack_rejects_malformed_cleanly(bad):
+    """Malformed patterns raise a clean ValueError -- not IndexError / TypeError /
+    an unpack error -- so every caller's try/except catches them uniformly."""
+    with pytest.raises(ValueError):
+        crack_race_pattern(bad)

@@ -50,6 +50,32 @@ def _num_node(node, expr):
     raise ValueError("unsupported race-pattern expression: %r" % (expr,))
 
 
+# Domain caps on a parsed pattern, so a fat-fingered or pasted count (e.g.
+# ``10000000*1000``) raises a clean ValueError instead of hanging the parser in
+# range() -- which runs live on every keystroke of the pattern-entry preview, so a
+# hang would freeze the whole UI. A class realistically races well under 10 heats,
+# so 100 is a very safe ceiling. Laps run higher -- an endurance heat can be ~300
+# laps -- so the lap ceiling is set far above any conceivable real value (still
+# instant to expand); both caps exist only to stop a pathological count, never to
+# reject a legitimate pattern.
+_MAX_HEATS = 100
+_MAX_LAPS_PER_HEAT = 10000
+
+
+def _count(expr):
+    """A repetition count (number of heats or laps) as a non-negative int. A
+    fraction like ``1.5`` cannot index range() (legacy raised TypeError); reject it
+    -- and any negative -- with a clean, catchable ValueError instead."""
+    n = _parse_num(expr)
+    if isinstance(n, float):
+        if not n.is_integer():
+            raise ValueError("race-pattern count must be a whole number: %r" % (expr,))
+        n = int(n)
+    if n < 0:
+        raise ValueError("race-pattern count must be non-negative: %r" % (expr,))
+    return n
+
+
 def markoutercomma(line, comma=','):
     """Mark top-level (unparenthesised) occurrences of ``comma`` as ``@<c>@``."""
     l = ''
@@ -75,13 +101,16 @@ def crack_race_pattern(pat, cl='', warn=None):
     """
     pat = pat.replace(' ', '')
     if '/' in pat:
-        ll, hours = pat.split('/')
+        parts = pat.split('/')
+        if len(parts) != 2:
+            raise ValueError("invalid endurance race pattern: %r" % (pat,))
+        ll, hours = parts
         if '*' in ll:
-            nlaps, ll = ll.split('*')
+            nlaps, ll = ll.split('*', 1)
             nlaps = '1'
         else:
             nlaps = '1'
-        return [[_parse_num(ll)] * _parse_num(nlaps)], 1, _parse_num(hours) * 60 * 60
+        return [[_parse_num(ll)] * _count(nlaps)], 1, _parse_num(hours) * 60 * 60
     apat = pat.split(':')
     pat = apat[0]
     apat = apat[1:]
@@ -95,10 +124,15 @@ def crack_race_pattern(pat, cl='', warn=None):
         else:
             m = [m[0], '*'.join(m[1:])]
         m[1] = m[1].strip()
+        if not m[1]:
+            raise ValueError("empty lap spec in race pattern: %r" % (pat,))
         if m[1][0] == '(' and m[1][-1] == ')':
             m[1] = m[1][1:-1]
-        hh = _parse_num(m[0])
+        hh = _count(m[0])
         for _i in range(hh):
+            if len(ret) >= _MAX_HEATS:          # bound before range(hh) expands
+                raise ValueError("too many heats for a class (max %d): %r"
+                                 % (_MAX_HEATS, pat))
             ret.append([])
             for t in markoutercomma(m[1], '+').split('@+@'):
                 k = markoutercomma(t, '*').split('@*@')
@@ -108,8 +142,11 @@ def crack_race_pattern(pat, cl='', warn=None):
                     k = [k[0], k[1]]
                 else:
                     k = [k[0], '*'.join(k[1:])]
-                nl = _parse_num(k[0])
+                nl = _count(k[0])
                 llen = _parse_num(k[1])
+                if len(ret[-1]) + nl > _MAX_LAPS_PER_HEAT:   # bound before range(nl) expands
+                    raise ValueError("too many laps in a heat (max %d): %r"
+                                     % (_MAX_LAPS_PER_HEAT, pat))
                 for _j in range(nl):
                     ret[-1].append(llen)
     try:
