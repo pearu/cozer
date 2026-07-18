@@ -1,0 +1,59 @@
+name: Windows installer
+
+# Manual (and on version tags) — building a full installer is heavy, so it does
+# NOT run on every push. Produces a downloadable .exe artifact and smoke-tests it.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build environment (constructor + wheel tooling)
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: build
+          # constructor needs conda-standalone (or micromamba) to lay down the
+          # bundled base; nsis provides the Windows installer backend.
+          create-args: >-
+            python=3.13 constructor conda-standalone nsis python-build
+          cache-environment: true
+
+      - name: Build the cozer wheel
+        run: python -m build --wheel --outdir installer/dist
+
+      - name: Build the installer (.exe)
+        run: constructor installer --output-dir dist-installer
+
+      - name: Locate the installer
+        id: find
+        run: echo "exe=$(ls dist-installer/COZER-*.exe)" >> "$GITHUB_OUTPUT"
+
+      - name: Silent install to C:\cozer
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath ".\${{ steps.find.outputs.exe }}" -ArgumentList '/S','/D=C:\cozer'
+          if (!(Test-Path 'C:\cozer\python.exe')) { throw 'install failed: no python.exe' }
+
+      - name: Smoke test (offscreen — no display in CI)
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          # Verifies the bundled env actually works: Qt loads, cozer imports, and
+          # WeasyPrint renders a PDF (its native cairo/pango/fontconfig deps are present).
+          C:\cozer\python.exe -c "import cozer, weasyprint; from PySide6 import QtWidgets; QtWidgets.QApplication([]); weasyprint.HTML(string='<p>ok</p>').write_pdf('smoke.pdf'); print('smoke OK')"
+
+      - name: Publish the installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cozer-windows-installer
+          path: ${{ steps.find.outputs.exe }}
+          if-no-files-found: error

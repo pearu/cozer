@@ -1,0 +1,43 @@
+# constructor config — builds a single native installer that bundles a conda
+# base + cozer's runtime dependencies. Build ON the target OS (a Windows box or
+# CI produces the .exe):
+#
+#     conda install -c conda-forge constructor   # + NSIS is pulled in on Windows
+#     cd installer && constructor .              # -> COZER-<version>-Windows-x86_64.exe
+#
+# DRAFT: authored on Linux; the Windows-specific bits (NSIS build, post_install
+# shortcut) must be validated on a Windows box / CI — see README.md.
+#
+# `constructor` installs conda PACKAGES from `specs` below. Those mirror the
+# RUNTIME subset of ../environment.yml (pytest/pytest-cov/hypothesis/pymupdf are
+# test-only and omitted to keep the installer lean). Keep them in sync with
+# ../environment.yml; cozer itself is added by post_install.bat (from a wheel
+# built beside this file).
+
+name: COZER
+version: 3.0.0.dev0          # keep in sync with pyproject.toml + cozer/__init__.py
+company: COZER
+
+channels:
+  - conda-forge
+
+specs:
+  - python=3.13
+  - pyside6                  # Qt GUI
+  - weasyprint               # HTML/CSS -> PDF reports (+ cairo/pango/gdk-pixbuf/fontconfig)
+  - pip                      # used by post_install to install cozer itself
+
+installer_type: exe          # Windows NSIS installer (built on a Windows runner)
+
+# a GUI app, not a shell base: don't offer to modify PATH / init the shell
+initialize_by_default: false
+register_python_default: false
+keep_pkgs: false
+
+# runs after the base env is laid down; %PREFIX% = install location
+post_install: post_install.bat
+
+# ship the cozer wheel inside the installer so post_install can pip-install it
+# offline. The wheel is built into installer/dist/ before running constructor.
+extra_files:
+  - dist/cozer-3.0.0.dev0-py3-none-any.whl
