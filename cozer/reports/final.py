@@ -119,13 +119,14 @@ def _table_html(t, labels, full):
     L = labels
     heats = t["heats"]
     if full:
-        pair = 57.0 / len(heats) if heats else 57.0
+        # Heats and the Summary hold the same kind of data (result + points), so give
+        # them equal-width result+points column pairs (issue #14).
+        pair = 69.0 / (len(heats) + 1)
         cols = ['<col style="width:4%">', '<col style="width:15%">',
                 '<col style="width:8%">', '<col style="width:4.5%">']
-        for _h in heats:
+        for _ in range(len(heats) + 1):        # one pair per heat, plus one for the Summary
             cols.append('<col style="width:%.2f%%">' % (pair * 0.58))
             cols.append('<col style="width:%.2f%%">' % (pair * 0.42))
-        cols += ['<col style="width:7%">', '<col style="width:5%">']
         head1 = ('<tr><th colspan="4"></th>'
                  + "".join('<th class="num" colspan="2">%s %s</th>' % (esc(L["Heat"]), esc(h)) for h in heats)
                  + '<th class="num" colspan="2">%s</th></tr>' % esc(L["Summary"]))

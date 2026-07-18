@@ -664,7 +664,8 @@ class MainWindow(QMainWindow):
     def _on_report_bug(self):     # pragma: no cover - modal input dialog
         text, ok = QInputDialog.getMultiLineText(
             self, "Report a bug",
-            "Describe what happened. The current event is attached so it can be reproduced:")
+            "Describe what happened — the first line becomes the issue title.\n"
+            "The current event is attached so it can be reproduced:")
         if ok and text.strip():
             url = report_bug(self, text)
             self.log("Bug report %s" % ("filed: %s" % url if url
