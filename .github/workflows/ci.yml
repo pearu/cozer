@@ -13,6 +13,9 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write          # push the coverage badge/data branch (on main)
+      pull-requests: write      # post/update the coverage comment (on PRs)
     strategy:
       fail-fast: false
       matrix:
@@ -38,4 +41,15 @@ jobs:
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -ra
+        run: pytest -ra          # writes .coverage (pytest-cov via pyproject addopts)
+
+      # Coverage badge (README) + PR comment with diff coverage. Runs once, on the
+      # Linux matrix leg only (Docker action; reuses that leg's .coverage). On main
+      # it publishes badge.svg to the python-coverage-comment-action-data branch;
+      # on a PR it posts/updates a comment. Same-repo only -- fork PRs get no token
+      # write access (would need the separate workflow_run setup).
+      - name: Coverage comment & badge
+        if: matrix.os == 'ubuntu-latest'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}

@@ -27,6 +27,9 @@ addopts = "-ra --cov=cozer --cov-report=term-missing"
 [tool.coverage.run]
 source = ["cozer"]
 branch = true
+# store paths relative to the repo root so the CI coverage-comment action (which
+# runs coverage inside its own container) resolves files correctly
+relative_files = true
 
 [tool.coverage.report]
 show_missing = true

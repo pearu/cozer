@@ -1,3 +1,5 @@
+[![Coverage](https://raw.githubusercontent.com/pearu/cozer/python-coverage-comment-action-data/badge.svg)](https://github.com/pearu/cozer/tree/python-coverage-comment-action-data)
+
 COZER is a program for organizing competitive events. In particular, for events of the Aquatic Motorsports according to U.I.M. Circuit Rules.
 
 To use COZER, starting from year 2016 you'll need an user license. The license will be issued either on yearly or event basis. For more information about the pricing options, please contact Pearu Peterson <pearu.peterson@gmail.com> .
