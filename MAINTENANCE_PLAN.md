@@ -159,8 +159,12 @@ Two cooperating parts, split along the internet boundary:
 `windows-latest` (`.github/workflows/windows-installer.yml`): build → silent install →
 offscreen smoke test (cozer imports, Qt inits, WeasyPrint renders a PDF) → `.exe`
 published as a run artifact. End-user setup: `docs/install-windows.md` (novice-friendly;
-Estonian translation to follow). Open item: publish the `.exe` as a **GitHub Release**
-asset (public, one-click download) rather than a login-gated CI artifact.
+Estonian translation drafted: `docs/install-windows.et.md`). **Open item (deferred
+until the current bug-hunt stabilizes):** add a release-on-tag workflow step that
+publishes the `.exe` as a **GitHub Release** asset named exactly
+`COZER-Setup-Windows.exe`, so the guide's direct link
+`…/releases/latest/download/COZER-Setup-Windows.exe` gives a public, one-click,
+account-free download (replacing the login-gated CI artifact).
 
 ---
 

@@ -1,14 +1,16 @@
 # Installing COZER on Windows
 
+*Eesti keeles / in Estonian: [install-windows.et.md](install-windows.et.md).*
+
 This guide walks you through installing **COZER** on a Windows PC, start to
 finish. No programming knowledge is required. It takes about 15 minutes.
 
 You will:
-1. Create a free **GitHub** account (used to download COZER and, optionally, to
-   send error reports from inside the app).
+1. Create a free **GitHub** account — you sign in to COZER with it so the app can
+   send error reports, which helps get problems fixed quickly.
 2. Download the COZER installer.
 3. Run the installer.
-4. Start COZER.
+4. Start COZER and sign in to GitHub.
 
 > **Note.** GitHub's and Windows' screens change from time to time, so a button
 > may sit in a slightly different place than described. The *steps* stay the same.
@@ -37,14 +39,17 @@ You now have a GitHub account. Keep the username and password handy.
 
 ## 2. Download the COZER installer
 
-1. Sign in to GitHub (top-right **Sign in**), then open the COZER download page:
-   **https://github.com/pearu/cozer/releases**
-   *(If Pearu sent you a different download link, use that instead.)*
-2. Find the newest entry at the top. Under **Assets**, click the file named
-   **`COZER-Setup-<version>.exe`** (for example `COZER-Setup-3.0.0.exe`).
-3. The file downloads to your **Downloads** folder. It is large (a few hundred MB)
-   because it includes everything COZER needs — you do **not** install Python or
-   anything else separately.
+1. Click this **direct download** link — it always fetches the newest COZER
+   Windows installer, and needs no GitHub account:
+   **https://github.com/pearu/cozer/releases/latest/download/COZER-Setup-Windows.exe**
+   *(Prefer to pick a version? Browse https://github.com/pearu/cozer/releases and
+   download the `.exe` under **Assets**.)*
+2. It downloads to your **Downloads** folder. It is large (a few hundred MB)
+   because it bundles everything COZER needs — you do **not** install Python, Qt,
+   or anything else separately.
+
+> If the link doesn't download anything yet, the first public release hasn't been
+> published — ask Pearu for the installer in the meantime.
 
 ---
 
@@ -68,9 +73,11 @@ You now have a GitHub account. Keep the username and password handy.
 3. The first start can take a few seconds. The COZER window opens on the
    **General Information** tab.
 
-*(Optional) Enable one-click error reporting:* in COZER, open the **Help** menu →
-**Sign in to GitHub…** and follow the short code prompt. Then, if COZER ever hits a
-problem, it can send a report with one click using the account from step 1.
+**Sign in to GitHub (recommended — this is what the account is for).** In COZER,
+open the **Help** menu → **Sign in to GitHub…** and follow the short code prompt,
+using the account from step 1. Once signed in, if COZER ever hits a problem it can
+send an error report with a single click — which helps get it fixed quickly.
+Please keep COZER signed in.
 
 ---
 
