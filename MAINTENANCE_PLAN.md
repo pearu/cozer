@@ -425,7 +425,7 @@ the single-document view; keep the plan as the living design doc.
   across all events, incl. the empty-scoring-system crash path (a `.keys()` faithfulness fix
   the differential test caught). **Headless scoring + race-model core is now fully ported and
   proven; 100% statements / 99% overall, 42 tests.**
-- ☐ `reports` **content** generation (HTML/CSS templates arrive in Phase 4).
+- ✅ `reports` **content** generation — delivered in Phase 4 (all 9 reports).
 - **Deliverable:** differential tests green ⇒ **core equivalence proven & automated** (analyzer done).
 
 ### Phase 3 — Robust persistence  *(library core done)*
@@ -437,8 +437,8 @@ the single-document view; keep the plan as the living design doc.
 - ✅ **Tests (55 total; `store.py` 100%):** codec round-trip + analyze-through-store
   equivalence, atomic-write failure (original preserved, no temp leak), **power-loss journal
   replay**, truncated-journal tolerance, backup rotation.
-- ☐ Wire the store into the recording path (Phase 5 GUI): autosave on by default, journal
-  each lap/mark/edit as it happens.
+- ✅ Wired the store into the recording path (Phase 5c/5d): the Timer journals each lap and
+  Edit Records journals each saved mark/edit as it happens; autosave available.
 - **Deliverable (met at the library level):** power loss at any instant ⇒ all journaled data recovers.
 
 ### Phase 4 — Portable report rendering (offline)  *(pipeline + Full Final done)*
@@ -457,8 +457,8 @@ the single-document view; keep the plan as the living design doc.
   (landscape). Coverage swept — 77 tests, 97% overall (reports modules 90–100%, core 98–100%).
 - ✅ Info Letter (localized bio form) + Registration Letter (bilingual EN/ET entry form),
   ported from the legacy letter macros. **All 9 reports done** (78 tests, 96% overall).
-- ☐ Replace `os.popen4`/viewers with `subprocess` + OS default opener (open the produced PDF)
-  — belongs with the Phase 5 GUI action wiring.
+- ✅ Replaced `os.popen4`/viewers with the OS default opener — the Reports tab (Phase 5a)
+  opens the produced PDF in the OS viewer.
 - **Gate:** hardest report (Full Final) signed off ✅ → the rest built on the same pipeline.
 
 ### Phase 5 — GUI (PySide6) + robustness hardening  *(done)*
@@ -532,13 +532,26 @@ the single-document view; keep the plan as the living design doc.
   against the sample events.
 
 ### Phase 6 — Cutover
-- Full **mock event end-to-end** (registration → timing → editing → all reports → recovery drill).
+- Full **mock event end-to-end**, in two complementary forms:
+  - ☐ **Automated e2e integration test** (CI) — drives the *real* code through the whole
+    pipeline in one run: new event → import rulesets → add classes/participants/patterns →
+    create races → record laps through the Timer/store (journaled) → edit records → render
+    **all 9 reports** to a temp dir → simulate a crash + journal-replay recovery → assert
+    consistency. Catches cross-part regressions the per-part unit tests can't.
+  - ☐ **Manual acceptance pass** — a human runs the same flow for what a test can't judge:
+    UX flow and report *quality/appearance*.
+- ☐ **User guide / tutorial** *(follow-up to the e2e test)* — a non-technical-operator
+  walkthrough of the *same* mock-event scenario the e2e test drives, with step screenshots
+  **generated from that flow** (headless render tooling) so they auto-refresh as the UI
+  changes. Written once the UI settles near cutover; the e2e test defines the canonical
+  scenario it reuses.
 - Make the new `cozer` package the **default entry point** (console script / launcher).
-- Confirm **`legacy/` still runs** under Python 2 + wxPython 2.8 + MiKTeX/LaTeX (moved in
-  Phase 0, not Python-3-ified). Its install scripts (`setup.py`, `install.py`,
-  `Ubuntu_install.sh`, `conda_install.sh`, `README.txt`) and the captured install recipe
-  (below) stay with it, so the last-known-good program remains runnable if the new work is
-  unfinished at the next event.
+- ☐ *(low priority — basically already verified)* Confirm **`legacy/` still runs** under
+  Python 2 + wxPython 2.8 + MiKTeX/LaTeX (moved in Phase 0, not Python-3-ified; already built
+  and run headless under Xvfb for reference screenshots). Its install scripts (`setup.py`,
+  `install.py`, `Ubuntu_install.sh`, `conda_install.sh`, `README.txt`) and the captured
+  install recipe (below) stay with it, so the last-known-good program remains runnable if the
+  new work is unfinished at the next event.
 - **Deliverable:** new `cozer` is the default; `legacy/` still runs the old program;
   documented install for Win + Linux.
 
