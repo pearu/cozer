@@ -166,6 +166,71 @@ def test_truncated_final_journal_line_is_skipped(tmp_path):
     assert s.eventdata["record"]["C"]["1"][1]["1"] == [[1, 9.0]]   # complete op only
 
 
+# --- EventStore: crash INSIDE snapshot() (staged-snapshot fence) -----------
+
+def _crash_snapshot_before_install(s, p, monkeypatch):
+    """Run snapshot() but simulate a power loss at the final atomic install: the
+    new state reaches ``<path>.new`` and the journal is removed, but ``<path>`` is
+    not swapped. Restores os.replace afterwards so the recovery open() works."""
+    real = os.replace
+
+    def flaky(src, dst):
+        if os.path.abspath(dst) == os.path.abspath(p):     # the final install step only
+            raise RuntimeError("power loss")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky)
+    with pytest.raises(RuntimeError):
+        s.snapshot()
+    monkeypatch.undo()                                     # recovery open() needs real os.replace
+
+
+def test_snapshot_crash_before_install_no_double_apply_editmark(tmp_path, monkeypatch):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": [["A"], ["B"], ["C"]]}]}}})
+    s.snapshot()                                           # marks in snapshot, journal cleared
+    s.record({"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 1, "mark": None})
+    assert s.eventdata["record"]["C"]["1"][1]["1"] == [["A"], ["C"]]
+    _crash_snapshot_before_install(s, p, monkeypatch)
+    assert os.path.exists(p + ".new")                      # staged snapshot survived the crash
+    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["1"]
+    assert got == [["A"], ["C"]]                           # NOT [["A"]] -- delete not re-applied
+    assert not os.path.exists(p + ".new") and not os.path.exists(p + ".journal")
+
+
+def test_snapshot_crash_before_install_no_double_apply_lap(tmp_path, monkeypatch):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"7": [["M1"]]}]}}})
+    s.snapshot()
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "7", "mark": ["M2"]})
+    _crash_snapshot_before_install(s, p, monkeypatch)
+    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["7"]
+    assert got == [["M1"], ["M2"]]                         # NOT [["M1"], ["M2"], ["M2"]]
+
+
+def test_torn_staged_snapshot_is_discarded(tmp_path):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": [["A"]]}]}}})
+    s.snapshot()                                           # good snapshot [A], no journal
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["B"]})
+    with open(p + ".new", "w", encoding="utf-8") as f:
+        f.write('{"record": {"C": {"1": [{}, {"1": [["A"], ["B"')   # torn write: invalid JSON
+    s2 = EventStore.open(p)
+    assert s2.eventdata["record"]["C"]["1"][1]["1"] == [["A"], ["B"]]  # snapshot + journal recover
+    assert not os.path.exists(p + ".new")
+
+
+def test_record_dir_fsyncs_only_on_journal_creation(tmp_path, monkeypatch):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}})
+    s.snapshot()                                           # no journal yet
+    calls = []
+    monkeypatch.setattr(store, "_fsync_dir", lambda d: calls.append(d))
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})   # creates the journal
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["B"]})   # appends
+    assert len(calls) == 1                                 # dir fsync on creation, not every append
+
+
 def test_open_missing_file_uses_default(tmp_path):
     p = str(tmp_path / "new.cozj")
     s = EventStore.open(p, default={"record": {}, "title": "fresh"})

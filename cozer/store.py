@@ -21,6 +21,8 @@ import shutil
 import tempfile
 
 _MAP = "$map"   # reserved tag for dicts with non-string/int (e.g. tuple) keys
+_JOURNAL = ".journal"   # append-only op-log sidecar
+_STAGED = ".new"        # a snapshot captured but not yet installed (crash fence)
 
 
 # --------------------------------------------------------------------------- #
@@ -170,11 +172,16 @@ class EventStore:
 
     def __init__(self, path, eventdata):
         self.path = path
-        self.journal_path = path + ".journal"
+        self.journal_path = path + _JOURNAL
         self.eventdata = eventdata
 
     @classmethod
     def open(cls, path, default=None):
+        staged = path + _STAGED
+        if os.path.exists(staged):
+            recovered = cls._install_staged(path, staged)
+            if recovered is not None:
+                return cls(path, recovered)   # a snapshot interrupted mid-install, finished
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 eventdata = loads(f.read())
@@ -184,6 +191,33 @@ class EventStore:
         if store._replay_journal():
             store.snapshot()   # fold recovered ops into a fresh snapshot
         return store
+
+    @staticmethod
+    def _install_staged(path, staged):
+        """Finish a ``snapshot()`` that a crash interrupted mid-install.
+
+        ``<path>.new`` holds the new state, written and fsynced in full BEFORE the
+        old journal was removed, so if it parses it is authoritative: install it
+        and drop the now-redundant journal (never replay those ops on top of it).
+        A torn ``.new`` (crash mid-write) is discarded, leaving the previous
+        snapshot + journal to recover normally. Returns the recovered eventdata,
+        or None if ``.new`` was unusable."""
+        try:
+            with open(staged, encoding="utf-8") as f:
+                eventdata = loads(f.read())
+        except (ValueError, OSError):
+            try:
+                os.remove(staged)
+            except OSError:
+                pass
+            return None
+        os.replace(staged, path)
+        try:
+            os.remove(path + _JOURNAL)
+        except OSError:
+            pass
+        _fsync_dir(os.path.dirname(os.path.abspath(path)))
+        return eventdata
 
     def _replay_journal(self):
         if not os.path.exists(self.journal_path):
@@ -206,16 +240,29 @@ class EventStore:
         """Apply an op in memory AND append it durably (fsync) to the journal."""
         apply_op(self.eventdata, op)
         line = json.dumps(op, ensure_ascii=False) + "\n"
+        newly = not os.path.exists(self.journal_path)
         with open(self.journal_path, "a", encoding="utf-8") as f:
             f.write(line)
             f.flush()
             os.fsync(f.fileno())
+        if newly:                      # a just-created journal file's directory entry
+            _fsync_dir(os.path.dirname(os.path.abspath(self.path)))   # must be fsynced too
 
     def snapshot(self):
-        """Atomically persist eventdata, rotate backups, and clear the journal."""
+        """Atomically persist eventdata, rotate backups, and clear the journal.
+
+        Crash-safe against a mid-snapshot power loss. The new state is written in
+        full to ``<path>.new`` and fsynced, THEN the now-redundant journal is
+        removed, THEN ``.new`` is atomically installed. If a crash interrupts this,
+        ``open()`` finds the completed ``.new`` and installs it (dropping the
+        journal), so journaled ops are never replayed on top of a snapshot that
+        already contains them (which duplicated laps / mis-applied edits)."""
+        staged = self.path + _STAGED
+        atomic_write(staged, dumps(self.eventdata))   # new state durable before we touch the journal
         _rotate_backups(self.path)
-        atomic_write(self.path, dumps(self.eventdata))
         try:
-            os.remove(self.journal_path)
+            os.remove(self.journal_path)              # journal now redundant (folded into .new)
         except OSError:
             pass
+        os.replace(staged, self.path)                 # atomic install
+        _fsync_dir(os.path.dirname(os.path.abspath(self.path)))
