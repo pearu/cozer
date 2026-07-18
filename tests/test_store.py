@@ -338,7 +338,9 @@ def test_snapshot_and_recovery_crash_at_every_syscall(tmp_path):
         d = str(tmp_path / ("sc%d" % i))
         os.makedirs(d)
         p = os.path.join(d, "e.cozj")
-        expect = copy.deepcopy(build(p, baseline, ops).eventdata)   # S1 snapshot() must persist
+        s0 = build(p, baseline, ops)
+        expect = copy.deepcopy(s0.eventdata)                        # S1 snapshot() must persist
+        _release(s0)   # close its journal handle: Windows won't remove/rewrite an open file
         for at in range(1, 25):
             s2 = build(p, baseline, ops)
             _release(s2)
