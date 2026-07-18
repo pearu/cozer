@@ -82,7 +82,6 @@ DIVERGENCES = {
         "empty scoring system -> analyze awards 0 points instead of IndexError",
 }
 
-
 @pytest.mark.parametrize("name,path,gpath", _cases(), ids=[c[0] for c in _cases()])
 def test_event_matches_golden(name, path, gpath):
     with open(path, "rb") as f:
@@ -146,3 +145,15 @@ def test_synthetic_matches_golden():
         assert got == g[name], name
         checked += 1
     assert checked == len(g)
+
+
+def test_boat_order_is_numeric_and_storage_independent():
+    """The §6.6 fix: boats order by number (2 before 10), identical whether ids are
+    ints or strings -- so a report's order is stable across a save/reopen."""
+    res = {pid: {"place": -1, "points": 0, "avgspeed": 0, "maxlapspeed": 0}
+           for pid in (2, 10, 1)}
+    assert analyzer.getsumresorder(res) == [10, 2, 1]              # numeric, reversed (desc)
+    sres = {str(pid): v for pid, v in res.items()}
+    assert analyzer.getsumresorder(sres) == ["10", "2", "1"]       # same order for str ids
+    place = {pid: {"place": p} for pid, p in {2: 1, 10: 1, 1: 1}.items()}
+    assert analyzer.getresorder(place) == [1, 2, 10]               # ties -> ascending by number

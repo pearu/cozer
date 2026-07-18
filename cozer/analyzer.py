@@ -48,15 +48,23 @@ def deprecation_warning(eventdata, code_name):
     return None
 
 
+def _boat_key(pid):
+    """Deterministic, storage-independent sort order for a boat id: by numeric
+    value (2 before 10), identical whether ids are stored as ints (legacy pickle)
+    or strings (JSON round-trip), so a report's boat order never changes when an
+    event is saved and reopened. Non-numeric ids fall back to their string form,
+    after all numeric ids (matching legacy, which ordered str ids after int ids)."""
+    s = str(pid)
+    return (0, int(s)) if s.isdigit() else (1, s)
+
+
 def getresorder(res):
     rks = []
     for k in res:
-        if res[k]['place'] > 0:
-            rks.append([res[k]['place'], k])
-        else:
-            rks.append([99999, k])
-    rks = py2_sorted(rks)
-    return [i[1] for i in rks]
+        place = res[k]['place'] if res[k]['place'] > 0 else 99999
+        rks.append((place, k))
+    rks.sort(key=lambda r: (r[0], _boat_key(r[1])))
+    return [r[1] for r in rks]
 
 
 def _score(scoringsystem, ip):
@@ -70,8 +78,8 @@ def _score(scoringsystem, ip):
 def getsumresorder(res):
     ids = []
     for pid in res.keys():
-        ids.append([res[pid]['points'], res[pid]['avgspeed'], res[pid]['maxlapspeed'], pid])
-    ids = py2_sorted(ids)
+        ids.append((res[pid]['points'], res[pid]['avgspeed'], res[pid]['maxlapspeed'], pid))
+    ids.sort(key=lambda x: (x[0], x[1], x[2], _boat_key(x[3])))
     ids.reverse()
     return [i[3] for i in ids]
 
@@ -706,7 +714,7 @@ def countlaps(heat, record):
     info, rec = record
     course = info['course']
     if heat == -1:
-        rks = py2_sorted(rec.keys())
+        rks = sorted(rec.keys(), key=_boat_key)
         laps = [[(k, 1) for k in rks]]
         for i in range(len(course)):
             laps.append([(0, 0) for k in rks])
@@ -725,13 +733,13 @@ def countlaps(heat, record):
     else:
         racetime = info['racetime']
     sarr = []
-    rks = py2_sorted(rec.keys())
+    rks = sorted(rec.keys(), key=_boat_key)
     for pid in rks:
         t0 = 0
         for t in gettimes(rec[pid]):
             t0 = t0 + t
             sarr.append([t0, pid])
-    sarr = py2_sorted(sarr)
+    sarr.sort(key=lambda s: (s[0], _boat_key(s[1])))
     idseq = [s[1] for s in sarr]
 
     laps = [[(k, 1) for k in rks]]
