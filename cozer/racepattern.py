@@ -3,12 +3,51 @@ CrackRacePattern / GetClasses / GetAllowedHeats / GetHeats methods from legacy
 ``cozer/__init__.py`` (MainFrame). Pure functions over ``eventdata``;
 equivalence enforced by ``tests/test_model_equivalence.py``.
 
-``crack_race_pattern`` uses ``eval()`` to parse the arithmetic in a (trusted,
-operator-entered) pattern string, exactly as legacy did. Replacing it with a
-safe arithmetic parser is a candidate for the later security-hardening pass;
-kept as-is here to preserve equivalence.
+``crack_race_pattern`` parses the arithmetic in an operator-entered pattern
+string with a small AST-walking evaluator (``_parse_num``) rather than ``eval``: a
+pattern can never execute code, and none of eval's py2/py3 quirks (integer
+division, octal literals) can leak in. Equivalence with legacy on every real
+pattern is enforced by ``tests/test_model_equivalence.py``.
 """
+import ast
+
 from cozer.classes import isqclass, istclass
+
+
+_ALLOWED_BINOP = (ast.Add, ast.Sub, ast.Mult)
+_ALLOWED_UNARY = (ast.UAdd, ast.USub)
+
+
+def _parse_num(expr):
+    """Safely evaluate a race-pattern numeric sub-expression.
+
+    The grammar reduces every leaf to plain arithmetic over numbers (``+ - *``,
+    unary sign, parentheses) -- e.g. ``'1500'`` or ``'3*1000'``. Parse it to an
+    AST and walk a strict whitelist instead of calling ``eval``. Anything else
+    -- names, calls, division, ``**`` -- raises ValueError.
+    """
+    try:
+        tree = ast.parse(expr.strip(), mode="eval")
+    except SyntaxError:
+        raise ValueError("invalid race-pattern number: %r" % (expr,))
+    return _num_node(tree.body, expr)
+
+
+def _num_node(node, expr):
+    if isinstance(node, ast.BinOp) and isinstance(node.op, _ALLOWED_BINOP):
+        left, right = _num_node(node.left, expr), _num_node(node.right, expr)
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        return left * right
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, _ALLOWED_UNARY):
+        val = _num_node(node.operand, expr)
+        return +val if isinstance(node.op, ast.UAdd) else -val
+    if (isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)):
+        return node.value
+    raise ValueError("unsupported race-pattern expression: %r" % (expr,))
 
 
 def markoutercomma(line, comma=','):
@@ -42,7 +81,7 @@ def crack_race_pattern(pat, cl='', warn=None):
             nlaps = '1'
         else:
             nlaps = '1'
-        return [[eval(ll)] * eval(nlaps)], 1, eval(hours) * 60 * 60
+        return [[_parse_num(ll)] * _parse_num(nlaps)], 1, _parse_num(hours) * 60 * 60
     apat = pat.split(':')
     pat = apat[0]
     apat = apat[1:]
@@ -58,7 +97,7 @@ def crack_race_pattern(pat, cl='', warn=None):
         m[1] = m[1].strip()
         if m[1][0] == '(' and m[1][-1] == ')':
             m[1] = m[1][1:-1]
-        hh = eval(m[0])
+        hh = _parse_num(m[0])
         for _i in range(hh):
             ret.append([])
             for t in markoutercomma(m[1], '+').split('@+@'):
@@ -69,12 +108,12 @@ def crack_race_pattern(pat, cl='', warn=None):
                     k = [k[0], k[1]]
                 else:
                     k = [k[0], '*'.join(k[1:])]
-                nl = eval(k[0])
-                llen = eval(k[1])
+                nl = _parse_num(k[0])
+                llen = _parse_num(k[1])
                 for _j in range(nl):
                     ret[-1].append(llen)
     try:
-        sheats = eval(apat[0])
+        sheats = _parse_num(apat[0])
     except Exception:
         sheats = len(ret)
         if cl and warn:
