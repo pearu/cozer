@@ -69,8 +69,9 @@ def _build(eventdata, classes, heat_map, orientation, full):
         if cl not in record:
             continue
         heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
-        if not heats:
-            continue
+        heats = [h for h in heats if h in record[cl]]   # a selected heat may be unrecorded (stale
+        if not heats:                                   # selection / programmatic heat_map) -> skip
+            continue                                    # it rather than KeyError on record[cl][h]
         rulecodes = rule_action_codes(eventdata)
         res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))

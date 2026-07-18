@@ -20,8 +20,9 @@ def build_laps_protocol(eventdata, classes=None, heat_map=None):
         if cl not in record:
             continue
         heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
-        if not heats:
-            continue
+        heats = [h for h in heats if h in record[cl]]   # a selected heat may be unrecorded (stale
+        if not heats:                                   # selection / programmatic heat_map) -> skip
+            continue                                    # it rather than KeyError on record[cl][curheat]
         curheat = heats[-1]
         grid = countlaps(curheat, record[cl][curheat])
         ncols = max((len(row) for row in grid), default=1)

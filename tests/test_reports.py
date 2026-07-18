@@ -113,6 +113,35 @@ def test_full_final_assembly_matches_core():
                 assert row["sumpoints"] == str(sr["points"])
 
 
+def test_report_skips_unrecorded_heat_in_heat_map():
+    """A heat_map naming a heat absent from the record -- a stale tree selection
+    (heat checked, then its record cleared) or a programmatic caller -- must degrade
+    gracefully: skip the missing heat instead of KeyError on record[cl][h]. Covers
+    the four heat_map-driven builders (endurance shares the identical filter)."""
+    from cozer.reports.intermediate import build_intermediate
+    from cozer.reports.laps import build_laps_protocol
+    ed = read_legacy_coz(EVENT)
+    rec = ed["record"]
+    cl = sorted(rec.keys())[0]
+    real = sorted(rec[cl].keys())
+    BOGUS = "__nope__"
+
+    # a real heat mixed with a bogus unrecorded one -> builds, using only the real heat
+    hm = {cl: [real[0], BOGUS]}
+    ff = build_full_final(ed, classes=[cl], heat_map=hm)
+    assert ff["tables"] and all(BOGUS not in t["heats"] for t in ff["tables"])
+    assert build_short_final(ed, classes=[cl], heat_map=hm)["tables"]
+    im = build_intermediate(ed, classes=[cl], heat_map=hm)
+    assert im["tables"] and all(t["heat"] != BOGUS for t in im["tables"])
+    lp = build_laps_protocol(ed, classes=[cl], heat_map=hm)
+    assert lp["tables"] and all(t["heat"] != BOGUS for t in lp["tables"])
+
+    # an all-unrecorded selection -> the class is skipped entirely, still no crash
+    hm2 = {cl: [BOGUS]}
+    for build in (build_full_final, build_short_final, build_intermediate, build_laps_protocol):
+        assert build(ed, classes=[cl], heat_map=hm2)["tables"] == []
+
+
 def test_full_final_renders_landscape_and_fits():
     ed = read_legacy_coz(EVENT)
     pdf = render_pdf_bytes(full_final_html(build_full_final(ed)))
