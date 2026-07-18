@@ -11,7 +11,7 @@ import math
 
 from cozer._py2compat import ROUND_OPT, round2, py2_sorted
 from cozer.records import (
-    invreccodemap, insertmark, gettimes,
+    invreccodemap, gettimes,
     LAP, INSERTED_LAP, LL, PL, PL5, LL2, PL8, PL10, DS, IR, DQ, YC, RC,
     BC, NC, PL3, PL4, PL15, LP2, DSQ, DNS, DNR, ACC, DNQ, DNF, NT, Q, NQ,
 )
@@ -569,23 +569,27 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
         else:
             lapsleft = lapsrequired - laps + penlaps
         code = 10 * didntstart + interruption + 100 * disqualification
+        # A boat short of the required laps with no explicit outcome mark is scored
+        # as a non-finisher/non-starter. We set `code` and the note directly rather
+        # than inserting a mark into `rec`: analyze() MUST NOT mutate its input (all
+        # callers pass the live record, no longer a deepcopy). The outcome is fully
+        # captured by `code` (rec[pid] is not re-read below), so this stays result-
+        # identical to the legacy insert-a-mark behaviour while keeping analyze pure.
         if lapsleft and (not pastafterstoppage) and (code == 0):
             if t + 2.5 * esttime < racetime and not istimetrial:
                 if laps:
                     # non-finisher: §209 DNF if the ruleset uses it, else legacy IR
                     nf = DNF if 'DNF' in rulecodes else IR
-                    _warning('Appended %s mark for %s' % (invreccodemap[nf], pid))
+                    _warning('Auto-scored %s for %s' % (invreccodemap[nf], pid))
                     code = 1
-                    insertmark(rec[pid], nf, t + 2.5 * esttime, '')
                     k = invreccodemap[nf]
                     if k not in notes:
                         notes[k] = []
                 else:
                     # never started: §209 DNS if the ruleset uses it, else legacy DS
                     ns = DNS if 'DNS' in rulecodes else DS
-                    _warning('Appended %s mark for %s' % (invreccodemap[ns], pid))
+                    _warning('Auto-scored %s for %s' % (invreccodemap[ns], pid))
                     code = 10
-                    insertmark(rec[pid], ns, t + 2.5 * esttime, '')
                     k = invreccodemap[ns]
                     if k not in notes:
                         notes[k] = []

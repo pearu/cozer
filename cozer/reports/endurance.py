@@ -4,8 +4,6 @@ Endurance heats route through analyze_endurance (via analyze), which yields
 per-competitor ``totallaps`` = (total time, lap count); standings come from
 sumanalyze/getsumresorder.
 """
-import copy
-
 from cozer.analyzer import analyze, sumanalyze, getsumresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.racepattern import get_classes
@@ -47,7 +45,7 @@ def build_endurance_final(eventdata, classes=None, heat_map=None):
         if not heats:
             continue
         rulecodes = rule_action_codes(eventdata)
-        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss, rulecodes) for h in heats}
+        res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
         h0 = heats[0]

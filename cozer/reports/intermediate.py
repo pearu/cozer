@@ -1,6 +1,5 @@
 """Intermediate results report (portrait): the current heat's ordering, with a
 summary (best result + points across heats) when more than one heat is shown."""
-import copy
 import time as _time
 
 from cozer.analyzer import analyze, sumanalyze, getresorder, rule_action_codes
@@ -30,7 +29,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
         if not heats:
             continue
         rulecodes = rule_action_codes(eventdata)
-        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss, rulecodes) for h in heats}
+        res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
         curheat = heats[-1]
         multi = len(heats) > 1
         istt = curheat.endswith("t")

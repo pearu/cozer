@@ -2,8 +2,6 @@
 ``countlaps`` — for each lap column, the boat numbers in crossing order (bold =
 completed within race time). This is the tally sheet the lap counters use.
 """
-import copy
-
 from cozer.analyzer import countlaps
 from cozer.classes import getclass
 from cozer.racepattern import get_classes
@@ -25,7 +23,7 @@ def build_laps_protocol(eventdata, classes=None, heat_map=None):
         if not heats:
             continue
         curheat = heats[-1]
-        grid = countlaps(curheat, copy.deepcopy(record[cl][curheat]))
+        grid = countlaps(curheat, record[cl][curheat])
         ncols = max((len(row) for row in grid), default=1)
         cells = []
         for row in grid:

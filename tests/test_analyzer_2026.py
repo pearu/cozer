@@ -146,6 +146,31 @@ def test_auto_insert_follows_the_ruleset():
                                         ["", "DSQ", "406", "y"]]}) == {"DNF", "DSQ"}
 
 
+def test_auto_score_does_not_mutate_rec():
+    """A boat short of the required laps with no explicit outcome mark is auto-scored
+    as a non-finisher / non-starter -- DNF/DNS when the ruleset defines them, else
+    legacy IR/DS. analyze() does this by setting the result's code + note WITHOUT
+    touching rec: it must stay pure so every caller can pass the LIVE record (no
+    load-bearing deepcopy). This pins that the input marks are untouched and repeated
+    calls are identical -- the invariant the goldens don't cover (they analyze once
+    and never re-read rec)."""
+    ss = [400, 300, 225]
+    for marks, rulecodes, note in (
+        ([(1, 1000.0), (1, 1050.0)], {"DNF", "DNS"}, "DNF"),   # 2026 non-finisher
+        ([(1, 1000.0), (1, 1050.0)], set(),          "IR"),    # legacy non-finisher
+        ([],                          {"DNF", "DNS"}, "DNS"),   # 2026 never-started
+        ([],                          set(),          "DS"),    # legacy never-started
+    ):
+        rec = ({"course": [1000] * 5, "racetime": 100000.0}, {"B": list(marks)})
+        live = rec[1]["B"]
+        r1 = analyzer.analyze("1", rec, ss, rulecodes)["B"]
+        assert live == list(marks)                     # analyze did NOT mutate rec
+        r2 = analyzer.analyze("1", rec, ss, rulecodes)["B"]
+        assert live == list(marks)                     # still untouched on repeat
+        assert sorted(r1["notes"]) == [note]           # non-finisher auto-scored anyway
+        assert r1 == r2                                # pure -> identical repeat
+
+
 def test_deprecation_warning():
     """A 2026 event (rules use §209 codes) flags deprecated DQ/DS/NQ/IR use;
     a legacy event never does (backward compatible)."""

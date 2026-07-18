@@ -32,6 +32,17 @@ def _norm(x):
     return json.loads(golden_io.dumps(x))
 
 
+def _cmp(entry):
+    """Compare everything EXCEPT ``record_after_analyze``. §6.6 deliberate
+    divergence: legacy ``analyze`` mutated the record in place (auto-inserting a
+    DNF/DNS mark for a non-finisher, e.g. ``[10, 0.0, '']``); the new core computes
+    the same outcome purely and never mutates rec, so every caller passes the live
+    record with no deepcopy. The analysis RESULT still matches legacy byte-for-byte
+    (that's what's asserted); only the frozen post-mutation record snapshot differs,
+    and it is excluded here because the mutation was intentionally removed."""
+    return {k: v for k, v in entry.items() if k != "record_after_analyze"}
+
+
 def _err(e):
     return {"__error__": "%s: %s" % (type(e).__name__, e)}
 
@@ -104,7 +115,7 @@ def test_event_matches_golden(name, path, gpath):
                     (name, key, "expected §6.6 fix to avoid the legacy crash")
                 assert got["countlaps"] == g[key]["countlaps"], (name, key)
             else:
-                assert got == g[key], (name, key)
+                assert _cmp(got) == _cmp(g[key]), (name, key)
             checked += 1
     assert checked == len(g), (name, checked, len(g))
 
@@ -142,7 +153,7 @@ def test_synthetic_matches_golden():
         name = case["name"]
         assert name in g, name
         got = _norm(_run(case["heat"], (case["info"], case["rec"]), case["scoringsystem"]))
-        assert got == g[name], name
+        assert _cmp(got) == _cmp(g[name]), name
         checked += 1
     assert checked == len(g)
 

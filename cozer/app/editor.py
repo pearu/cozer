@@ -443,7 +443,7 @@ class EditRecordsPanel(QWidget):
         rec = self._draft
         ss = self.window.eventdata.get("scoringsystem", [])
         try:
-            res = analyze(h, copy.deepcopy(rec), ss, rule_action_codes(self.window.eventdata))
+            res = analyze(h, rec, ss, rule_action_codes(self.window.eventdata))
             order = getresorder(res)
         except Exception:            # pragma: no cover - degenerate data
             res, order = {}, sorted(rec[1].keys(), key=str)

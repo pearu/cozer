@@ -10,7 +10,6 @@ rather than silently producing a confusing report.
 Add checks by appending to ``_CHECKS``; each takes the per-heat context and
 yields ``Finding``s.
 """
-import copy
 from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
@@ -65,7 +64,7 @@ def check_results(eventdata):
                     continue
                 info, rec = heats[h]
                 try:
-                    res = analyze(h, copy.deepcopy(heats[h]), ss, rulecodes)
+                    res = analyze(h, heats[h], ss, rulecodes)
                 except Exception:
                     continue                        # analyze errors are the analyzer's to report
                 places = sorted(res[p]["place"] for p in res if res[p]["place"] > 0)

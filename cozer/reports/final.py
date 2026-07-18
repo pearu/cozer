@@ -1,7 +1,5 @@
 """Full Final (landscape, per-heat + summary) and Short Final (portrait,
 summary only) results reports, built from the proven scoring core."""
-import copy
-
 from cozer.analyzer import analyze, sumanalyze, getsumresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.racepattern import get_classes
@@ -74,7 +72,7 @@ def _build(eventdata, classes, heat_map, orientation, full):
         if not heats:
             continue
         rulecodes = rule_action_codes(eventdata)
-        res = {h: analyze(h, copy.deepcopy(record[cl][h]), ss, rulecodes) for h in heats}
+        res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
         legend = {}
