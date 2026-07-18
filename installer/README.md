@@ -14,11 +14,22 @@ PyInstaller/briefcase have with WeasyPrint.
 
 ## Files
 - `construct.yaml` — the installer spec (name/version, channels, runtime `specs`,
-  `post_install`, the bundled wheel).
-- `post_install.bat` — runs after install: pip-installs the bundled cozer wheel,
-  writes a `COZER.bat` launcher, and creates a Start-menu shortcut.
+  `post_install`, bundled extra files).
+- `cozer-launch.pyw` — GUI launcher: adds `<prefix>\Library\bin` to the DLL search
+  path (so WeasyPrint/Qt find their bundled native libs when python runs without
+  `conda activate`), then starts cozer. The Start-menu shortcut points here, run
+  windowless via `pythonw.exe`.
+- `make_shortcut.ps1` — creates the Start-menu shortcut (run by post_install; a
+  real .ps1 to avoid cmd↔PowerShell quoting pitfalls).
+- `post_install.bat` — pip-installs the bundled cozer wheel, then runs `make_shortcut.ps1`.
 - `dist/` — build output: the cozer wheel goes here before running constructor
   (gitignored).
+
+> The first CI run surfaced the classic conda-on-Windows gotcha: WeasyPrint's
+> `libgobject-2.0-0.dll` (and glib/pango/cairo/fontconfig) live in
+> `<prefix>\Library\bin`, which isn't on the DLL search path for a directly-run
+> `python.exe` — hence `cozer-launch.pyw`'s `os.add_dll_directory` and the same
+> setup mirrored in the smoke test.
 
 ## Source of truth
 `construct.yaml`'s `specs` mirror the **runtime subset** of the top-level

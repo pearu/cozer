@@ -41,3 +41,5 @@ post_install: post_install.bat
 # offline. The wheel is built into installer/dist/ before running constructor.
 extra_files:
   - dist/cozer-3.0.0.dev0-py3-none-any.whl
+  - cozer-launch.pyw            # GUI launcher: adds Library\bin to the DLL path
+  - make_shortcut.ps1           # creates the Start-menu shortcut (post_install)
