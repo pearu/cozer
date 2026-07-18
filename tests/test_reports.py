@@ -61,6 +61,21 @@ def test_result_text_and_break_at_slash():
     assert "DQ<sup>1</sup>" in out and leg               # note code + footnote registered
 
 
+def test_result_text_renders_209_codes():
+    """A 2026 event stores §209 outcome codes directly; the report prints them in
+    the result cell and the legend (backward-compatible: whatever is stored)."""
+    from cozer.reports.final import _result_text, _legend_html
+    from cozer.reports.labels import get_labels
+    labels = get_labels({})
+    for code, label in [("DSQ", "Disqualified"), ("DNS", "Did not start"),
+                        ("DNF", "Did not finish"), ("ACC", "Accident")]:
+        leg = {}
+        r = {"points": -1, "place": -1, "avgspeed": 0, "maxlapspeed": 0,
+             "lapinfo": (0, 0, 0), "notes": {code: ["311.01.4"]}}
+        assert "%s<sup>1</sup>" % code in _result_text(r, leg)
+        assert "%s = %s" % (code, label) in _legend_html(leg, labels)
+
+
 def test_full_final_assembly_matches_core():
     ed = read_legacy_coz(EVENT)
     ss = ed.get("scoringsystem", [])
