@@ -25,14 +25,16 @@ PyInstaller/briefcase have with WeasyPrint.
 - `dist/` — build output: the cozer wheel goes here before running constructor
   (gitignored).
 
-> The first CI runs surfaced the classic conda-on-Windows gotcha: WeasyPrint's
-> `libgobject-2.0-0.dll` (and glib/pango/cairo/fontconfig) live in
-> `<prefix>\Library\bin`, off the DLL search path for a directly-run `python.exe`.
-> Fix: `cozer-launch.pyw` sets `WEASYPRINT_DLL_DIRECTORIES=<prefix>\Library\bin`
-> (WeasyPrint's supported hook — it splits on `;` and `add_dll_directory`s each,
-> loading with `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS`) plus a **bound**
-> `os.add_dll_directory` for Qt (the returned handle must be kept, else the dir is
-> removed on GC). The smoke test mirrors this exactly.
+> Getting a directly-run `python.exe` (no `conda activate`) to find WeasyPrint's
+> bundled native libs (in `<prefix>\Library\bin`) took several CI rounds. Root
+> cause: WeasyPrint `dlopen`s by **bare name** (e.g. `gobject-2.0-0`), so cffi
+> resolves it via `ctypes.util.find_library`, which on Windows searches **PATH** —
+> NOT `os.add_dll_directory` and NOT `WEASYPRINT_DLL_DIRECTORIES` (cffi only takes
+> the flags/add_dll_directory path when the name contains a `.`/`/`). Fix:
+> `cozer-launch.pyw` prepends `<prefix>\Library\bin` to `PATH` (plus a bound
+> `add_dll_directory` for Qt, which loads differently). The smoke test mirrors it.
+> The CI diagnostic step (dep listing + absolute-path load) pinned this down: all
+> deps present, abs-path load OK → purely a by-name/PATH search issue.
 
 ## Source of truth
 `construct.yaml`'s `specs` mirror the **runtime subset** of the top-level

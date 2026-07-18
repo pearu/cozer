@@ -2,22 +2,22 @@
 #
 # The conda env's native DLLs (glib/pango/cairo/gdk-pixbuf/fontconfig that
 # WeasyPrint dlopens, plus Qt's) live in <prefix>\Library\bin, which is NOT on
-# the DLL search path when python starts directly (no `conda activate`). Point
-# the loaders at it, then start the GUI (windowless via pythonw.exe).
+# the search path when python starts directly (no `conda activate`).
+#
+# WeasyPrint dlopens by *bare name* (e.g. 'gobject-2.0-0'); cffi then resolves
+# that via ctypes.util.find_library(), which searches **PATH** (see ctypes/util.py
+# nt branch) -- NOT os.add_dll_directory and NOT WEASYPRINT_DLL_DIRECTORIES. So the
+# DLL directory must be on PATH. (Qt loads differently, hence also add_dll_directory.)
 import os
 import sys
 
 _libbin = os.path.join(sys.prefix, "Library", "bin")
 _dll_handle = None
 if os.path.isdir(_libbin):
-    # WeasyPrint's supported hook: it splits this on ';' and add_dll_directory's
-    # each entry, then dlopens with LOAD_LIBRARY_SEARCH_DEFAULT_DIRS.
-    os.environ.setdefault("WEASYPRINT_DLL_DIRECTORIES", _libbin)
-    # For Qt / everything else: keep the handle alive for the process lifetime
-    # (os.add_dll_directory REMOVES the dir when the returned object is GC'd).
+    os.environ["PATH"] = _libbin + os.pathsep + os.environ.get("PATH", "")
     if hasattr(os, "add_dll_directory"):
-        _dll_handle = os.add_dll_directory(_libbin)
+        _dll_handle = os.add_dll_directory(_libbin)   # bound: don't let GC remove it
 
-from cozer.__main__ import main  # noqa: E402  (must follow the DLL-dir setup)
+from cozer.__main__ import main  # noqa: E402  (must follow the DLL-path setup)
 
 sys.exit(main())
