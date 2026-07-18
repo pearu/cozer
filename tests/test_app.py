@@ -28,7 +28,7 @@ def test_window_builds_and_populates():
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
-    assert w.class_list.count() == len(get_classes(ed))    # class checklist populated
+    assert w.report_tree.topLevelItemCount() == len(get_classes(ed))  # class/heat tree populated
     assert w.report_combo.count() == 9                     # all reports offered
 
 
@@ -58,21 +58,40 @@ def test_new_and_save_and_reopen(tmp_path, monkeypatch):
     assert w2.eventdata["title"] == "" and w2.store is None
 
 
-def test_generate_report_writes_and_opens(tmp_path, monkeypatch):
+def test_export_report_writes_and_opens(tmp_path, monkeypatch):
     _app()
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
-    # check one class so selected_classes() is exercised
-    w.class_list.item(0).setCheckState(Qt.Checked)
-    assert w.selected_classes() == [w.class_list.item(0).text()]
+    # check one class so _report_selection() is exercised (whole class -> all heats)
+    c0 = w.report_tree.topLevelItem(0)
+    c0.setCheckState(0, Qt.Checked)
+    classes, _heat_map = w._report_selection()
+    assert classes == [c0.text(0)]
     out = str(tmp_path / "full_final.pdf")
     opened = []
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (out, "")))
     monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
     w.report_combo.setCurrentIndex(2)                      # Full Final
-    w.on_generate()
+    w.on_export()
     assert os.path.exists(out) and opened == [out]
+
+
+def test_view_report_uses_event_reports_dir(tmp_path, monkeypatch):
+    _app()
+    ed = read_legacy_coz(EVENT)
+    w = MainWindow(ed)
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "ev.cozj"), "")))
+    w.on_save_as()                                         # establish the event path
+    opened = []
+    monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
+    w.report_combo.setCurrentIndex(2)                      # Full Final
+    w.on_view()                                            # no dialog
+    rdir = tmp_path / "ev.reports"
+    latest = rdir / "full_final.pdf"
+    assert latest.exists() and opened == [str(latest)]     # written to <event>.reports/, opened
+    assert len(list((rdir / "postings").glob("full_final_*.pdf"))) == 1  # archived posting
 
 
 def test_open_and_import_via_dialog(tmp_path, monkeypatch):
@@ -129,12 +148,12 @@ def test_open_in_viewer_linux(monkeypatch):
     assert calls == [["xdg-open", "/tmp/x.pdf"]]
 
 
-def test_generate_cancelled_dialog_is_noop(monkeypatch):
+def test_export_cancelled_dialog_is_noop(monkeypatch):
     _app()
     w = MainWindow(read_legacy_coz(EVENT))
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: ("", "")))
-    w.on_generate()                                        # cancelled -> returns, no error
+    w.on_export()                                          # cancelled -> returns, no error
 
 
 def test_classes_participants_panel_populates():

@@ -61,6 +61,21 @@ def test_result_text_and_break_at_slash():
     assert "DQ<sup>1</sup>" in out and leg               # note code + footnote registered
 
 
+def test_report_output_paths():
+    import os
+    import tempfile
+    from cozer.reports.output import report_stem, report_dir, report_output_paths
+    assert report_stem("Full Final") == "full_final"
+    ev = os.path.join("events", "demo", "sample.cozj")
+    assert report_dir(ev) == os.path.abspath(os.path.join("events", "demo", "sample.reports"))
+    latest, posting = report_output_paths(ev, "Intermediate", "0726-1432")
+    d = report_dir(ev)
+    assert latest == os.path.join(d, "intermediate.pdf")
+    assert posting == os.path.join(d, "postings", "intermediate_0726-1432.pdf")
+    # unsaved event -> a temp dir, so viewing works before the first save
+    assert report_dir(None) == os.path.join(tempfile.gettempdir(), "cozer-reports")
+
+
 def test_result_text_renders_209_codes():
     """A 2026 event stores §209 outcome codes directly; the report prints them in
     the result cell and the legend (backward-compatible: whatever is stored)."""

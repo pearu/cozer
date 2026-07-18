@@ -9,15 +9,18 @@ graphical record editor land in subsequent Phase-5 passes.
 """
 import copy
 import os
+import shutil
 import signal
 import subprocess
 import sys
+from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
-    QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
-    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QVBoxLayout, QWidget,
+    QInputDialog, QLabel, QLineEdit, QMainWindow,
+    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QTreeWidget,
+    QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 from cozer.app import crashreport
@@ -56,18 +59,18 @@ DEFAULT_EVENT = {
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
                  ("officer", "Officer of the Day"), ("secretary", "Secretary General")]
 
-# (label, cozer.reports function name, accepts a class selection). Resolved lazily in
-# on_generate so importing this module doesn't pull in weasyprint (a slow import).
+# (label, render function, takes classes=, takes heat_map=). Resolved lazily in
+# the report handlers so importing this module doesn't pull in weasyprint (slow).
 _REPORTS = [
-    ("Participants", "render_participants", True),
-    ("Intermediate", "render_intermediate", True),
-    ("Full Final", "render_full_final", True),
-    ("Short Final", "render_short_final", True),
-    ("Endurance Full Final", "render_endurance_final", True),
-    ("Check List", "render_checklist", True),
-    ("Laps Protocol", "render_laps_protocol", True),
-    ("Info Letter", "render_info_letter", False),
-    ("Registration Letter", "render_registration_letter", False),
+    ("Participants", "render_participants", True, False),
+    ("Intermediate", "render_intermediate", True, True),
+    ("Full Final", "render_full_final", True, True),
+    ("Short Final", "render_short_final", True, True),
+    ("Endurance Full Final", "render_endurance_final", True, True),
+    ("Check List", "render_checklist", True, False),
+    ("Laps Protocol", "render_laps_protocol", True, True),
+    ("Info Letter", "render_info_letter", False, False),
+    ("Registration Letter", "render_registration_letter", False, False),
 ]
 
 
@@ -589,60 +592,114 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(QLabel("Report:"))
         self.report_combo = QComboBox()
-        for label, _f, _t in _REPORTS:
-            self.report_combo.addItem(label)
+        for r in _REPORTS:
+            self.report_combo.addItem(r[0])
         row.addWidget(self.report_combo)
-        gen = QPushButton("Generate PDF…")
-        gen.clicked.connect(self.on_generate)
-        row.addWidget(gen)
+        view = QPushButton("View")
+        view.clicked.connect(self.on_view)
+        row.addWidget(view)
+        export = QPushButton("Export…")
+        export.clicked.connect(self.on_export)
+        row.addWidget(export)
         row.addStretch()
         v.addLayout(row)
-        v.addWidget(QLabel("Classes (none checked = all):"))
-        self.class_list = QListWidget()
-        v.addWidget(self.class_list)
+        v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
+        self.report_tree = QTreeWidget()
+        self.report_tree.setHeaderHidden(True)
+        v.addWidget(self.report_tree)
         return w
 
     def _reload_classes(self):
-        self.class_list.clear()
+        """Populate the Reports tab's class/heat tree. (Name kept: the Classes/
+        Participants panel calls this when classes change.)"""
+        self.report_tree.clear()
+        record = self.eventdata.get("record", {})
         for cl in get_classes(self.eventdata):
-            item = QListWidgetItem(cl)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
-            self.class_list.addItem(item)
+            c = QTreeWidgetItem(self.report_tree, [cl])
+            c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+            c.setCheckState(0, Qt.Unchecked)
+            for h in sorted(record.get(cl, {}).keys()):
+                hi = QTreeWidgetItem(c, [str(h)])
+                hi.setFlags(hi.flags() | Qt.ItemIsUserCheckable)
+                hi.setCheckState(0, Qt.Unchecked)
 
-    def selected_classes(self):
-        sel = [self.class_list.item(i).text() for i in range(self.class_list.count())
-               if self.class_list.item(i).checkState() == Qt.Checked]
-        return sel or None
+    def _report_selection(self):
+        """(classes, heat_map) from the report tree; (None, None) means 'all'.
+        A fully-checked class -> all its heats; a partially-checked class ->
+        only the checked heats (heat_map[cl])."""
+        classes, heat_map, any_checked = [], {}, False
+        for i in range(self.report_tree.topLevelItemCount()):
+            c = self.report_tree.topLevelItem(i)
+            st = c.checkState(0)
+            if st == Qt.Unchecked:
+                continue
+            any_checked = True
+            classes.append(c.text(0))
+            if st == Qt.PartiallyChecked:
+                heat_map[c.text(0)] = [c.child(j).text(0) for j in range(c.childCount())
+                                       if c.child(j).checkState(0) == Qt.Checked]
+        if not any_checked:
+            return None, None
+        return classes, (heat_map or None)
 
-    def on_generate(self):
-        label, funcname, takes = _REPORTS[self.report_combo.currentIndex()]
-        default = label.lower().replace(" ", "_") + ".pdf"
-        path, _ = QFileDialog.getSaveFileName(self, "Save report PDF", default, "PDF (*.pdf)")
-        if not path:
-            return
-        if not path.endswith(".pdf"):
-            path += ".pdf"
+    def _render_report(self, label, funcname, takes_classes, takes_heats, path):
+        """Render report ``label`` to ``path``; return True on success. A failure
+        is a cozer defect, not user error, so it is routed through the crash
+        reporter (files if signed in, else queues) instead of dying silently."""
         try:
             import cozer.reports as R
             func = getattr(R, funcname)
-            if takes:
-                func(self.eventdata, path, classes=self.selected_classes())
-            else:
-                func(self.eventdata, path)
-        except Exception as e:      # surfaced to the user AND filed as a bug (never crashes)
-            # A report-generation failure is a real defect in cozer, not user error;
-            # route it through the crash reporter (files if signed in, else queues)
-            # so it surfaces to the maintainer instead of dying in a message box.
+            kwargs = {}
+            if takes_classes or takes_heats:
+                classes, heat_map = self._report_selection()
+                if takes_classes:
+                    kwargs["classes"] = classes
+                if takes_heats:
+                    kwargs["heat_map"] = heat_map
+            func(self.eventdata, path, **kwargs)
+            return True
+        except Exception as e:
             _report, url = report_exception(self, type(e), e, e.__traceback__,
                                             action="Generate report: %s" % label)
             QMessageBox.critical(
                 self, "Report error",
                 "Could not generate the report; the error was recorded locally%s.\n\n%s: %s"
                 % (" and reported" if url else "", type(e).__name__, e))
+            return False
+
+    def on_view(self):
+        """Render the selected report to the event's ``<event>.reports/`` folder
+        (a temp dir if the event is unsaved) and open it -- no Save dialog. Also
+        archives a timestamped copy under ``postings/``."""
+        from cozer.reports.output import report_output_paths
+        label, funcname, tc, th = _REPORTS[self.report_combo.currentIndex()]
+        stamp = datetime.now().strftime("%m%d-%H%M")
+        event_path = self.store.path if self.store else None
+        latest, posting = report_output_paths(event_path, label, stamp)
+        os.makedirs(os.path.dirname(posting), exist_ok=True)   # makes <dir> and <dir>/postings
+        if not self._render_report(label, funcname, tc, th, latest):
             return
-        self.log("Wrote %s" % path)
-        open_in_viewer(path)
+        try:
+            shutil.copyfile(latest, posting)
+            archived = " (archived postings/%s)" % os.path.basename(posting)
+        except OSError:                        # pragma: no cover - archive is best-effort
+            archived = ""
+        self.log("Viewed %s%s" % (latest, archived))
+        open_in_viewer(latest)
+
+    def on_export(self):
+        """Export the selected report to a location the user chooses (Save dialog)."""
+        from cozer.reports.output import report_stem
+        label, funcname, tc, th = _REPORTS[self.report_combo.currentIndex()]
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export report PDF", report_stem(label) + ".pdf", "PDF (*.pdf)")
+        if not path:
+            return
+        if not path.endswith(".pdf"):
+            path += ".pdf"
+        if self._render_report(label, funcname, tc, th, path):
+            self.log("Exported %s" % path)
+            open_in_viewer(path)
 
     def _refresh_title(self):
         kind = " [ruleset]" if rulesetmod.is_ruleset(self.eventdata) else ""

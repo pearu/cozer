@@ -32,3 +32,6 @@ Untitled.coz
 # ...except the bundled seed rulesets shipped with the package
 !cozer/rulesets/*.cozj
 cozer-crashes/
+
+# generated report PDFs (auto-created in <event>.reports/; never commit)
+*.reports/
