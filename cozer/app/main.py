@@ -228,6 +228,13 @@ def _install_excepthook(window):     # pragma: no cover - process-global; needs 
         if issubclass(exc_type, (KeyboardInterrupt, SystemExit)):
             return prev(exc_type, exc, tb)      # normal termination, not a crash
         _report, url = report_exception(window, exc_type, exc, tb)
+        try:                                    # also surface it in the Log tab -- a Windows
+            if _report:                         # operator has no console to see the traceback on
+                window.log(_report["traceback"].rstrip())
+            window.log("GitHub issue filed: %s" % url if url else
+                       "Crash recorded locally; no GitHub issue filed (sign in to file one).")
+        except Exception:
+            pass
         try:
             QMessageBox.critical(window, "cozer error",
                                  "An error occurred and was recorded locally%s.\n\n%s: %s"

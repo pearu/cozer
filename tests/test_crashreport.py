@@ -92,6 +92,33 @@ def test_write_local_next_to_event(tmp_path, monkeypatch):
     assert p.startswith(str(tmp_path / "sub" / "cozer-crashes"))
 
 
+def test_report_with_tuple_keyed_event_serializes(tmp_path, monkeypatch):
+    # Legacy 'savechecked' is a dict keyed by (class, heat) TUPLES. json.dumps
+    # (even with default=str, which only rescues bad values) raises "keys must be
+    # str... not tuple", so a bug/crash report crashed while being written. The
+    # embedded event must be made JSON-safe (store.to_jsonable -> $map tag).
+    _cfg(tmp_path, monkeypatch)
+    ed = {"venue": "V", "savechecked": {("O-500", "1"): True, ("O-500", "2"): False}}
+    for rep in (cr.build_user_report("bug report", eventdata=ed),
+                cr.build_report(TypeError, TypeError("x"), None, eventdata=ed)):
+        p = cr.write_local(rep)                            # the path that raised the TypeError
+        assert os.path.exists(p)
+        assert '"$map"' in open(p, encoding="utf-8").read()   # tuple-keyed dict via the $map tag
+    assert cr.build_user_report("b", eventdata=None)["event"] is None   # None still fine
+
+
+def test_tuple_keyed_event_still_files_an_issue(tmp_path, monkeypatch):
+    # #3: before the fix, write_local raised on tuple keys BEFORE _submit, so no
+    # GitHub issue was ever filed. With a JSON-safe event, handle() submits.
+    _cfg(tmp_path, monkeypatch)
+    fake = FakeGitHub()
+    rep = cr.Reporter(config={"token": "gho_test", "auto_submit": True, "submitted": {}},
+                      transport=fake)
+    ev = {"venue": "V", "savechecked": {("O-500", "1"): True}}
+    url = rep.handle(cr.build_user_report("bug", eventdata=ev))
+    assert url and url.endswith("/issues/1") and len(fake.created) == 1
+
+
 def test_handle_offline_queues(tmp_path, monkeypatch):
     _cfg(tmp_path, monkeypatch)
     rep = cr.Reporter(config={"token": "t", "auto_submit": True, "submitted": {}})

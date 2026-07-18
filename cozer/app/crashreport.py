@@ -19,7 +19,7 @@ import time
 import traceback
 
 from cozer import __version__
-from cozer.store import atomic_write, dumps
+from cozer.store import atomic_write, dumps, to_jsonable
 
 REPO = "pearu/cozer"
 SCOPE = "public_repo"
@@ -97,7 +97,7 @@ def build_report(exc_type, exc, tb, eventdata=None, event_path=None, action=None
         "exc_msg": str(exc) if exc is not None else "",
         "traceback": "".join(traceback.format_exception(exc_type, exc, tb)),
         "fingerprint": fingerprint(name, tb),
-        "event": eventdata,
+        "event": to_jsonable(eventdata),   # JSON-safe: legacy savechecked has tuple keys
     }
 
 
@@ -116,7 +116,7 @@ def build_user_report(description, eventdata=None, event_path=None, action=None,
         "exc_msg": (text.splitlines()[0][:80] if text else "(no description)"),
         "traceback": text,
         "fingerprint": hashlib.sha1(("bug|" + text).encode("utf-8")).hexdigest()[:12],
-        "event": eventdata,
+        "event": to_jsonable(eventdata),   # JSON-safe: legacy savechecked has tuple keys
     }
 
 
@@ -298,8 +298,8 @@ class Reporter:
         queue for later. Returns the issue URL if filed, else None. Never raises."""
         try:
             write_local(report, event_path)
-        except OSError:          # pragma: no cover - disk failure; nothing more we can do
-            pass
+        except Exception:        # a report-write failure must never propagate (it crashed the
+            pass                 # bug-report flow when the event had tuple keys); submit anyway
         fp = report["fingerprint"]
         already = self.config.get("submitted", {}).get(fp)
         if already:
