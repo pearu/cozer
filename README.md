@@ -8,6 +8,12 @@ To keep COZER alive also in future, consider donating to the project.
 
 If you have any feature requests or need support, contact Pearu for availability and pricing.
 
+## Installing on Windows
+
+New to COZER? Follow the step-by-step **[Windows installation guide](docs/install-windows.md)** —
+creating a GitHub account, downloading the installer, and starting the app, with no
+programming required.
+
 ## Running COZER
 
 COZER is launched from the command line:

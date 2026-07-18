@@ -154,6 +154,14 @@ Two cooperating parts, split along the internet boundary:
 - **Fallback if WeasyPrint quality is insufficient**: keep LaTeX but ship a full **offline
   TeX Live** inside the conda env (identical output, no per-run downloads).
 
+**Windows installer (done, 2026-07-18):** a single-file native installer built with
+`constructor` from `environment.yml` lives in `installer/` and is **CI-verified** on
+`windows-latest` (`.github/workflows/windows-installer.yml`): build → silent install →
+offscreen smoke test (cozer imports, Qt inits, WeasyPrint renders a PDF) → `.exe`
+published as a run artifact. End-user setup: `docs/install-windows.md` (novice-friendly;
+Estonian translation to follow). Open item: publish the `.exe` as a **GitHub Release**
+asset (public, one-click download) rather than a login-gated CI artifact.
+
 ---
 
 ## 5. Transition strategy & repo layout
