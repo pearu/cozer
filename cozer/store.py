@@ -8,9 +8,12 @@ Guarantees:
   ``os.replace`` (atomic on Linux and Windows), so an interrupted write can
   never corrupt the last good file. Rotating backups (``.bak1..N``) are kept.
 - **Append-only journal** — every recorded mutation is appended to a JSONL
-  journal and ``fsync``-ed immediately, so a power loss between snapshots loses
-  nothing: on open, snapshot + journal replay reconstructs the full state. A
-  partially written final journal line (torn by a crash) is skipped.
+  journal (``write`` + ``flush``, so it survives an app/process crash at once)
+  and ``fsync``-ed by a background thread within a bounded interval, so a power
+  loss between snapshots can lose at most the last few unsynced clicks while
+  recording never blocks the GUI thread on ``fsync``. On open, snapshot +
+  journal replay reconstructs the full state; a partially written final journal
+  line (torn by a crash) is skipped.
 - **Human-readable** — the snapshot is JSON (UTF-8), inspectable and
   hand-recoverable. Legacy ``.coz`` (pickle) remains importable.
 """
@@ -19,6 +22,8 @@ import os
 import pickle
 import shutil
 import tempfile
+import threading
+import weakref
 
 _MAP = "$map"   # reserved tag for dicts with non-string/int (e.g. tuple) keys
 _JOURNAL = ".journal"   # append-only op-log sidecar
@@ -165,15 +170,36 @@ def apply_op(eventdata, op):
 class EventStore:
     """A crash-safe handle to an event's on-disk state.
 
-    ``record(op)`` mutates the in-memory eventdata and durably journals the op.
+    ``record(op)`` mutates the in-memory eventdata and journals the op.
     ``snapshot()`` writes an atomic snapshot, rotates backups, and clears the
     journal. ``open()`` loads the snapshot and replays any journal (recovery).
+
+    Recording durability is split so that rapid lap clicks never block the
+    caller (the GUI thread) on ``fsync``: ``record()`` appends and ``flush()``es
+    the op immediately -- so it survives an app/process crash at once -- and a
+    background daemon thread ``fsync``s within ``sync_interval`` seconds, so a
+    hard power loss can lose at most the last few unsynced clicks. ``snapshot()``
+    and ``close()`` ``fsync`` synchronously, and are the guaranteed-durable
+    checkpoints. Callers should ``close()`` on shutdown (or ``snapshot()``); if
+    neither runs, a clean process exit still leaves flushed ops in the OS cache.
     """
 
-    def __init__(self, path, eventdata):
+    # Every live store, so a shutdown hook can flush them and tests can stop the
+    # background syncer threads on teardown. WeakSet => no lifetime impact.
+    _live = weakref.WeakSet()
+
+    def __init__(self, path, eventdata, sync_interval=0.05):
         self.path = path
         self.journal_path = path + _JOURNAL
         self.eventdata = eventdata
+        EventStore._live.add(self)
+        self._sync_interval = sync_interval
+        self._io_lock = threading.RLock()   # guards _jfh / _dirty across record/snapshot/syncer
+        self._jfh = None                    # open journal handle (append mode), or None
+        self._dirty = False                 # writes appended but not yet fsynced
+        self._dir_fsync_pending = False     # a new journal file whose dir entry needs fsync
+        self._stop = threading.Event()
+        self._syncer = None                 # background fsync thread, started on first record()
 
     @classmethod
     def open(cls, path, default=None):
@@ -237,16 +263,70 @@ class EventStore:
         return applied
 
     def record(self, op):
-        """Apply an op in memory AND append it durably (fsync) to the journal."""
+        """Apply an op in memory and append it to the journal.
+
+        The append is ``write`` + ``flush`` (durable against an app/process crash
+        immediately) but NOT ``fsync``ed here; the background syncer fsyncs it
+        within ``sync_interval`` (durable against power loss). This keeps the
+        caller (GUI thread) from ever blocking on ``fsync`` during rapid clicks.
+        """
         apply_op(self.eventdata, op)
         line = json.dumps(op, ensure_ascii=False) + "\n"
-        newly = not os.path.exists(self.journal_path)
-        with open(self.journal_path, "a", encoding="utf-8") as f:
-            f.write(line)
-            f.flush()
-            os.fsync(f.fileno())
-        if newly:                      # a just-created journal file's directory entry
-            _fsync_dir(os.path.dirname(os.path.abspath(self.path)))   # must be fsynced too
+        with self._io_lock:
+            if self._jfh is None:
+                if not os.path.exists(self.journal_path):
+                    self._dir_fsync_pending = True   # new journal file: its directory entry
+                self._jfh = open(self.journal_path, "a", encoding="utf-8")  # needs fsync too
+            self._jfh.write(line)
+            self._jfh.flush()          # -> OS page cache: survives an app/process crash now
+            self._dirty = True         # -> all fsync (data + dir on creation) deferred to the syncer
+        self._start_syncer()           # record() itself never fsyncs -> never stalls the caller
+
+    def _start_syncer(self):
+        if self._syncer is None:
+            self._stop.clear()
+            self._syncer = threading.Thread(target=self._sync_loop,
+                                            name="cozer-journal-fsync", daemon=True)
+            self._syncer.start()
+
+    def _sync_loop(self):
+        while not self._stop.wait(self._sync_interval):
+            self._flush()
+
+    def _flush(self):
+        """fsync unsynced journal writes WITHOUT holding the lock during the fsync,
+        so even a slow disk never blocks ``record()``. The journal fd is duplicated
+        under the lock (the dup stays valid even if ``snapshot()``/``close()`` later
+        closes the original), then fsynced outside it."""
+        with self._io_lock:
+            if not (self._dirty and self._jfh is not None):
+                return
+            fd = os.dup(self._jfh.fileno())
+            self._dirty = False
+            dir_pending, self._dir_fsync_pending = self._dir_fsync_pending, False
+        try:
+            os.fsync(fd)
+            if dir_pending:              # durably link a freshly created journal file
+                _fsync_dir(os.path.dirname(os.path.abspath(self.path)))
+        except OSError:
+            with self._io_lock:          # a transient error: retry on the next tick
+                self._dirty = True
+                self._dir_fsync_pending = self._dir_fsync_pending or dir_pending
+        finally:
+            os.close(fd)
+
+    def close(self):
+        """Stop the background syncer, fsync anything pending, and close the
+        journal handle. Idempotent; safe to call even if nothing was recorded."""
+        self._stop.set()
+        syncer, self._syncer = self._syncer, None
+        if syncer is not None:
+            syncer.join(timeout=1.0)
+        self._flush()
+        with self._io_lock:
+            if self._jfh is not None:
+                self._jfh.close()
+                self._jfh = None
 
     def snapshot(self):
         """Atomically persist eventdata, rotate backups, and clear the journal.
@@ -260,9 +340,14 @@ class EventStore:
         staged = self.path + _STAGED
         atomic_write(staged, dumps(self.eventdata))   # new state durable before we touch the journal
         _rotate_backups(self.path)
-        try:
-            os.remove(self.journal_path)              # journal now redundant (folded into .new)
-        except OSError:
-            pass
+        with self._io_lock:                           # drop the journal atomically vs the syncer
+            if self._jfh is not None:
+                self._jfh.close()
+                self._jfh = None
+            self._dirty = False
+            try:
+                os.remove(self.journal_path)          # journal now redundant (folded into .new)
+            except OSError:
+                pass
         os.replace(staged, self.path)                 # atomic install
         _fsync_dir(os.path.dirname(os.path.abspath(self.path)))

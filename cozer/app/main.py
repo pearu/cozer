@@ -246,6 +246,8 @@ class MainWindow(QMainWindow):
         if not self.editor_panel.maybe_flush():
             event.ignore()
             return
+        if self.store is not None:
+            self.store.close()   # flush pending journal fsyncs + stop the background syncer
         event.accept()
 
     # ---- menu / file operations ----

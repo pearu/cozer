@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+import time
 
 import pytest
 
@@ -220,15 +221,82 @@ def test_torn_staged_snapshot_is_discarded(tmp_path):
     assert not os.path.exists(p + ".new")
 
 
-def test_record_dir_fsyncs_only_on_journal_creation(tmp_path, monkeypatch):
+def test_journal_creation_dir_fsync_is_deferred_once(tmp_path, monkeypatch):
     p = str(tmp_path / "e.cozj")
-    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}})
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}, sync_interval=3600)  # syncer idle
     s.snapshot()                                           # no journal yet
     calls = []
     monkeypatch.setattr(store, "_fsync_dir", lambda d: calls.append(d))
     s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})   # creates the journal
     s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["B"]})   # appends
-    assert len(calls) == 1                                 # dir fsync on creation, not every append
+    assert calls == []                                     # record() defers the dir fsync too
+    s._flush()
+    assert len(calls) == 1                                 # dir fsync once (on creation), via the syncer
+    s._flush()
+    assert len(calls) == 1                                 # nothing new -> no extra dir fsync
+    s.close()
+
+
+# --- EventStore: background fsync (responsive recording) -------------------
+
+def _count_fsyncs(monkeypatch):
+    """Count os.fsync calls, ignoring the directory fsync so only JOURNAL fsyncs
+    are counted."""
+    monkeypatch.setattr(store, "_fsync_dir", lambda d: None)
+    n = [0]
+    real = os.fsync
+    monkeypatch.setattr(os, "fsync", lambda fd: [n.__setitem__(0, n[0] + 1), real(fd)][1])
+    return n
+
+
+def test_record_defers_fsync_and_flush_coalesces(tmp_path, monkeypatch):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}, sync_interval=3600)  # syncer idle
+    s.snapshot()
+    n = _count_fsyncs(monkeypatch)
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["B"]})
+    assert n[0] == 0                     # record() never fsyncs the journal itself
+    s._flush()
+    assert n[0] == 1                     # one coalesced fsync for both appends
+    s.close()
+
+
+def test_deferred_op_survives_app_crash(tmp_path):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}, sync_interval=3600)
+    s.snapshot()
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})
+    # APP CRASH: no close(), no snapshot, no fsync. write()+flush() already put the
+    # line in the journal file, so a fresh open() still recovers it.
+    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["1"]
+    assert got == [["A"]]
+
+
+def test_background_thread_fsyncs_within_interval(tmp_path):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}, sync_interval=0.01)
+    s.snapshot()
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})
+    for _ in range(200):                 # the daemon syncer clears _dirty within a few ticks
+        if not s._dirty:
+            break
+        time.sleep(0.01)
+    assert s._dirty is False
+    s.close()
+
+
+def test_close_flushes_pending_and_is_idempotent(tmp_path, monkeypatch):
+    p = str(tmp_path / "e.cozj")
+    s = EventStore(p, {"record": {"C": {"1": [{}, {"1": []}]}}}, sync_interval=3600)
+    s.snapshot()
+    n = _count_fsyncs(monkeypatch)
+    s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})
+    assert n[0] == 0                     # deferred
+    s.close()
+    assert n[0] == 1                     # close() fsyncs the pending write
+    s.close()                            # idempotent: no error, nothing left to do
+    assert n[0] == 1
 
 
 def test_open_missing_file_uses_default(tmp_path):
