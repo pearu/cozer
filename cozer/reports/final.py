@@ -84,9 +84,13 @@ def _build(eventdata, classes, heat_map, orientation, full):
             names = get_fullname(first, last).split(";")
             sr = sumres[pid]
             scored = sr["place"] > 0
-            heatcells = [{"result": _result_text(res[h][pid], legend),
-                          "points": str(res[h][pid]["points"]) if res[h][pid]["place"] > 0 else "-"}
-                         for h in heats]
+            heatcells = []
+            for h in heats:
+                rh = res[h].get(pid)                # a boat need not have raced every heat
+                heatcells.append(
+                    {"result": "-", "points": "-"} if rh is None else
+                    {"result": _result_text(rh, legend),
+                     "points": str(rh["points"]) if rh["place"] > 0 else "-"})
             rows.append({
                 "place": str(sr["place"]) if scored else "",
                 "name": names[0].strip(),

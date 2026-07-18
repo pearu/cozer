@@ -59,6 +59,14 @@ def getresorder(res):
     return [i[1] for i in rks]
 
 
+def _score(scoringsystem, ip):
+    """Points for finishing position index ``ip``. Legacy indexes
+    ``scoringsystem[ip]`` directly and crashes when the scoring system is empty or
+    shorter than the field (e.g. a not-yet-configured event); positions beyond the
+    scored tiers earn 0 (deliberate robustness divergence, MAINTENANCE_PLAN §6.6)."""
+    return scoringsystem[ip] if 0 <= ip < len(scoringsystem) else 0
+
+
 def getsumresorder(res):
     ids = []
     for pid in res.keys():
@@ -84,8 +92,8 @@ def sumanalyze(heats, res, sheats):
         bestavg = -1
         bestmax = -1
         for h in heats:
-            r = invres[pid][h]
-            if r['place'] > 0:
+            r = invres[pid].get(h)      # a boat need not have raced every heat
+            if r and r['place'] > 0:
                 points.append(r['points'])
                 bestavg = max(bestavg, r['avgspeed'])
                 bestmax = max(bestmax, r['maxlapspeed'])
@@ -339,7 +347,7 @@ def analyze_endurance(heat, record, scoringsystem=[]):
                 place = i + 1
                 points = 0
                 if totallaps >= minlaps4points and ip >= 0:
-                    points = ceil(scoringsystem[ip] * pointscoeff)
+                    points = ceil(_score(scoringsystem, ip) * pointscoeff)
         res[pid] = {}
         res[pid]['points'] = points
         res[pid]['place'] = place
@@ -637,15 +645,15 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                 if isrestarted:
                     if totallaps >= minlaps4points:
                         if totallaps >= minrestartrequiredlaps:
-                            points = scoringsystem[ip]
+                            points = _score(scoringsystem, ip)
                         elif totallaps > 0:
-                            points = 0.5 * scoringsystem[ip]
+                            points = 0.5 * _score(scoringsystem, ip)
                 elif isrestarted2:  # UIM09 311.02.7_4
                     if totallaps:
-                        points = scoringsystem[ip]
+                        points = _score(scoringsystem, ip)
                 else:
                     if totallaps >= minlaps4points:
-                        points = scoringsystem[ip]
+                        points = _score(scoringsystem, ip)
             else:
                 if lapsleft:
                     _info('Check %s for interruption or insert a lapmark after stoppage.' % (pid))

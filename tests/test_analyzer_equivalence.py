@@ -70,6 +70,19 @@ def _cases():
     return out
 
 
+# §6.6 deliberate divergences: events where the new core intentionally differs
+# from the legacy golden because legacy crashes and the ported code was hardened.
+# For these events, a golden entry that recorded a legacy ``__error__`` is not
+# required to match; instead the new code must now succeed where legacy crashed
+# (and non-crashing entries must still match exactly). See analyzer._score.
+DIVERGENCES = {
+    # Empty scoring system: legacy indexes ``scoringsystem[ip]`` and raises
+    # IndexError; new ``_score`` returns 0 points so analyze completes.
+    "p2rnu_lahtised_meistriv6istlused":
+        "empty scoring system -> analyze awards 0 points instead of IndexError",
+}
+
+
 @pytest.mark.parametrize("name,path,gpath", _cases(), ids=[c[0] for c in _cases()])
 def test_event_matches_golden(name, path, gpath):
     with open(path, "rb") as f:
@@ -78,6 +91,7 @@ def test_event_matches_golden(name, path, gpath):
     record = data.get("record", {}) or {}
     full = json.load(open(gpath))
     g = full["analyze"]
+    diverges = name in DIVERGENCES
 
     checked = 0
     for cl in sorted(record.keys()):
@@ -85,7 +99,13 @@ def test_event_matches_golden(name, path, gpath):
             key = u"%s||%s" % (cl, h)
             assert key in g, (name, key)
             got = _norm(_run(h, record[cl][h], scoringsystem))
-            assert got == g[key], (name, key)
+            if diverges and "__error__" in g[key].get("analyze", {}):
+                # legacy crashed here; the hardened core must now succeed
+                assert "__error__" not in got.get("analyze", {}), \
+                    (name, key, "expected §6.6 fix to avoid the legacy crash")
+                assert got["countlaps"] == g[key]["countlaps"], (name, key)
+            else:
+                assert got == g[key], (name, key)
             checked += 1
     assert checked == len(g), (name, checked, len(g))
 
@@ -106,7 +126,12 @@ def test_event_matches_golden(name, path, gpath):
             got["getsumresorder"] = analyzer.getsumresorder(sa)
         except Exception as e:
             got["sumanalyze"] = _err(e)
-        assert _norm(got) == sinfo, (name, cl, "sum")
+        if diverges and "__error__" in sinfo.get("sumanalyze", {}):
+            # legacy's crash cascaded into sum; the hardened core must now succeed
+            assert "__error__" not in got["sumanalyze"], \
+                (name, cl, "sum", "expected §6.6 fix to avoid the legacy crash")
+        else:
+            assert _norm(got) == sinfo, (name, cl, "sum")
 
 
 def test_synthetic_matches_golden():

@@ -56,8 +56,8 @@ def sumanalyze(heats,res,sheats):
         bestavg = -1
         bestmax = -1
         for h in heats:
-            r = invres[id][h]
-            if r['place']>0:
+            r = invres[id].get(h)   # a boat need not have raced every heat
+            if r and r['place']>0:
                 points.append(r['points'])
                 bestavg = max(bestavg,r['avgspeed'])
                 bestmax = max(bestmax,r['maxlapspeed'])

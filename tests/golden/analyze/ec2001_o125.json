@@ -3662,6 +3662,15 @@
   ], 
   "sum": {
     "O-125": {
+      "getsumresorder": [
+        36, 
+        9, 
+        8, 
+        83, 
+        25, 
+        19, 
+        5
+      ], 
       "heats": [
         "1", 
         "2", 
@@ -3669,7 +3678,48 @@
       ], 
       "sheats": 3, 
       "sumanalyze": {
-        "__error__": "KeyError: '1'"
+        "19": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "25": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "36": {
+          "avgspeed": 69.57, 
+          "maxlapspeed": 75.38, 
+          "place": 1, 
+          "points": 700
+        }, 
+        "5": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "8": {
+          "avgspeed": 52.94, 
+          "maxlapspeed": 66.41, 
+          "place": 3, 
+          "points": 225
+        }, 
+        "83": {
+          "avgspeed": -1, 
+          "maxlapspeed": -1, 
+          "place": -1, 
+          "points": -1
+        }, 
+        "9": {
+          "avgspeed": 76.77, 
+          "maxlapspeed": 80.5, 
+          "place": 2, 
+          "points": 400
+        }
       }
     }, 
     "O-250": {
