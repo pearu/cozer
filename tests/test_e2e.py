@@ -142,7 +142,7 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
 
     # 7. Render all 9 reports offline; each must produce a non-empty PDF
     import cozer.reports as R
-    for _label, funcname, takes in _REPORTS:
+    for _label, funcname, takes, *_ in _REPORTS:      # tolerate extra fields (e.g. heat_map)
         out = str(tmp_path / (funcname + ".pdf"))
         func = getattr(R, funcname)
         if takes:
@@ -268,10 +268,15 @@ def test_reenact_one_heat_matches_wc2000(tmp_path, monkeypatch):
 def test_report_generation_error_is_filed(tmp_path, monkeypatch):
     """A report-generation failure must reach the crash reporter, not die silently
     in a message box. Regression guard for the gap the owner hit: reproducing a
-    report crash filed no bug report because on_generate swallowed the exception."""
+    report crash filed no bug report because the generate path swallowed it.
+
+    Works against either report-generation entry point -- the original
+    ``on_generate`` or the Reports-tab refactor's ``_render_report`` (called by
+    on_view/on_export) -- so this test and that refactor can land independently."""
     _app()
     w = MainWindow(build_wc2000_2026())
-    label, funcname, _takes = _REPORTS[w.report_combo.currentIndex()]
+    entry = _REPORTS[w.report_combo.currentIndex()]
+    label, funcname = entry[0], entry[1]
 
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
@@ -288,7 +293,13 @@ def test_report_generation_error_is_filed(tmp_path, monkeypatch):
         return object(), "https://github.com/x/y/issues/1"
     monkeypatch.setattr(appmain, "report_exception", fake_report)
 
-    w.on_generate()                                                  # must not raise
+    if hasattr(w, "_render_report"):                                 # Reports-tab refactor
+        takes_classes = entry[2] if len(entry) > 2 else False
+        takes_heats = entry[3] if len(entry) > 3 else False
+        w._render_report(label, funcname, takes_classes, takes_heats,
+                         str(tmp_path / "r.pdf"))                    # must not raise
+    else:                                                            # original entry point
+        w.on_generate()                                             # must not raise
 
     assert isinstance(seen.get("exc"), KeyError)                     # the real defect was filed
     assert seen["action"] == "Generate report: %s" % label

@@ -39,7 +39,7 @@ def test_all_reports_build(name, path):
     """Every report builds a non-empty HTML document from every legacy event."""
     eventdata = read_legacy_coz(path)
     built = 0
-    for _label, render_name, takes in _REPORTS:
+    for _label, render_name, takes, *_ in _REPORTS:   # tolerate extra fields (e.g. heat_map)
         stem = render_name[len("render_"):]           # render_full_final -> full_final
         build = getattr(R, "build_" + stem)
         to_html = getattr(R, stem + "_html")
