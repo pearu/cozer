@@ -150,7 +150,11 @@ def test_journal_replay_recovers_laps_after_power_loss(tmp_path):
     s.record({"op": "lap", "cl": "O-125", "h": "1", "id": "1", "mark": [1, 10.0]})
     s.record({"op": "lap", "cl": "O-125", "h": "1", "id": "1", "mark": [1, 11.0]})
     assert os.path.exists(s.journal_path)
-    # CRASH: no snapshot after the laps. A fresh open must recover them.
+    # CRASH: no snapshot after the laps, so they live only in the journal. Recovery
+    # normally runs in a FRESH process (the crashed one's file handles are gone);
+    # release this store's handle to match, so the journal can be rewritten on any
+    # OS (Windows refuses to remove a file another handle still holds open).
+    s.close()
     s2 = EventStore.open(p)
     assert s2.eventdata["record"]["O-125"]["1"][1]["1"] == [[1, 10.0], [1, 11.0]]
     assert not os.path.exists(s2.journal_path)   # folded into the snapshot on open

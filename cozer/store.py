@@ -294,26 +294,25 @@ class EventStore:
             self._flush()
 
     def _flush(self):
-        """fsync unsynced journal writes WITHOUT holding the lock during the fsync,
-        so even a slow disk never blocks ``record()``. The journal fd is duplicated
-        under the lock (the dup stays valid even if ``snapshot()``/``close()`` later
-        closes the original), then fsynced outside it."""
+        """fsync unsynced journal writes, holding the lock across the whole fsync.
+
+        The lock is held (rather than fsyncing a dup'd fd outside it) so a
+        concurrent ``snapshot()``/``close()`` cannot close the handle or remove the
+        journal mid-fsync: on Windows a second open handle blocks the remove, which
+        would leave the journal to be replayed a second time. On a healthy disk
+        fsync is ~ms; a ``record()`` that collides waits for one fsync, and that
+        never compounds across a burst (the burst's writes coalesce into one)."""
         with self._io_lock:
             if not (self._dirty and self._jfh is not None):
                 return
-            fd = os.dup(self._jfh.fileno())
-            self._dirty = False
-            dir_pending, self._dir_fsync_pending = self._dir_fsync_pending, False
-        try:
-            os.fsync(fd)
-            if dir_pending:              # durably link a freshly created journal file
-                _fsync_dir(os.path.dirname(os.path.abspath(self.path)))
-        except OSError:
-            with self._io_lock:          # a transient error: retry on the next tick
-                self._dirty = True
-                self._dir_fsync_pending = self._dir_fsync_pending or dir_pending
-        finally:
-            os.close(fd)
+            try:
+                os.fsync(self._jfh.fileno())
+                self._dirty = False
+                if self._dir_fsync_pending:   # durably link a freshly created journal file
+                    _fsync_dir(os.path.dirname(os.path.abspath(self.path)))
+                    self._dir_fsync_pending = False
+            except OSError:
+                pass                          # transient: stays dirty, retried next tick
 
     def close(self):
         """Stop the background syncer, fsync anything pending, and close the
