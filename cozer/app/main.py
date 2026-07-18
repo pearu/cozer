@@ -74,14 +74,47 @@ _REPORTS = [
 ]
 
 
+def _system_child_env():
+    """Environment for launching a *system* helper program (the PDF viewer, via
+    xdg-open/open).
+
+    cozer's launcher (``__main__._ensure_fontconfig``) exports ``FONTCONFIG_FILE``
+    pointing at a private, env-specific fontconfig config to dodge a conda
+    libfontconfig cache segfault; a conda launcher may likewise put
+    ``$CONDA_PREFIX/lib`` on ``LD_LIBRARY_PATH``. Child processes inherit both, so
+    a *system* viewer -- which links the system libfontconfig and system GLib --
+    would parse cozer's env config (spurious ``invalid attribute 'xsi:nil'``
+    warnings) or load incompatible conda libraries (crash). Hand system helpers a
+    clean environment: drop cozer's fontconfig override and any conda entries from
+    the loader path so they use their own system libraries.
+    """
+    env = dict(os.environ)
+    for var in ("FONTCONFIG_FILE", "FONTCONFIG_PATH"):
+        env.pop(var, None)
+    prefixes = tuple(p for p in (sys.prefix, os.environ.get("CONDA_PREFIX")) if p)
+    for var in ("LD_LIBRARY_PATH", "LD_PRELOAD"):
+        val = env.get(var)
+        if not val:
+            continue
+        kept = [e for e in val.split(os.pathsep)
+                if e and not any(e == p or e.startswith(p + os.sep) for p in prefixes)]
+        if kept:
+            env[var] = os.pathsep.join(kept)
+        else:
+            env.pop(var, None)
+    return env
+
+
 def open_in_viewer(path):
-    """Open a file with the OS default application."""
+    """Open a file with the OS default application, with a system-clean
+    environment so the viewer never inherits cozer's private fontconfig config or
+    conda library paths (see _system_child_env)."""
     if sys.platform.startswith("win"):        # pragma: no cover - platform-specific
         os.startfile(path)
     elif sys.platform == "darwin":            # pragma: no cover - platform-specific
-        subprocess.Popen(["open", path])
+        subprocess.Popen(["open", path], env=_system_child_env())
     else:
-        subprocess.Popen(["xdg-open", path])
+        subprocess.Popen(["xdg-open", path], env=_system_child_env())
 
 
 def report_exception(window, exc_type, exc, tb, action=None):
