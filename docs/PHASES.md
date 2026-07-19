@@ -139,12 +139,16 @@ Adding a kind = add a row + its handlers; the abstraction does not change.
   miss a crossing, so the physics/too-fast check applies; there is no wrong-boat case (no pack),
   and the too-slow median check needs ≥4 laps so it's inert on a 3-lap run. *Code ripple:
   validate currently **excludes** time-trials from mis-click — enable the light check.*
-- **Qualification = a circuit heat with a Q-points scoring system.** Score each qual heat
-  `1 … 1 0 … 0`: the top N in `qheat1`/`qheat2` and the top M in the repechage `qheat3` score 1,
-  the rest 0. A boat's qualification is the **best of its qual heats** (drop-worst), so a boat
-  that qualifies only via the repechage still counts. **Finalists = the non-zero scorers.** This
-  reuses the whole circuit scoring + mis-click machinery; only the scoring system differs. (N/M
-  and grid order per §5.1 / 305.04.)
+- **Qualification = circuit heats with a Q-points scoring system.** Score `qheat1`/`qheat2`
+  with `2 … 2 0 … 0` (their top **N** score **2**) and the repechage `qheat3` with `1 … 1 0 … 0`
+  (its top **M** score **1**); everyone else scores 0. A boat's qualification is the **best of
+  its qual heats** (drop-worst), so a boat that qualifies only via the repechage still counts.
+  **Finalists = the non-zero scorers.** The finals' 1st-heat grid is then simply the **circuit
+  ranking** of the combined qualification results (points, then best average speed, then best
+  lap speed) — and because qheat1/qheat2 qualifiers hold 2 points and qheat3 qualifiers hold 1,
+  the repechage qualifiers land **behind** automatically, making the separate "repechage at the
+  back" rule (§5.1) redundant. This reuses the whole circuit scoring + mis-click machinery; only
+  the scoring system differs. (Only **N/M** remain a parameter, §5.1 / 305.04.)
 - **Endurance defines the total race *time*, not a lap count.** The pattern's `/hours` term *is*
   the race duration; it replaces the legacy hack of setting a very high lap number.
 
@@ -194,16 +198,15 @@ second chance (UIM **305.04**):
    qualify.
 4. The remaining boats in `qheat3` are **not classified** and race no final heat.
 
-**Grid order for the finals' 1st heat:**
-- `qheat1` + `qheat2` qualifiers are ranked **by total qualification time** — i.e. exactly the
-  circuit two-heat ranking, only over disjoint participant sets. (The rules don't fix the
-  qheat1-vs-qheat2 interleaving; total time is the assumed tie-breaker.)
-- `qheat3` (repechage) qualifiers go **at the lower (back) end of the grid** — UIM: *"The
-  qualifying boats from the second chance heat to the first heat for points are positioned at
-  the lower end of the jetty."*
+**Grid order for the finals' 1st heat** is just the **circuit ranking** of the combined
+qualification results under the §4.1 Q-points scoring: points (desc), then best average speed,
+then best lap speed. Because qheat1/qheat2 qualifiers hold **2** points and the qheat3 repechage
+qualifiers hold **1**, the repechage qualifiers land at the back automatically — reproducing UIM
+305.04's *"positioned at the lower end of the jetty"* with **no special case**. (Within a points
+tier, the disjoint qheat1/qheat2 fields are interleaved by the circuit speed tie-breaks.)
 
-Only **N and M** (how many qualify at each stage) remain event/rule parameters to pin down;
-the ordering and elimination are as above.
+Only **N and M** (how many qualify at each stage) remain event/rule parameters; the ordering and
+elimination fall out of the Q-points + circuit ranking.
 
 ### 5.2 Restarts and Reports heat-selection
 
@@ -279,6 +282,13 @@ for new files:
 
 ## Change log
 
+- **rev 7** — qualification Q-points made **tiered**: `qheat1`/`qheat2` qualifiers score **2**,
+  the `qheat3` repechage scores **1** (reconciling an edit slip that wrote both "2…2 0…0" and
+  "score 1"). The finals grid is now the plain **circuit ranking** of the combined qual results
+  (points, avg speed, lap speed), so the qheat3 qualifiers sit at the back *because they hold
+  fewer points* — the explicit "repechage at the back" rule (rev 5) is now redundant, and the
+  rev 5 "order qheat1/2 by total qualification time" is superseded by the circuit speed
+  tie-breaks. Only N/M remain open.
 - **rev 6** — §1 generalized: a class has **zero or more** phases, defined entirely by the
   race-pattern list authored in the Classes tab; the implementation must not hard-code the
   count or types ("one or two seeding phases" was too specific). The listed shapes are common
