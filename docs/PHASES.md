@@ -153,20 +153,20 @@ handlers; the abstraction does not change.
   boat timeless. An audit annotation ("removed: missed buoy" vs an ordinary mis-click delete) is
   optional, not required for scoring. (305.04.02 also allows two methods — best full lap, or best
   2 of 4 timed laps — both covered if "best lap" means best of the *timed* laps.)
-- **Qualification = circuit heats with a single-tier qualify flag (Q / DNQ).** Every qheat scores
-  `1 … 1 0 … 0` — its **top `count`** boats score **1** (`Q`, qualified), everyone else **0**
-  (`DNQ`). A boat is a finalist iff it is `Q` in **any** of its qheats; because qheat1/qheat2 are
-  **disjoint** and the repechage `qheat3` is raced **only** by their non-qualifiers, a boat has
-  **at most one** non-zero score, so this is really a **binary qualified / not** flag — equivalently
-  the **Q / DNQ** outcome (`DNQ` is already the §209 report code, §5.1 step 4). *(Why one tier:
-  decision A moved grid ordering onto **time-trial times**, so the old `2`-vs-`1` split — whose only
-  job was to make the Q-points circuit ranking sort the repechage behind — is redundant.)*
-  **Primary-vs-repechage is not encoded in the outcome**; it is **derived from the source qheat** —
-  a `Q` whose qualifying heat is the **last (repechage) qheat** is a repechage qualifier and seeds
-  to the back (§5.1). This reuses the whole circuit scoring + mis-click machinery; only the scoring
-  differs. It is a **hardcoded rule** for the `qualification` kind — *top `count` → `Q`, rest
-  `DNQ`* — so cozer needs **no general per-qheat scoring-system data**; the only parameters are the
-  per-qheat **counts** (the tuple, §5.1) and **which qheat is the repechage** (the last).
+- **Qualification = circuit heats that emit a `Q` / `DNQ` outcome — no scoring system.** A qheat
+  is analyzed for its **finishing ranking** (the same `analyze` path, so mis-click and all the
+  circuit machinery still apply), then a **hardcoded rule** marks each boat directly: **top
+  `count` → `Q`** (qualified), the rest **`DNQ`**. There is **no `1…1 0…0` scoring array** and no
+  Q-points — qualification needs only the qheat *ranking* + the per-qheat *count*, not a points
+  system. `DNQ` is exactly the **§209** report code (§5.1 step 4), so the qualification outcome and
+  the finals-report tail are the **same** thing, not two parallel systems. *(This is where decision
+  A leads: once the grid is ordered by time-trial times, a numeric tier had no remaining job.)* A
+  boat is a finalist iff it is `Q` in **any** of its qheats; because qheat1/qheat2 are **disjoint**
+  and the repechage `qheat3` runs **only** their non-qualifiers, a boat's `Q` comes from **exactly
+  one** qheat. **Primary-vs-repechage is not stored** — it is **derived from the source qheat**: a
+  `Q` whose qualifying heat is the **last (repechage) qheat** is a repechage qualifier and seeds to
+  the back (§5.1). The only stored parameters are the per-qheat **counts** (the tuple, §5.1) and
+  **which qheat is the repechage** (the last).
 - **Endurance defines the total race *time*, not a lap count.** The pattern's `/hours` term *is*
   the race duration; it replaces the legacy hack of setting a very high lap number.
 
@@ -223,8 +223,9 @@ second chance (UIM **305.04**):
    first-class outcome code (§209 work). (§10-E)
 
 **Qualification only *selects* finalists** — it does not order the finals grid. Each qheat marks
-its **top `count`** boats **`Q`** (qualified) and the rest **`DNQ`** (a single-tier `1…1 0…0`
-flag, §4.1): top **N** of qheat1/qheat2, top **M** of the repechage qheat3. A boat is a finalist
+its **top `count`** boats **`Q`** (qualified) and the rest **`DNQ`**, directly from the qheat
+ranking with no scoring system (§4.1): top **N** of qheat1/qheat2, top **M** of the repechage
+qheat3. A boat is a finalist
 iff it is `Q` in **any** of its qheats. **Primary-vs-repechage is not encoded in the outcome** — it
 is read from the **source qheat**: a `Q` from the last/repechage qheat is a repechage qualifier.
 (Each boat's `Q` comes from exactly one qheat — the primaries are disjoint and the repechage runs
@@ -354,16 +355,16 @@ for new files:
   drag-reorderable (like classes under Rules) — so a lot-draw needs no dedicated UI, just a
   reorder. (§5)
 - Qualification is a **membership gate only**: per-qheat counts via `!qualification[N,N,M]` (the
-  **repechage is the last tuple entry**). Each qheat marks its top `count` boats **`Q`** and the
-  rest **`DNQ`** — a **single-tier `1…1 0…0`** flag (rev 21), i.e. a binary qualified/not that is
-  really the **Q / DNQ** outcome (`DNQ` = the §209 report code). **Primary-vs-repechage is derived
-  from the source qheat** (a `Q` from the last/repechage qheat is a repechage qualifier), not from
-  a score. The **first-final grid is ordered by time-trial times** (UIM 307.01, decision A) — the
-  time-trial is the *master ordering signal* (grouping, qualifying-heat jetty positions,
-  first-final jetty positions); qualification only *selects* finalists and seeds the repechage to
-  the back (structurally); the circuit ranking is the no-time-trial fallback. A single combined
-  repechage (`qheat3`) matches the rulebook worked example (305.04.03 p.56) — no per-group second
-  chance. (§5.1, Q10.1, A, rev 21)
+  **repechage is the last tuple entry**). Each qheat is analyzed for its ranking, then marks its
+  top `count` boats **`Q`** and the rest **`DNQ`** directly — **no scoring system, no Q-points**
+  (rev 22); `DNQ` is the same **§209** code the finals report already uses, so outcome and report
+  tail are one thing. **Primary-vs-repechage is derived from the source qheat** (a `Q` from the
+  last/repechage qheat is a repechage qualifier), not stored. The **first-final grid is ordered by
+  time-trial times** (UIM 307.01, decision A) — the time-trial is the *master ordering signal*
+  (grouping, qualifying-heat jetty positions, first-final jetty positions); qualification only
+  *selects* finalists and seeds the repechage to the back (structurally); the circuit ranking is
+  the no-time-trial fallback. A single combined repechage (`qheat3`) matches the rulebook worked
+  example (305.04.03 p.56) — no per-group second chance. (§5.1, Q10.1, A, rev 22)
 - **Non-qualifiers stay in the finals report**, marked **DNQ** (no final points) — UIM 209
   requires every entered-and-accepted boat to appear; *not classified* (seeding) and the DNQ tail
   (report) coexist. (§5.1 step 4, §10-E)
@@ -412,6 +413,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 22** — **went fully categorical** (owner, 19 Jul 2026): qualification emits a **`Q` / `DNQ` outcome directly**, with **no scoring system and no Q-points** at all. A qheat is analyzed for its *ranking* (so mis-click and the circuit machinery still apply), then the hardcoded rule marks **top `count` → `Q`, rest `DNQ`** — the `1…1 0…0` numeric encoding of rev 21 is gone. `DNQ` is the same **§209** code the finals-report tail already uses, so the qualification outcome and the report tail are a single thing, not parallel systems. Primary-vs-repechage stays **derived from the source qheat** (unchanged). Stored parameters unchanged: the per-qheat counts (`!qualification[N,N,M]`) and which qheat is the repechage (the last). Updated §4 table, §4.1, §5.1, §9. Still **DRAFT — not approved for implementation.**
 - **rev 21** — **simplified Q-points to a single tier** (owner, 19 Jul 2026), a consequence of decision A. Since the grid is now ordered by time-trial times, the old `2`-vs-`1` tier (whose only job was to make the Q-points circuit ranking sort the repechage behind) is redundant: every qheat now scores **`1 … 1 0 … 0`** (top `count` = qualified). Recognized this single tier *is* a binary **Q / DNQ** flag — the same `DNQ` already surfaced in the finals report (§209), so qualification produces no parallel numeric system. **Primary-vs-repechage is now derived structurally from the source qheat** (a `Q` from the last/repechage qheat), not from a score or a new code; the no-time-trial fallback applies the same primary-then-repechage split explicitly rather than leaning on the point gap. Updated §4 table, §4.1, §5.1 (three paragraphs), §9. *(Owner is weighing a fully categorical Q/DNQ framing — dropping the numeric encoding entirely — as a possible follow-up; this rev writes the single tier so that step is light.)* Still **DRAFT — not approved for implementation.**
 - **rev 20** — consistency fix found in a pre-re-review sweep: **§4.1's qualification note still described the pre-decision-A grid** (finals 1st-heat grid = *circuit ranking* of Q-points, calling the repechage-at-the-back rule "redundant"). rev 17 rewrote §5.1 for decision A but left this mirror text stale (grep missed it — the phrase wraps a line break). Reconciled: the grid is ordered by **time-trial times** (decision A); Q-points only *select* finalists and the tier *marks* the repechage to the back; the circuit ranking is the **no-time-trial fallback** only. No other live grid statement was stale. Still **DRAFT — not approved for implementation.**
 - **rev 19** — closed the last two open items (owner, 19 Jul 2026), leaving **no open design questions**. **D (missed-buoy):** handled by the existing Edit-Records *disable-lap* action (delete the fastest lap on an official report) — no new mark type; §4.1 rewritten with the best-lap-recompute implementation check + optional audit annotation. **E (report catalogue):** closed — **reports are per-phase** (each phase owns its report set, a phase ≈ a standalone race event) and every **PDF filename includes the phase kind name** (owner); machinery reused unchanged, DNQ tail the one content requirement, names/layout left to implementation. §4/§9/§10 updated. Still **DRAFT — not approved for implementation.**
