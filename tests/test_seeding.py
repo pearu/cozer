@@ -106,6 +106,61 @@ def test_qualification_predecessor_falls_back_to_base_case():
     assert start_order(ed, "C", "1") == ["7", "3"]              # deferred -> participant order
 
 
+# --- cross-phase: qualification -> finals (§5.1) ---------------------------------
+
+def _qh(fast, slow):
+    """A 3-lap qheat where `fast` finishes ahead of `slow`."""
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    return [info, {fast: [(1, 20.0)] * 3, slow: [(1, 25.0)] * 3}]
+
+
+def _tt_one_lap(secs_by_boat):
+    return [dict(_TT_INFO), {b: [(1, s)] for b, s in secs_by_boat.items()}]
+
+
+def _qual_ev(record, with_tt):
+    classes = [["", "C/Q", "3*(1000):1!qualification[1,1,1]"], ["", "C", "2*(3*1000):1"]]
+    if with_tt:
+        classes.insert(0, ["", "C/T", "1*(1000):1"])
+    parts = [["", "A", "One", "X", "C", str(b)] for b in (10, 20, 30, 40)]
+    return {"classes": classes, "record": record, "scoringsystem": [400, 300, 225],
+            "participants": parts, "races": [], "rules": []}
+
+
+# 1q: 10>20 ; 2q: 30>40 ; repechage 3q: 20>40  ->  10,30 primary; 20 repechage; 40 DNQ
+_QHEATS = {"C/Q": {"1q": _qh("10", "20"), "2q": _qh("30", "40"), "3q": _qh("20", "40")}}
+
+
+def test_qualification_to_finals_ordered_by_timetrial():
+    # time-trial best laps: 10 fastest, then 30, then 20, then 40
+    rec = dict(_QHEATS)
+    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    ed = _qual_ev(rec, with_tt=True)
+    # [primary by TT: 10,30] then [repechage by TT: 20]; DNQ 40 excluded
+    assert start_order(ed, "C", "1") == ["10", "30", "20"]
+
+
+def test_qualification_to_finals_dnq_excluded():
+    rec = dict(_QHEATS)
+    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    ed = _qual_ev(rec, with_tt=True)
+    assert "40" not in start_order(ed, "C", "1")           # DNQ boat is not in the grid
+
+
+def test_qualification_to_finals_no_timetrial_fallback():
+    # no time-trial phase -> order by the qualification's own best-lap rank, same split
+    ed = _qual_ev(dict(_QHEATS), with_tt=False)
+    grid = start_order(ed, "C", "1")
+    assert grid[-1] == "20"                                # repechage last
+    assert set(grid[:-1]) == {"10", "30"} and "40" not in grid   # primaries first, DNQ out
+
+
+def test_class_not_in_catalog_falls_back_to_base_case():
+    ed = {"classes": [], "record": {}, "scoringsystem": [400, 300, 225],
+          "participants": _PARTS, "races": [], "rules": []}
+    assert start_order(ed, "C", "1") == ["7", "3"]         # no catalog -> participant order
+
+
 def test_does_not_mutate_eventdata():
     ed = _ev(_PARTS, {"C": {"1": _heat(("3", "7"))}})
     before = repr(ed)
