@@ -133,7 +133,15 @@ def qheat_boats(eventdata, cl, number):
 
 def _repechage_field(eventdata, cl):
     """The boats that raced a **selection** qheat but finished outside its top ``count``
-    — the field for the repechage (second-chance) qheat."""
+    — the field for the repechage (second-chance) qheat.
+
+    Edge-handling deferred to the qheat3-membership *consumer* (owner resolution via
+    7948e787): this currently sweeps in every non-top-count boat ``getresorder`` ranks,
+    incl. ``place = -1``. A **DNF** belongs there (rulebook-eligible, automatic — keep).
+    But a **DSQ** or **DNS** must NOT be auto-swept: their qheat3 eligibility is
+    scope-dependent (a heat-scoped DSQ stays eligible, an event-scoped one does not) and
+    is an **operator call in Edit Records**, not rule-derived. So the consumer must expose
+    an operator include/exclude override for DSQ/DNS rather than trust this auto-sweep."""
     ph = class_phase_map(eventdata).get(cl)
     counts = qualification_counts(class_pattern(eventdata, cl))
     if ph is None or not counts:
