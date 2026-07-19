@@ -104,9 +104,10 @@ Phase          = { kind, pattern, heats: [ [info, boats], ... ] }   # ordered re
 - `class.patterns` (in `eventdata["classes"]`) is the **authoring** source; `record[class]`
   phases are the **runtime** materialization (a phase's `course`/`sheats`/`duration` are
   materialized from its pattern when a heat is set up, exactly as `heat.info` does today).
-- **Restarts** are repeated `info.number` within a phase's list; the **last** per number is
-  canonical (§2). Addressing a heat is now "the records with number *k*" (default: the last),
-  not an O(1) key lookup — a small change from the dict of today.
+- **Restarts** are repeated `info.number` within a phase's list; per number the **last non-empty**
+  record is canonical **for multi-heat** (single-heat/endurance **aggregate** all starts — §5.2).
+  Addressing a heat is now "the records with number *k*" (default: the last), not an O(1) key
+  lookup — a small change from the dict of today.
 - **Blast-radius note (important):** the `[info, boats]` heat record is untouched, so the
   **scoring core (`analyze`/`sumanalyze`) does not change** — it still takes a single heat.
   Phases + the results-list only change *which heats exist and how they are addressed*
@@ -354,7 +355,8 @@ for new files:
 - Core abstraction `(class, participants, phases[])`, phase = `(kind, pattern, heats[])`. (§2)
 - One pattern per phase; restart nuances are rule-based, not pattern-based. (Q1)
 - Heat ids are **plain numbers** — no `t`/`q`/`r`/`R`; restarts are repeated numbers in the
-  phase results list, last one canonical. (§2, rev 2)
+  phase results list (canonical = last non-empty for multi-heat; single-heat/endurance aggregate,
+  §5.2). (§2, rev 2)
 - `phase.heats` is an **ordered list** of records (not a number-keyed dict). (§3, Q1-re-1)
 - Scoring core (`analyze`/`sumanalyze`) unchanged; phases are an organizational layer. (§3)
 - Start order is **derived** from the previous heat's post-edit ranking; forward-only, no
@@ -375,7 +377,9 @@ for new files:
   example (305.04.03 p.56) — no per-group second chance. (§5.1, Q10.1, A, rev 22)
 - **N and M are an organizer choice**, not rules-determined (7948e787 re-review): 305.04 gives no
   formula — the p.56 8/8/4 is an *example*, and `G·N + M = H` alone allows several splits (P=30,
-  H=20 → five). So the `!qualification[N,N,M]` tuple **stays explicit**. A boats-per-heat **H**
+  H=20 → five). *(Where **P** = accepted entrants, **G** = qualifying groups = ⌈P/H⌉, **H** = boats
+  per heat, **N**/**M** = per-qheat qualifier counts.)* So the `!qualification[N,N,M]` tuple **stays
+  explicit**. A boats-per-heat **H**
   racepattern param (to validate the tuple + default `M = H−G·N`) was considered and **deferred**
   (owner, 19 Jul 2026). (§5.1, §10-F)
 - **Non-qualifiers stay in the finals report**, marked **DNQ** (no final points) — UIM 209
@@ -398,10 +402,12 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-**One open item (F), surfaced by the 7948e787 re-review (19 Jul 2026)** — the make-up / substitution
-rule; everything else is resolved. Findings **A**/**B** (grid order, per-kind restarts) were folded
-into §5.1/§5.2/§9; **C**/**D**/**E** are closed (kept as a record). The re-review also **confirmed**
-that N and M are an **organizer choice**, not rules-determined (§9).
+**No open *design* questions remain (19 Jul 2026).** Findings **A**/**B** (grid order, per-kind
+restarts) were folded into §5.1/§5.2/§9; **C**/**D**/**E** are closed, each **reusing existing
+machinery**. **F** (make-up / substitution) is **design-complete** too, but stays flagged below
+because — unlike C/D/E — it introduces **new work items**: the outcome-override action and its two
+warnings. So the distinction is *new machinery to build*, not an unresolved design choice. The
+re-review also **confirmed** N and M are an **organizer choice**, not rules-determined (§9).
 
 - **C. *(closed, 19 Jul 2026)* — a single combined repechage matches the rulebook.** The 305.04.03
   worked example (p.56) runs **2 selection heats → one combined second-chance heat** grouping all
@@ -418,8 +424,8 @@ that N and M are an **organizer choice**, not rules-determined (§9).
   (`analyze`/`sumanalyze`, §9); the one content requirement is the qualification→finals **DNQ
   tail** — {entered ∧ accepted} − {finalists}, marked `DNQ`, no final points (UIM 209; §5.1 step
   4). Exact column layouts / display names are an implementation/testing detail. (§4)
-- **F. *(open — mechanism refined 19 Jul 2026; reviewed & confirmed by 7948e787)* — make-up /
-  substitution rule** (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may
+- **F. *(design-complete 19 Jul 2026; implementation-pending — new work items; reviewed by
+  7948e787)* — make-up / substitution rule** (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may
   promote a boat from the second-chance heat to fill the slot — *"not after the penultimate **final**
   heat."* The Q/DNQ outcome is **static**, so a make-up reuses the existing Edit-Records
   **outcome-override** action, applied as **two independent edits — never a coupled action**:
@@ -442,7 +448,8 @@ that N and M are an **organizer choice**, not rules-determined (§9).
   joiner). Add only **warnings, not rules**: a soft flag if the finalist count drifts from grid
   **capacity** (the natural home for the deferred **H** param, §9) and if a make-up is entered
   **after the penultimate final heat** (the 305.04.03 time bound). Organizer-driven and rare; the
-  exact widgetry is an implementation detail. (§4.1, §5, §5.1 step 4)
+  exact widgetry is an implementation detail. (Reuses the Q/DNQ outcome of §4.1; mid-series seeding
+  §5; DNQ tail §5.1 step 4.)
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
@@ -452,6 +459,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 27** — folded the **final consistency review** (7948e787; owner, 19 Jul 2026), which found the doc coherent with four nits (a fifth left as optional). **#1 (real bug):** the pre-decision-B "last canonical" phrasing that rev 26 fixed in §2 still survived in **§3** and **§9** (where it even contradicted §9's own per-kind restart bullet) — both now scoped to *multi-heat take-last; single-heat/endurance aggregate (§5.2)*. **#2 (labeling):** §10 reframed — **no open *design* questions remain**; F is design-complete like C/D/E, flagged only because it needs **new machinery** (the override action + two warnings), a criterion now stated. **#3 (cross-ref):** §10-F's `§4.1` pointer made explicit (it reuses the Q/DNQ *outcome*). **#4 (first-reader):** §9's N/M formula now defines `P`/`G`/`H`/`N`/`M`. #5 (the word "selection" used two ways) left as-is — context disambiguates. Still **DRAFT — not approved for implementation.**
 - **rev 26** — **end-to-end consistency read** (owner, 19 Jul 2026). Found and fixed one stale bullet: §2's "Canonical record per number" still described *pre-rev-12 / pre-decision-B* behavior — it claimed the operator could "override which record(s) count" via Reports selection (contradicts §5.2 rev 12: selection is a **set** of heat numbers, the record is **automatic**) and stated **take-last** canonical universally (contradicts decision B: single-heat/endurance **aggregate**). Reconciled §2 to match §5.2 (per-kind canonical; selection picks which heats aggregate, not which record; mis-filed records fixed by Reassign). Cosmetic: smoothed a ragged line wrap in §5.1. No new design; the rest of the document read consistent end-to-end. Still **DRAFT — not approved for implementation.**
 - **rev 25** — folded the **§10-F review** (7948e787; owner, 19 Jul 2026), which confirmed the two-independent-overrides mechanism rulebook-faithful (verbatim §209 + p.56). Three refinements: **(1)** the time bound is the penultimate **final** heat (disambiguated the series); **(2)** the **promotion order is rank-determined** — the next-best repechage finisher (`M+1`th, then `M+2`, …), one promotion per withdrawal (fill-to-capacity, no over-filling), not a free organizer pick; **(3)** new **§5 rule** for a mid-series make-up — a boat promoted *between* final heats has no previous-heat ranking, so it seeds to the **back of the next heat's grid** (no-prior-ranking joiner), with a §10-F pointer. §209 confirmations: `DNS` = *"did not come to the start position"* (fits; `DNR`/`ACC` don't); make-up source is the second-chance heat only. Still **DRAFT — not approved for implementation.**
 - **rev 24** — **refined §10-F's mechanism** (owner, 19 Jul 2026). A make-up is **two independent outcome overrides**, never a coupled action: the withdrawing finalist → **`DNS`** (an *existing* §209 code — no new "withdraw" rule) and a repechage boat → **`DNQ → Q`**. They are **separately legal** (a finalist may withdraw with no make-up — it's the organizer's right, not mandatory), so coupling them would be wrong; the organizer's decision links them, the system records. The promotion **auto-seeds to the back** — the promoted boat's source qheat is the repechage, so the existing structural rule applies (constrain the promotion to a repechage-qheat boat). Capacity + "not after the penultimate heat" become **warnings, not rules** (capacity is the natural home for the deferred **H**). Still **DRAFT — not approved for implementation.**
