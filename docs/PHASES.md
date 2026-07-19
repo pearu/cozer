@@ -26,8 +26,10 @@ so `training → finals` is just `time-trial → finals`) and a time-trial, when
 before qualification. These are **conventions, not constraints** the model enforces.
 
 - **`finals`** is itself a series of heats that seed each other — `heat1 → heat2 → heat3 → …` —
-  and any `heatK` may be re-run as one or two restarts before it seeds the next:
-  `heatK`, or `heatK → heatK′`, or `heatK → heatK′ → heatK″` (the restart records of §2).
+  and any `heatK` may be re-run as **one** restart before it seeds the next (`heatK → heatK′`).
+  A **second** restart is legal **only for the last final heat**, and only if the first restart
+  was stopped before 35% of the required laps (UIM 311.02.2); elsewhere a 2nd restart is invalid
+  and the validator should flag it. Restart records are §2.
 - **`qualification`** applies when there are too many entries to fit the course: it splits into
   `qheat1` and `qheat2` over disjoint participant subsets; each sends its top boats to the
   finals and the rest to a repechage `qheat3`, whose top boats also reach the finals while the
@@ -139,6 +141,11 @@ Adding a kind = add a row + its handlers; the abstraction does not change.
   miss a crossing, so the physics/too-fast check applies; there is no wrong-boat case (no pack),
   and the too-slow median check needs ≥4 laps so it's inert on a 3-lap run. *Code ripple:
   validate currently **excludes** time-trials from mis-click — enable the light check.*
+- **Time-trial missed-buoy (UIM 305.04.02)** *(review finding)* — if a driver is officially
+  reported to have missed a turn buoy, that boat's **fastest lap is deleted** and "best"
+  recomputed. Needs a per-lap *missed-buoy* mark in Edit Records (distinct from a mis-click
+  delete). New work item. (305.04.02 also allows two methods — best full lap, or best 2 of 4
+  timed laps — both covered if "best lap" means best of the *timed* laps.)
 - **Qualification = circuit heats with a Q-points scoring system.** Score `qheat1`/`qheat2`
   with `2 … 2 0 … 0` (their top **N** score **2**) and the repechage `qheat3` with `1 … 1 0 … 0`
   (its top **M** score **1**); everyone else scores 0. A boat's qualification is the **best of
@@ -201,12 +208,23 @@ second chance (UIM **305.04**):
    qualify.
 4. The remaining boats in `qheat3` are **not classified** and race no final heat.
 
-**Grid order for the finals' 1st heat** is just the **circuit ranking** of the combined
-qualification results under the §4.1 Q-points scoring: points (desc), then best average speed,
-then best lap speed. Because qheat1/qheat2 qualifiers hold **2** points and the qheat3 repechage
-qualifiers hold **1**, the repechage qualifiers land at the back automatically — reproducing UIM
-305.04's *"positioned at the lower end of the jetty"* with **no special case**. (Within a points
-tier, the disjoint qheat1/qheat2 fields are interleaved by the circuit speed tie-breaks.)
+**Grid order for the finals' 1st heat** is the **circuit ranking** of the combined qualification
+results under the §4.1 Q-points scoring: points (desc), then best average speed, then best lap
+speed. Because qheat1/qheat2 qualifiers hold **2** points and the qheat3 repechage qualifiers hold
+**1**, the repechage qualifiers land at the back automatically — reproducing UIM 305.04's
+*"positioned at the lower end of the jetty"* with **no special case**.
+
+> ⚠ **Review finding (7948e787) — owner decision (§10-A).** UIM **307.01**: *"Positions on the
+> jetty for the first final heat are [from] the time trials."* So the *front* boats should be
+> ordered by **time-trial times**, not by qual-heat speeds — a boat can win its qual heat yet be
+> slower in the time trial. This also conflicts with §4 (`timetrial` seeds the 1st-final grid).
+> **Suggested reconcile:** when a `time-trial` phase exists, *its times* seed the 1st-final grid;
+> qualification only (a) selects who's in and (b) sends repechage qualifiers to the back. Keep
+> the Q-points ranking only as the fallback for a pure `qualification → finals` (no time-trial
+> phase) — and note 305.04.03 makes time trials *mandatory* for grouping, so times can usually be
+> carried forward. (307.01 is the **jetty (dead-engine) start** rule; the flying start (306, ≤14
+> boats, not for World/Continental) defines no time-trial grid. 307.01 is also **silent** on
+> ordering *within* the repechage back-block — the speed tie-break there is a defensible choice.)
 
 The only remaining choice is **how many qualify from each qheat** — a **per-qheat** count,
 authored compactly as a tuple on the qualification pattern: `!qualification[N,N,M]` = one entry
@@ -219,6 +237,15 @@ length). The **repechage is the last qheat** (the last tuple entry — owner Q10
 non-qualifiers.
 
 ### 5.2 Restarts, labels, and fixing a mis-filed heat
+
+> ⚠ **Review finding (7948e787) — owner decision (§10-B).** "Last restart canonical, earlier
+> discarded" is the **multi-heat** rule (UIM **311.02.3**: *"Laps gained in previous starts are
+> discarded"*) ✓. But **single-heat racing** (**311.03.5**: *"Laps … from the original start and
+> all restarts shall be **aggregated** for final positions"*) — which covers a one-heat final and
+> **endurance** — must **aggregate** across restarts, not take-last, and uses a **20%** (not 70%)
+> remaining-laps threshold (311.03.2). So restart handling is **per-kind**: take-last for
+> multi-heat circuit/finals; aggregate for single-heat & endurance. The rule below is stated
+> globally and needs this split.
 
 A heat number may hold several records (original + restarts). The **canonical** record for a
 number — used for seeding (§5) and the total ranking / final report (`sumanalyze`) — is the
@@ -308,13 +335,32 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-1. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
-   implementation.
+*Rulebook review by 7948e787 (18th coord msg) — A/B are owner decisions that change agreed text.*
+
+- **A. First-final grid: time-trial times vs qual ranking (UIM 307.01).** §5.1 orders by the
+  qual-heat Q-points ranking; 307.01 orders by **time-trial times**, and §4 already says the
+  time-trial seeds it. Reconcile (time-trial times seed; qualification only selects + sends
+  repechage to the back; Q-points only a no-time-trial fallback), or keep the Q-points proxy and
+  document the divergence? **Owner call.** (§5.1)
+- **B. Restart handling is per-kind (UIM 311.02.3 vs 311.03.5).** Take-last for multi-heat
+  circuit/finals; **aggregate** for single-heat & endurance (+ 20% not 70% threshold). The §2/§5.2
+  "last canonical" rule is global and needs this split. **Owner call.** (§5.2)
+- **C. `!qualification[N,N,M]` can't express a *per-group* second-chance heat** (305.04.03 is
+  grammatically ambiguous; a single trailing repechage is common practice). Low priority; confirm
+  against how the target discipline actually runs it. (§5.1)
+- **D. Time-trial missed-buoy** (305.04.02) — a new per-lap "missed-buoy → delete fastest lap"
+  Edit-Records mark (§4.1). Work item.
+- **E. Per-kind report catalogue** — §4 lists intent; report names fixed during implementation.
+
+*Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
+points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
+(305.04/307.01); 70% multi-heat restart threshold (311.02.1); "3rd restart never" (311.02.2).*
 
 ---
 
 ## Change log
 
+- **rev 16** — folded the **UIM 2026 rulebook review** (7948e787). Corrections applied: §1 a 2nd restart is legal only for the last final heat (311.02.2); §4.1 add the time-trial missed-buoy rule (305.04.02 → delete fastest lap). Two **owner decisions** flagged inline + in §10: (A) first-final grid should be **time-trial times** not the qual ranking (307.01), (B) restart handling is **per-kind** — aggregate for single-heat & endurance (311.03.5), take-last for multi-heat (311.02.3). Minor flags: per-group repechage not expressible by the tuple (305.04.03); jetty-vs-flying-start context (306/307.01). Review confirmed the rest faithful.
 - **rev 15** — owner confirmed the **Edit-Records "Reassign…"** action (option 1) as the mis-filed-heat GUI home; dropped the alternatives and the "proposed" hedge. §10 now has a single open item (the per-kind report catalogue); the abstraction and behavior are otherwise settled.
 - **rev 14** — mis-filed-heat resolution **settled**: prevent-and-reassign. GUI = an Edit-Records **"Reassign…"** action setting a heat's Class → Phase → number + restart slot (defaults to current identity, so the common 1<->1r fix is one field); moves the records via one journaled store op. Two new work items noted (Timer mis-pick guard, Reassign action); legacy selection-order kept only as fallback. §9/§10 updated.
 - **rev 13** — Q10.1: the **repechage is the last qheat** (last tuple entry, scored 1 → sorts to the back); resolved. Q10.2/Q10.3 (proposed, pending owner sign-off): restart **labels come from record position** (2nd record = 1st restart, …), and a **mis-filed heat** is fixed by Timer mis-pick **prevention** + edit-records **reassignment** rather than legacy's Reports selection-*order* (kept as fallback) — so rev 12's set-not-order selection stands. §9/§10 updated; two new capabilities noted (prevention, reassignment).
