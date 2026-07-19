@@ -148,10 +148,10 @@ Adding a kind = add a row + its handlers; the abstraction does not change.
   lap speed) — and because qheat1/qheat2 qualifiers hold 2 points and qheat3 qualifiers hold 1,
   the repechage qualifiers land **behind** automatically, making the separate "repechage at the
   back" rule (§5.1) redundant. This reuses the whole circuit scoring + mis-click machinery; only
-  the scoring system differs — and that system is **per-qheat**: a qheat's `2 … 2 0 … 0` /
-  `1 … 1 0 … 0` *is* its qualifier count (N/M) **and** tier, so N/M are qheat parameters, not a
-  single phase value (§5.1). *Code implication: cozer's scoring system is currently per-event;
-  qualification needs it per-qheat.*
+  the scoring differs. That Q-points scoring is a **hardcoded rule** for the `qualification`
+  kind — *the top `count` boats score the tier (2 for a primary qheat, 1 for the repechage), the
+  rest score 0* — so cozer needs **no general per-qheat scoring-system data**; the only
+  parameters are the per-qheat **counts** (the tuple, §5.1) and **which qheat is the repechage**.
 - **Endurance defines the total race *time*, not a lap count.** The pattern's `/hours` term *is*
   the race duration; it replaces the legacy hack of setting a very high lap number.
 
@@ -210,8 +210,9 @@ tier, the disjoint qheat1/qheat2 fields are interleaved by the circuit speed tie
 
 The only remaining choice is **how many qualify from each qheat** — a **per-qheat** count,
 authored compactly as a tuple on the qualification pattern: `!qualification[N,N,M]` = one entry
-per qheat (`qheat1→N`, `qheat2→N`, `qheat3→M`). Each entry materializes that qheat's Q-points
-scoring system (§4.1). What the tuple does **not** say is which qheat is the **repechage** — the
+per qheat (`qheat1→N`, `qheat2→N`, `qheat3→M`). Each entry feeds the **hardcoded** qualification
+scoring rule for that qheat (top *count* score the tier — §4.1); no per-qheat scoring-system
+data is stored. What the tuple does **not** say is which qheat is the **repechage** — the
 one that scores 1 (not 2) so it sorts to the back; that's the qheat whose field is the earlier
 qheats' non-qualifiers. How to mark it (positional last vs. structural) is open (§10).
 
@@ -276,11 +277,12 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-1. **Qualifier counts + which qheat is the repechage.** Per-qheat counts are authored compactly
-   as `!qualification[N,N,M]` (one entry per qheat) → each qheat's Q-points scoring system (§4.1).
-   Open: how the **repechage** qheat (scores 1, sorts to the back) is identified — positionally
-   (the last entry) vs structurally (the qheat fed by the earlier qheats' non-qualifiers).
-   Ordering/elimination already fall out of the Q-points + circuit ranking (§5.1).
+1. **Which qheat is the repechage.** Per-qheat counts are authored as `!qualification[N,N,M]`
+   (one entry per qheat) and feed the hardcoded qualification scoring (top *count* score the
+   tier — §4.1); no per-qheat scoring-system data. Open only: how the **repechage** qheat (tier
+   1, sorts to the back) is identified — positionally (last entry) vs structurally (the qheat fed
+   by the earlier qheats' non-qualifiers). Ordering/elimination already fall out of the ranking
+   (§5.1).
 2. **Reports heat-selection UI** on the results-list model — how the operator picks which
    record of a repeated number counts (§5.2). To detail with the report work.
 3. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
@@ -290,6 +292,11 @@ for new files:
 
 ## Change log
 
+- **rev 10** — qualification scoring is a **hardcoded rule** (top `count` score the tier, rest
+  0), not general per-qheat scoring-system *data* (owner: "the Q-heat scoring system could be
+  hardcoded"). Supersedes rev 9's "per-event → per-qheat scoring system" implication: cozer
+  needs no per-qheat scoring data — only the per-qheat counts (the tuple) and which qheat is the
+  repechage.
 - **rev 9** — qualifier counts are **per-qheat** (owner: "N/M are qheat parameters"), authored
   compactly as a tuple `!qualification[N,N,M]` (one entry per qheat), each materializing that
   qheat's Q-points scoring system. Flagged a code implication (cozer's scoring system is
