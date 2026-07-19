@@ -26,7 +26,7 @@ timer button grid stays boat-number (§5, rev 29). Pure and read-only.
 from cozer.analyzer import analyze, getresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.phases import canonical_record, class_phase_map, heat_number, phase_heat_ids
-from cozer.qualification import classify, participant_boats
+from cozer.qualification import classify, participant_boats, qheat_boats
 from cozer.racepattern import get_classes, race_kind
 
 _KIND_ORDER = {"timetrial": 0, "qualification": 1}   # finals/endurance sort last
@@ -44,9 +44,30 @@ def start_order(eventdata, cl, heat):
         prev = canonical_record(ph, heat_number(heat) - 1)
         if prev is not None:
             return _rank(eventdata, *prev)
+    # a qualifying heat is seeded within its OWN group, by the time trial (307.01).
+    if ph is not None and ph.kind == "qualification":
+        return _qualifying_heat_order(eventdata, cl, heat)
     # first heat, or a non-continuation phase: cross-phase seed, else base case.
     seeded = _cross_phase_seed(eventdata, cl)
     return seeded if seeded is not None else _participant_order(eventdata, cl)
+
+
+def _qualifying_heat_order(eventdata, cl, heat):
+    """A qualifying heat's grid = its own group (``qualification.qheat_boats``) ordered by
+    the time-trial ranking (UIM 307.01 — qualifying-heat jetty positions come from the
+    time trials), then any group boat with no time-trial lap by group order. With no
+    recorded time-trial phase, the group keeps its own order."""
+    group = qheat_boats(eventdata, cl, heat_number(heat))
+    if not group:
+        return _participant_order(eventdata, cl)
+    tt_order = _cross_phase_seed(eventdata, cl)          # full time-trial ranking, or None
+    if not tt_order:
+        return group
+    gset = set(group)
+    ordered = [b for b in tt_order if b in gset]         # group members, time-trial order
+    seen = set(ordered)
+    ordered += [b for b in group if b not in seen]       # group boats with no TT lap, group order
+    return ordered
 
 
 def _cross_phase_seed(eventdata, cl):

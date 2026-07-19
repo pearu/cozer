@@ -164,8 +164,54 @@ def test_qualification_qheat_not_seeded_from_previous_qheat():
     parts = [["", "A", "One", "X", "C", str(b)] for b in (10, 20, 30, 40)]
     ed = {"classes": classes, "record": rec, "scoringsystem": [400, 300, 225],
           "participants": parts, "races": [], "rules": []}
-    # 2q is TT-seeded (the TT order), NOT qheat1's finishers ["10","20"]
+    # 2q is TT-seeded (the TT order), NOT qheat1's finishers ["10","20"]. With no qheat1
+    # flag, qheat2 = every boat, so the restricted grid is the whole TT order.
     assert start_order(ed, "C/Q", "2q") == ["10", "30", "20", "40"]
+
+
+# --- qualifying-heat seeding restricted to the qheat's own group (307.01) --------
+
+def _qual_only_ev(record, qheat1=None, with_tt=True,
+                  pattern="3*(1000):1!qualification[1,1,1]", boats=(10, 20, 30, 40)):
+    """A qualification phase (no finals class) — the class under test is ``C/Q`` itself."""
+    classes = [["", "C/Q", pattern]]
+    if with_tt:
+        classes.insert(0, ["", "C/T", "1*(1000):1"])
+    parts = [["", "A", "One", "X", "C", str(b)] for b in boats]
+    ed = {"classes": classes, "record": record, "scoringsystem": [400, 300, 225],
+          "participants": parts, "races": [], "rules": []}
+    if qheat1 is not None:
+        ed["qheat1"] = {"C": qheat1}
+    return ed
+
+
+def test_qualifying_heat_restricted_to_its_own_group():
+    # organizer flags qheat1 = {10, 30}; the complement {20, 40} is qheat2. Each qheat's
+    # grid is JUST its group, ordered by the time trial (307.01) -- never the other group.
+    tt = _tt_one_lap({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})   # order: 40,20,10,30
+    ed = _qual_only_ev({"C/Q": {}, "C/T": {"1t": tt}}, qheat1=["10", "30"])
+    assert start_order(ed, "C/Q", "1q") == ["10", "30"]    # qheat1 group, TT order
+    assert start_order(ed, "C/Q", "2q") == ["40", "20"]    # qheat2 group, TT order
+
+
+def test_repechage_heat_is_the_field_ordered_by_timetrial():
+    # 1q: 10>20 (10 Q); 2q: 30>40 (30 Q). Repechage field = {20, 40}; TT order among them = 40,20.
+    rec = {"C/Q": {"1q": _qh("10", "20"), "2q": _qh("30", "40")},
+           "C/T": {"1t": _tt_one_lap({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})}}
+    ed = _qual_only_ev(rec, qheat1=["10", "20"])
+    assert start_order(ed, "C/Q", "3q") == ["40", "20"]    # repechage field, TT order
+
+
+def test_qualifying_heat_without_timetrial_keeps_group_order():
+    # no time-trial phase -> the group keeps its own (participant) order, not the flag order
+    ed = _qual_only_ev({"C/Q": {}}, qheat1=["30", "10"], with_tt=False)
+    assert start_order(ed, "C/Q", "1q") == ["10", "30"]    # participant order within the group
+
+
+def test_qualifying_heat_no_counts_falls_back_to_participants():
+    # a /Q class with no !qualification[...] -> empty group -> base case (participant order)
+    ed = _qual_only_ev({"C/Q": {}}, pattern="3*(1000):1", with_tt=False)
+    assert start_order(ed, "C/Q", "1q") == ["10", "20", "30", "40"]
 
 
 def test_class_not_in_catalog_falls_back_to_base_case():
