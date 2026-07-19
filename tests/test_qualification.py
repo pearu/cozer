@@ -7,7 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cozer.qualification import classify, finalists, qualification_counts  # noqa: E402
+from cozer.qualification import (classify, finalists, participant_boats,  # noqa: E402
+                                 qheat1_members, qheat_boats, qualification_counts)
 
 
 def _q(fast, slow):
@@ -74,3 +75,64 @@ def test_higher_counts_qualify_more():
     assert labels["10"] == "primary" and labels["20"] == "primary"  # top-2 of qheat1
     assert labels["50"] == "repechage"                              # missed qheat1, won repechage
     assert labels["60"] == "dnq"
+
+
+# --- qheat membership (organizer split via the qheat1 flag) -----------------------
+
+def _members_ev(record, qheat1=None, pattern="3*(1000):1!qualification[1,1,1]", boats=(10, 20, 30, 40)):
+    ed = {"classes": [["", "C/Q", pattern]], "record": {"C/Q": record},
+          "scoringsystem": [400, 300, 225],
+          "participants": [["", "A", "One", "X", "C", str(b)] for b in boats],
+          "races": [], "rules": []}
+    if qheat1 is not None:
+        ed["qheat1"] = {"C": qheat1}
+    return ed
+
+
+def test_qheat1_members_reads_flag():
+    assert qheat1_members(_members_ev({}, qheat1=["10", "30"]), "C/Q") == ["10", "30"]
+    assert qheat1_members(_members_ev({}), "C/Q") == []       # no flag -> empty list
+
+
+def test_qheat1_flag_split_qheat2_complement():
+    ed = _members_ev({}, qheat1=["10", "30"])            # organizer's split: qheat1 = {10, 30}
+    assert qheat_boats(ed, "C/Q", 1) == ["10", "30"]     # flagged, in participant order
+    assert qheat_boats(ed, "C/Q", 2) == ["20", "40"]     # the complement
+
+
+def test_repechage_field_is_selection_non_qualifiers():
+    # 1q: 10>20 (top1 -> 10 Q); 2q: 30>40 (top1 -> 30 Q). Repechage field = {20, 40}.
+    ed = _members_ev({"1q": _q("10", "20"), "2q": _q("30", "40")}, qheat1=["10", "20"])
+    assert set(qheat_boats(ed, "C/Q", 3)) == {"20", "40"}
+
+
+def test_single_selection_qheat_no_split():
+    ed = _members_ev({}, pattern="2*(1000):1!qualification[2,2]")   # 1 selection + repechage
+    assert qheat_boats(ed, "C/Q", 1) == ["10", "20", "30", "40"]    # all boats, no split
+
+
+def test_three_selection_qheats_unsupported():
+    ed = _members_ev({}, qheat1=["10"], pattern="4*(1000):1!qualification[1,1,1,1]")
+    assert qheat_boats(ed, "C/Q", 2) == []              # single flag can't split 3 groups
+    assert qheat_boats(ed, "C/Q", 1) == []
+
+
+def test_qheat_boats_out_of_range_or_no_counts():
+    assert qheat_boats(_members_ev({}), "C/Q", 9) == []             # out of range
+    ed = _members_ev({}, pattern="3*(1000):1")                      # no !qualification[...]
+    assert qheat_boats(ed, "C/Q", 1) == []
+
+
+def test_participant_boats_matches_base_class():
+    ed = _members_ev({})
+    assert participant_boats(ed, "C/Q") == ["10", "20", "30", "40"]   # /Q -> base C
+
+
+def test_repechage_field_edge_cases():
+    assert qheat_boats(_members_ev({}), "C/Q", 3) == []     # empty qual phase -> empty repechage
+    ed = _members_ev({"1q": _q("10", "20")})                # only qheat1 run so far
+    assert qheat_boats(ed, "C/Q", 3) == ["20"]              # 1q non-qualifier; missing 2q skipped
+    # a qualification class with counts but no record at all (not yet raced) -> empty
+    unrecorded = {"classes": [["", "D/Q", "3*(1000):1!qualification[1,1,1]"]], "record": {},
+                  "scoringsystem": [400, 300, 225], "participants": [], "races": [], "rules": []}
+    assert qheat_boats(unrecorded, "D/Q", 3) == []

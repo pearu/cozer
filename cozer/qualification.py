@@ -22,6 +22,7 @@ DNQ tail (UIM 209). Pure and read-only.
 import re
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes
+from cozer.classes import getclass
 from cozer.phases import canonical_record, class_phase_map
 from cozer.racepattern import class_pattern
 
@@ -79,3 +80,72 @@ def classify(eventdata, cl):
 def finalists(eventdata, cl):
     """The qualified boat ids (``"primary"`` or ``"repechage"``) — the finals field."""
     return [b for b, s in classify(eventdata, cl).items() if s != "dnq"]
+
+
+# --- qheat membership (§5.1: qheat1/qheat2 split + repechage field) ---------------
+# The **organizer** provides the qheat1/qheat2 split (rule-compliant, incl. the
+# 305.04.03 nationality balancing); the operator records it as a per-boat qheat1 flag
+# (``eventdata['qheat1'][base] = [boat_ids]``). From that single flag the rest derives:
+# qheat1 = the flagged boats, qheat2 = the class's other participants, the repechage
+# (last) qheat = the non-qualifiers of the selection qheats.
+
+
+def participant_boats(eventdata, cl):
+    """The class's participant boat-ids, in Classes & Participants list order. ``cl``
+    may be suffixed; matches on the base class."""
+    base = getclass(cl)
+    return [str(p[5]) for p in eventdata.get("participants", [])
+            if len(p) > 5 and p[4] == base and str(p[5]) != ""]
+
+
+def qheat1_members(eventdata, cl):
+    """The boat-ids the operator flagged as qheat1 members (the organizer's split), from
+    ``eventdata['qheat1'][base]``; empty if unset. Read-only."""
+    base = getclass(cl)
+    return [str(b) for b in (eventdata.get("qheat1") or {}).get(base) or []]
+
+
+def qheat_boats(eventdata, cl, number):
+    """The boat-ids in qualification qheat ``number`` for class ``cl``:
+
+    - the **last** qheat (repechage) = the non-qualifiers of the selection qheats;
+    - with a single selection qheat, qheat1 = **all** the class's participants (no split);
+    - with two selection qheats, qheat1 = the operator's **flag**, qheat2 = the rest.
+
+    ``[]`` if ``cl`` has no ``!qualification[...]`` counts, ``number`` is out of range,
+    or the split needs more than two selection qheats (three+ would need a flag per
+    selection qheat — a later extension)."""
+    counts = qualification_counts(class_pattern(eventdata, cl))
+    if not counts or not (1 <= number <= len(counts)):
+        return []
+    if number == len(counts):                            # repechage (the last qheat)
+        return _repechage_field(eventdata, cl)
+    nsel = len(counts) - 1                               # selection qheats (last is repechage)
+    boats = participant_boats(eventdata, cl)
+    if nsel == 1:                                        # one selection qheat -> all, no split
+        return boats
+    if nsel == 2:                                        # two selection qheats -> the flag split
+        flagged = set(qheat1_members(eventdata, cl))
+        return ([b for b in boats if b in flagged] if number == 1
+                else [b for b in boats if b not in flagged])
+    return []                                            # 3+ selection qheats: needs a flag each
+
+
+def _repechage_field(eventdata, cl):
+    """The boats that raced a **selection** qheat but finished outside its top ``count``
+    — the field for the repechage (second-chance) qheat."""
+    ph = class_phase_map(eventdata).get(cl)
+    counts = qualification_counts(class_pattern(eventdata, cl))
+    if ph is None or not counts:
+        return []
+    ss = eventdata.get("scoringsystem", [])
+    rc = rule_action_codes(eventdata)
+    field = []
+    for number in range(1, len(counts)):                 # selection qheats (exclude the last)
+        canon = canonical_record(ph, number)
+        if canon is None:
+            continue
+        hid, rec = canon
+        order = [str(b) for b in getresorder(analyze(hid, [dict(rec[0]), rec[1]], ss, rc))]
+        field += order[counts[number - 1]:]              # boats outside the top `count`
+    return field

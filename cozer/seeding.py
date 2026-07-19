@@ -26,7 +26,7 @@ timer button grid stays boat-number (§5, rev 29). Pure and read-only.
 from cozer.analyzer import analyze, getresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.phases import canonical_record, class_phase_map, heat_number, phase_heat_ids
-from cozer.qualification import classify
+from cozer.qualification import classify, participant_boats
 from cozer.racepattern import get_classes, race_kind
 
 _KIND_ORDER = {"timetrial": 0, "qualification": 1}   # finals/endurance sort last
@@ -139,9 +139,7 @@ def _rank(eventdata, hid, rec):
 def _participant_order(eventdata, cl):
     """Base-case start order: the class's participants in Classes & Participants list
     order (the drag-reorderable lot-draw order, §5)."""
-    base = getclass(cl)
-    return [str(p[5]) for p in eventdata.get("participants", [])
-            if len(p) > 5 and p[4] == base and str(p[5]) != ""]
+    return participant_boats(eventdata, cl)
 
 
 def _numkey(bid):
