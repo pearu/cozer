@@ -136,12 +136,18 @@ def _repechage_field(eventdata, cl):
     — the field for the repechage (second-chance) qheat.
 
     Edge-handling deferred to the qheat3-membership *consumer* (owner resolution via
-    7948e787): this currently sweeps in every non-top-count boat ``getresorder`` ranks,
-    incl. ``place = -1``. A **DNF** belongs there (rulebook-eligible, automatic — keep).
-    But a **DSQ** or **DNS** must NOT be auto-swept: their qheat3 eligibility is
-    scope-dependent (a heat-scoped DSQ stays eligible, an event-scoped one does not) and
-    is an **operator call in Edit Records**, not rule-derived. So the consumer must expose
-    an operator include/exclude override for DSQ/DNS rather than trust this auto-sweep."""
+    7948e787). This currently sweeps in every non-top-count boat ``getresorder`` ranks,
+    incl. ``place = -1``. The outcome-code → qheat3-membership rule:
+
+    - **DNF** — **automatic** (raced and failed → a legitimate non-qualifier; keep).
+    - **DSQ** — **operator call** in Edit Records; eligibility is *scope-dependent*
+      (a heat-scoped DSQ stays in, an event-scoped one is out) — cozer records the
+      jury's judgment, it doesn't infer scope.
+    - **DNS** — **operator call** in Edit Records; a *forfeit judgment* (the rules are
+      silent on whether a non-starter earns the second chance).
+
+    So the consumer must **auto-include DNF** but expose an operator include/exclude
+    override for **DSQ and DNS**, rather than trust this ``getresorder`` auto-sweep."""
     ph = class_phase_map(eventdata).get(cl)
     counts = qualification_counts(class_pattern(eventdata, cl))
     if ph is None or not counts:
