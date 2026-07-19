@@ -212,7 +212,9 @@ The only remaining choice is **how many qualify from each qheat** — a **per-qh
 authored compactly as a tuple on the qualification pattern: `!qualification[N,N,M]` = one entry
 per qheat (`qheat1→N`, `qheat2→N`, `qheat3→M`). Each entry feeds the **hardcoded** qualification
 scoring rule for that qheat (top *count* score the tier — §4.1); no per-qheat scoring-system
-data is stored. What the tuple does **not** say is which qheat is the **repechage** — the
+data is stored. The **tuple length is the number of qheats**, so a qualification pattern needs
+no leading `NofHeats*` count — it would be redundant (if present, it must match the tuple
+length). What the tuple does **not** say is which qheat is the **repechage** — the
 one that scores 1 (not 2) so it sorts to the back; that's the qheat whose field is the earlier
 qheats' non-qualifiers. How to mark it (positional last vs. structural) is open (§10).
 
@@ -292,6 +294,7 @@ for new files:
 
 ## Change log
 
+- **rev 11** — note: the `!qualification[N,N,M]` **tuple length is the number of qheats**, so the legacy `NofHeats*` prefix is redundant on a qualification pattern (omit it; must match if present).
 - **rev 10** — qualification scoring is a **hardcoded rule** (top `count` score the tier, rest
   0), not general per-qheat scoring-system *data* (owner: "the Q-heat scoring system could be
   hardcoded"). Supersedes rev 9's "per-event → per-qheat scoring system" implication: cozer
