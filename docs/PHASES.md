@@ -1,6 +1,8 @@
 # Phases — multi-kind race classes in a single event
 
-**Status: DRAFT — under active design. Not approved. Do NOT implement from this yet.**
+**Status: APPROVED for implementation — owner, 19 Jul 2026.** Design phase closed after two
+rulebook reviews, a §10-F review, and two consistency passes (7948e787). Implementation sequencing
+is in §8; the *Change log* records the design history.
 This is a living specification, iterated with the owner. Each revision must flag any
 change that contradicts something already agreed here (see *Change log*).
 
@@ -341,7 +343,7 @@ for new files:
 
 ---
 
-## 8. Implementation sequencing (agreed, Q4 — for later, not now)
+## 8. Implementation sequencing (agreed, Q4 — now the active plan)
 
 1. Backward-compat reader that loads legacy `.coz` into the new in-memory phase shape (no
    behavior change; goldens pass through a compat view).
@@ -459,6 +461,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 28** — **owner APPROVED the spec for implementation** (19 Jul 2026), closing the design phase. The review cycle — two rulebook reviews (7948e787), a §10-F review, and two consistency passes — is complete; the doc is internally consistent and design-complete. Status banner flipped DRAFT → APPROVED; §8 is now the active plan (compat reader → per-kind dispatch → derived seeding). The remaining §10 item **F** is a build task (new outcome-override action + two warnings), not an open design question.
 - **rev 27** — folded the **final consistency review** (7948e787; owner, 19 Jul 2026), which found the doc coherent with four nits (a fifth left as optional). **#1 (real bug):** the pre-decision-B "last canonical" phrasing that rev 26 fixed in §2 still survived in **§3** and **§9** (where it even contradicted §9's own per-kind restart bullet) — both now scoped to *multi-heat take-last; single-heat/endurance aggregate (§5.2)*. **#2 (labeling):** §10 reframed — **no open *design* questions remain**; F is design-complete like C/D/E, flagged only because it needs **new machinery** (the override action + two warnings), a criterion now stated. **#3 (cross-ref):** §10-F's `§4.1` pointer made explicit (it reuses the Q/DNQ *outcome*). **#4 (first-reader):** §9's N/M formula now defines `P`/`G`/`H`/`N`/`M`. #5 (the word "selection" used two ways) left as-is — context disambiguates. Still **DRAFT — not approved for implementation.**
 - **rev 26** — **end-to-end consistency read** (owner, 19 Jul 2026). Found and fixed one stale bullet: §2's "Canonical record per number" still described *pre-rev-12 / pre-decision-B* behavior — it claimed the operator could "override which record(s) count" via Reports selection (contradicts §5.2 rev 12: selection is a **set** of heat numbers, the record is **automatic**) and stated **take-last** canonical universally (contradicts decision B: single-heat/endurance **aggregate**). Reconciled §2 to match §5.2 (per-kind canonical; selection picks which heats aggregate, not which record; mis-filed records fixed by Reassign). Cosmetic: smoothed a ragged line wrap in §5.1. No new design; the rest of the document read consistent end-to-end. Still **DRAFT — not approved for implementation.**
 - **rev 25** — folded the **§10-F review** (7948e787; owner, 19 Jul 2026), which confirmed the two-independent-overrides mechanism rulebook-faithful (verbatim §209 + p.56). Three refinements: **(1)** the time bound is the penultimate **final** heat (disambiguated the series); **(2)** the **promotion order is rank-determined** — the next-best repechage finisher (`M+1`th, then `M+2`, …), one promotion per withdrawal (fill-to-capacity, no over-filling), not a free organizer pick; **(3)** new **§5 rule** for a mid-series make-up — a boat promoted *between* final heats has no previous-heat ranking, so it seeds to the **back of the next heat's grid** (no-prior-ranking joiner), with a §10-F pointer. §209 confirmations: `DNS` = *"did not come to the start position"* (fits; `DNR`/`ACC` don't); make-up source is the second-chance heat only. Still **DRAFT — not approved for implementation.**
