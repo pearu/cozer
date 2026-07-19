@@ -868,6 +868,37 @@ def test_timer_reboot_resume_floors_at_recorded_when_wall_clock_is_wrong(tmp_pat
     assert laps[2] == [1, 5.0]                # 5 s since resume, off the floored point
 
 
+def test_estimate_next_lap():
+    from cozer.app.timer import estimate_next_lap
+    assert estimate_next_lap([1000, 1000, 1000], [], 150) == 19.0         # first lap via @speed (24-5)
+    assert round(estimate_next_lap([1000, 1000, 1000], [30.0], 150)) == 25  # 2nd lap via last-lap speed
+    assert estimate_next_lap([100, 100], [3.0], 150) == 10.0              # never sooner than 10s
+    assert estimate_next_lap([1000, 1000], [30.0, 31.0], 150) is None     # finished -> no hint
+    assert estimate_next_lap([1000], [], 0) is None                       # first lap, no speed -> none
+
+
+def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
+    from cozer.app.timer import C_COMING, C_LATE
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clock = [1000.0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    key = ("GT", "1", "1")
+    assert key in tp._predict                        # first-lap closing hint armed at Start
+    # simulate the arming timer firing (no Qt event loop in the test)
+    tp._on_coming(key, 20.0)
+    assert tp._phase[key] == "coming" and tp._boat_color(*key) == C_COMING
+    tp._on_late(key)
+    assert tp._boat_color(*key) == C_LATE
+    tp.on_stop()
+    assert not tp._predict and key not in tp._phase   # cancelled on Stop
+
+
 def test_timer_reopen_reconstructs_order():
     _app()
     w = MainWindow(_recorded_event())          # GT/1 already has recorded laps

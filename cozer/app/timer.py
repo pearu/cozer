@@ -22,14 +22,14 @@ import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
+    QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
-from cozer.racepattern import crack_race_pattern
+from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed
 from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
 
@@ -45,6 +45,33 @@ C_FINISH = "#ff00ff"        # finish
 C_FINISHBAR = "#000000"     # finishmark_bg (fg white)
 C_INPROGRESS = "#c8c8c8"    # waiting1 (a lap done, still racing)
 C_WAITING = "#ffffff"       # not started
+C_COMING = "#00ff00"        # legacy 'coming': boat likely closing on the lap line
+C_LATE = "#9696f0"          # legacy 'late': boat overdue past its expected crossing
+
+# Lap-line closing hint: warn ~_CLOSING_LEAD s before a boat's expected crossing so
+# the operator is ready to click; never sooner than _CLOSING_MIN after the last one.
+_CLOSING_LEAD = 5.0    # seconds (legacy '- 5')
+_CLOSING_MIN = 10.0    # seconds (legacy 'max(..., 10)')
+
+
+def estimate_next_lap(course, laptimes, speed_kmh):
+    """Seconds until ~``_CLOSING_LEAD`` before a boat's next expected crossing, from
+    its last lap's speed -- or, before it has any lap, the class ``speed_kmh`` (the
+    pattern '@<speed>' hint). ``course`` is the lap-length list (m), ``laptimes`` the
+    boat's completed lap durations (s). None if the boat has finished or is not
+    estimable. Legacy predicted this only from the 2nd lap on; the class speed gives
+    the same closing hint for the FIRST lap too."""
+    ndone = len(laptimes)
+    if not course or ndone >= len(course):
+        return None
+    nextlen = course[min(ndone, len(course) - 1)]
+    if ndone >= 1 and laptimes[-1] > 0:
+        speed = course[min(ndone - 1, len(course) - 1)] / laptimes[-1]   # m/s from last lap
+    elif speed_kmh > 0:
+        speed = speed_kmh / 3.6                                          # first lap: class speed
+    else:
+        return None
+    return max(nextlen / speed - _CLOSING_LEAD, _CLOSING_MIN) if speed > 0 else None
 
 
 def _btn_qss(color, fontpx):
@@ -193,6 +220,8 @@ class TimerPanel(QWidget):
         self.window = window
         self._wall = wall                          # wall clock: displayed start time + resume bridge
         self._clock = clock or make_race_clock()   # race elapsed: monotonic, NTP-immune, sleep-safe
+        self._phase = {}            # (cl, h, pid) -> 'coming' | 'late' (lap-line closing hint)
+        self._predict = {}          # (cl, h, pid) -> QTimer arming the closing hint
         self._started = False
         self._heats = []
         self._buttons = {}          # (cl, h, pid) -> grid QPushButton
@@ -270,7 +299,67 @@ class TimerPanel(QWidget):
         marks = rec[1].get(pid, []) if rec else []
         laps = len([m for m in marks if m and m[0] in (1, 2)])
         need = len(rec[0].get("course", [])) if rec else len(heat_course(self.eventdata, cl, h)[0])
-        return C_FINISH if (need and laps >= need) else (C_INPROGRESS if laps else C_WAITING)
+        if need and laps >= need:
+            return C_FINISH
+        phase = self._phase.get((cl, h, pid))       # lap-line closing hint overrides while racing
+        if phase == "coming":
+            return C_COMING
+        if phase == "late":
+            return C_LATE
+        return C_INPROGRESS if laps else C_WAITING
+
+    # ---- lap-line closing hint (legacy ToggleButtonTimer) ----
+    def _arm_prediction(self, cl, h, pid):
+        """Estimate when this boat next closes on the line and colour its button
+        'coming' then 'late' as that time passes -- so the operator is ready to click."""
+        key = (cl, h, pid)
+        self._cancel_prediction(key)
+        rec = self._rec(cl, h)
+        course = (rec[0].get("course") if rec else None) or heat_course(self.eventdata, cl, h)[0]
+        laptimes = gettimes(rec[1].get(pid, [])) if rec else []
+        speed = pattern_speed(class_pattern(self.eventdata, cl) or "")
+        et = estimate_next_lap(course, laptimes, speed)
+        if et is None or not self._started:
+            return
+        t = QTimer(self)
+        t.setSingleShot(True)
+        t.timeout.connect(lambda k=key, e=et: self._on_coming(k, e))
+        self._predict[key] = t
+        t.start(int(et * 1000))
+
+    def _on_coming(self, key, et):
+        self._phase[key] = "coming"
+        self._restyle_boat(*key)
+        QApplication.beep()
+        t = self._predict.get(key)
+        if t is not None:                           # then, after a further 0.4*et, 'late'
+            t.timeout.disconnect()
+            t.timeout.connect(lambda k=key: self._on_late(k))
+            t.start(int(0.4 * et * 1000))
+
+    def _on_late(self, key):
+        self._phase[key] = "late"
+        self._restyle_boat(*key)
+
+    def _cancel_prediction(self, key):
+        t = self._predict.pop(key, None)
+        if t is not None:
+            t.stop()
+        self._phase.pop(key, None)
+
+    def _cancel_all_predictions(self):
+        for key in list(self._predict):
+            self._cancel_prediction(key)
+
+    def _restyle_boat(self, cl, h, pid):
+        grid = self._grids.get((cl, h))
+        if grid is not None and pid in grid.own:
+            grid.restyle(pid)
+
+    def _arm_all_predictions(self):
+        for cl, h in self._heats:
+            for pid in self._heat_ids(cl, h):
+                self._arm_prediction(cl, h, pid)
 
     def _boat_style(self, s):       # ladder boat button (fixed font)
         color = C_FINISH if s["finished"] else (C_INPROGRESS if s["laps"] else C_WAITING)
@@ -278,6 +367,7 @@ class TimerPanel(QWidget):
 
     # ---- widget building ----
     def _clear(self):
+        self._cancel_all_predictions()
         for sub in self._subs:
             sub.close()
         self._subs = []
@@ -387,6 +477,7 @@ class TimerPanel(QWidget):
         self.stop_btn.setEnabled(True)
         self.race_combo.setEnabled(False)
         self._build()
+        self._arm_all_predictions()        # first-lap closing hints from the class @speed
         self.status.setText("Recording…")
 
     def _confirm_overwrite(self):      # pragma: no cover - modal dialog
@@ -424,6 +515,7 @@ class TimerPanel(QWidget):
         self.stop_btn.setEnabled(True)
         self.race_combo.setEnabled(False)
         self.status.setText("Recording (resumed)…")
+        self._arm_all_predictions()
 
     def setup_heat(self, cl, h, now):
         course, sheats, duration = heat_course(self.eventdata, cl, h)
@@ -447,9 +539,11 @@ class TimerPanel(QWidget):
         if grid is not None:
             grid.restyle(pid)
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
+        self._arm_prediction(cl, h, pid)   # predict the next crossing -> closing hint
 
     def on_stop(self):
         self._started = False
+        self._cancel_all_predictions()
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.race_combo.setEnabled(True)
