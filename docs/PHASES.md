@@ -76,9 +76,12 @@ number         ∈ { 1, 2, 3, ... }                   # heat number; a RESTART r
   proposal) `r`/`R` are replaced by repetition: **a restart is simply a repeated heat number
   in the phase's results list.** The Nth record carrying number *k* is the (N−1)th restart of
   heat *k*. Nothing to parse out of a key.
-- **Canonical record per number:** the **last** record with a given number is used by default
-  for seeding and for ranking; the **Reports heat-selection** lets the operator override which
-  record(s) count (§5.2) — that override is the main purpose of "checking heats" in Reports.
+- **Canonical record per number:** by default the **last non-empty** record with a given number is
+  used automatically for seeding and ranking (so "use the last restart" needs no action). Restart
+  handling is **per-kind** — multi-heat *takes* the last, single-heat/endurance *aggregate* all
+  starts (§5.2). The **Reports heat-selection** chooses *which heat numbers* a report aggregates (a
+  **set**), not *which record* counts (that is automatic); a mis-filed record is fixed by
+  **Reassign** (§5.2).
 - **One pattern per phase** (Q1). A restart re-runs the phase's pattern; a *shortened* restart
   is **not** a separate/short pattern — it is handled by scoring rules on the laps state (a
   stopped 2nd restart is scored from the laps state, so a 3rd restart never occurs), not by
@@ -230,8 +233,8 @@ second chance (UIM **305.04**):
 **Qualification only *selects* finalists** — it does not order the finals grid. Each qheat marks
 its **top `count`** boats **`Q`** (qualified) and the rest **`DNQ`**, directly from the qheat
 ranking with no scoring system (§4.1): top **N** of qheat1/qheat2, top **M** of the repechage
-qheat3. A boat is a finalist
-iff it is `Q` in **any** of its qheats. **Primary-vs-repechage is not encoded in the outcome** — it
+qheat3. A boat is a finalist iff it is `Q` in **any** of its qheats. **Primary-vs-repechage is not
+encoded in the outcome** — it
 is read from the **source qheat**: a `Q` from the last/repechage qheat is a repechage qualifier.
 (Each boat's `Q` comes from exactly one qheat — the primaries are disjoint and the repechage runs
 only their non-qualifiers — so the source is never ambiguous.)
@@ -449,6 +452,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 26** — **end-to-end consistency read** (owner, 19 Jul 2026). Found and fixed one stale bullet: §2's "Canonical record per number" still described *pre-rev-12 / pre-decision-B* behavior — it claimed the operator could "override which record(s) count" via Reports selection (contradicts §5.2 rev 12: selection is a **set** of heat numbers, the record is **automatic**) and stated **take-last** canonical universally (contradicts decision B: single-heat/endurance **aggregate**). Reconciled §2 to match §5.2 (per-kind canonical; selection picks which heats aggregate, not which record; mis-filed records fixed by Reassign). Cosmetic: smoothed a ragged line wrap in §5.1. No new design; the rest of the document read consistent end-to-end. Still **DRAFT — not approved for implementation.**
 - **rev 25** — folded the **§10-F review** (7948e787; owner, 19 Jul 2026), which confirmed the two-independent-overrides mechanism rulebook-faithful (verbatim §209 + p.56). Three refinements: **(1)** the time bound is the penultimate **final** heat (disambiguated the series); **(2)** the **promotion order is rank-determined** — the next-best repechage finisher (`M+1`th, then `M+2`, …), one promotion per withdrawal (fill-to-capacity, no over-filling), not a free organizer pick; **(3)** new **§5 rule** for a mid-series make-up — a boat promoted *between* final heats has no previous-heat ranking, so it seeds to the **back of the next heat's grid** (no-prior-ranking joiner), with a §10-F pointer. §209 confirmations: `DNS` = *"did not come to the start position"* (fits; `DNR`/`ACC` don't); make-up source is the second-chance heat only. Still **DRAFT — not approved for implementation.**
 - **rev 24** — **refined §10-F's mechanism** (owner, 19 Jul 2026). A make-up is **two independent outcome overrides**, never a coupled action: the withdrawing finalist → **`DNS`** (an *existing* §209 code — no new "withdraw" rule) and a repechage boat → **`DNQ → Q`**. They are **separately legal** (a finalist may withdraw with no make-up — it's the organizer's right, not mandatory), so coupling them would be wrong; the organizer's decision links them, the system records. The promotion **auto-seeds to the back** — the promoted boat's source qheat is the repechage, so the existing structural rule applies (constrain the promotion to a repechage-qheat boat). Capacity + "not after the penultimate heat" become **warnings, not rules** (capacity is the natural home for the deferred **H**). Still **DRAFT — not approved for implementation.**
 - **rev 23** — folded the **7948e787 re-review** (owner decisions, 19 Jul 2026). The re-review confirmed revs 16–22 faithful and internally consistent. **N/M answered:** an **organizer choice**, not rules-determined (305.04 has no formula; `G·N+M=H` alone allows several splits) → the `!qualification[N,N,M]` tuple **stays explicit**; a boats-per-heat **H** param (validation + fill-to-capacity default) was **deferred** (owner: hold). §9 records this. **New open item §10-F:** the **make-up / substitution rule** (p.56) — a `DNQ` boat may be promoted to a withdrawn finalist's slot (not after the penultimate heat); approach decided (**manual `DNQ → Q` override in Edit Records**, reusing the Reassign machinery), mechanism left to implementation; pointer added in §5.1 step 4. Trivial clarity fix: §4 `timetrial` row now cross-refs §5.1 (it seeds the finals grid even under a qualification phase). §10 reopened with the single item F. Still **DRAFT — not approved for implementation.**
