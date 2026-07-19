@@ -127,7 +127,10 @@ This per-kind dispatch is what makes phases **independent / conflict-free**.
 | `endurance` | mass-start, duration | mis-click (banded) | endurance sheet | laps in the race duration (§4.1) |
 
 Report names above are **intent, not final** (owner to adjust during implementation/testing).
-Adding a kind = add a row + its handlers; the abstraction does not change.
+**Each phase owns its report set** — a phase is, roughly, a standalone race event — and every
+generated **PDF filename includes the phase kind name** (`…timetrial…`, `…qualification…`,
+`…finals…`), so a merged .coz's outputs stay unambiguous. Adding a kind = add a row + its
+handlers; the abstraction does not change.
 
 ### 4.1 Notes
 
@@ -141,11 +144,15 @@ Adding a kind = add a row + its handlers; the abstraction does not change.
   miss a crossing, so the physics/too-fast check applies; there is no wrong-boat case (no pack),
   and the too-slow median check needs ≥4 laps so it's inert on a 3-lap run. *Code ripple:
   validate currently **excludes** time-trials from mis-click — enable the light check.*
-- **Time-trial missed-buoy (UIM 305.04.02)** *(review finding)* — if a driver is officially
-  reported to have missed a turn buoy, that boat's **fastest lap is deleted** and "best"
-  recomputed. Needs a per-lap *missed-buoy* mark in Edit Records (distinct from a mis-click
-  delete). New work item. (305.04.02 also allows two methods — best full lap, or best 2 of 4
-  timed laps — both covered if "best lap" means best of the *timed* laps.)
+- **Time-trial missed-buoy (UIM 305.04.02)** — if a driver is officially reported to have missed
+  a turn buoy, that boat's **fastest lap is deleted** (irrespective of which lap the buoy was
+  missed on) and "best" recomputed. **Covered by the existing Edit-Records *disable-lap* action**:
+  the operator disables that boat's fastest lap on the report — no new mark type. *Implementation
+  check:* the time-trial kind auto-disables all but the best lap, so disabling that best lap must
+  **promote the next-fastest** enabled lap (recompute best over the remaining laps), not leave the
+  boat timeless. An audit annotation ("removed: missed buoy" vs an ordinary mis-click delete) is
+  optional, not required for scoring. (305.04.02 also allows two methods — best full lap, or best
+  2 of 4 timed laps — both covered if "best lap" means best of the *timed* laps.)
 - **Qualification = circuit heats with a Q-points scoring system.** Score `qheat1`/`qheat2`
   with `2 … 2 0 … 0` (their top **N** score **2**) and the repechage `qheat3` with `1 … 1 0 … 0`
   (its top **M** score **1**); everyone else scores 0. A boat's qualification is the **best of
@@ -349,6 +356,11 @@ for new files:
 - **Non-qualifiers stay in the finals report**, marked **DNQ** (no final points) — UIM 209
   requires every entered-and-accepted boat to appear; *not classified* (seeding) and the DNQ tail
   (report) coexist. (§5.1 step 4, §10-E)
+- **Reports are per-phase**: each phase owns its report set (a phase ≈ a standalone race event),
+  and every generated **PDF filename includes the phase kind name** so a merged .coz's outputs
+  stay unambiguous. Report machinery is reused unchanged (`analyze`/`sumanalyze`). (§4, §10-E)
+- **Missed-buoy (305.04.02) needs no new machinery**: the existing Edit-Records *disable-lap*
+  action deletes the boat's fastest lap; best-lap recomputes to the next-fastest. (§4.1, §10-D)
 - **Restart handling is per-kind** (decision B): multi-heat circuit/finals **take-last** (earlier
   laps discarded, 70% threshold — 311.02.3/311.02.1); single-heat & endurance **aggregate** (20%
   threshold — 311.03.5/311.03.2). Circuit is this doc's focus; the aggregate branch is recorded so
@@ -361,21 +373,25 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-*Rulebook review by 7948e787 resolved (owner, 19 Jul 2026): **A** — first-final grid is ordered by
-**time-trial times** (307.01); qualification is a membership gate only. **B** — restart handling is
-**per-kind** (take-last multi-heat, aggregate single-heat/endurance). Both folded into §5.1/§5.2/§9.*
+**No open design questions remain (19 Jul 2026)** — every item below is resolved; the spec awaits
+only the owner's implementation go-ahead. Findings **A**/**B** (grid order, per-kind restarts) were
+folded into §5.1/§5.2/§9; **C**/**D**/**E** are closed. Items are kept as a record.
 
 - **C. *(closed, 19 Jul 2026)* — a single combined repechage matches the rulebook.** The 305.04.03
   worked example (p.56) runs **2 selection heats → one combined second-chance heat** grouping all
   non-selected boats — exactly `qheat1`/`qheat2` + a single trailing `qheat3`. So the
   `!qualification[N,N,M]` model needs no per-group repechage; the earlier grammatical ambiguity
   resolves toward our model. (§5.1)
-- **D. Time-trial missed-buoy** (305.04.02) — a new per-lap "missed-buoy → delete fastest lap"
-  Edit-Records mark (§4.1). Work item.
-- **E. Per-kind report catalogue** — §4 lists intent; report names fixed during implementation.
-  Concrete requirement: the **finals report carries a DNQ tail** — {entered ∧ accepted} −
-  {finalists}, marked `DNQ` with no final points (UIM 209; §5.1 step 4). Arises only when a
-  `qualification` phase exists.
+- **D. *(closed, 19 Jul 2026)* — missed-buoy is handled by existing Edit Records.** The 305.04.02
+  penalty (delete the fastest lap on an official missed-buoy report) is the existing *disable-lap*
+  action — no new mark type. Implementation check: disabling the best lap must promote the
+  next-fastest (§4.1). Optional audit annotation only. (§4.1)
+- **E. *(closed, 19 Jul 2026)* — reports are per-phase; only naming/layout is left to
+  implementation.** **Each phase has its own report set** (a phase ≈ a standalone race event) and
+  every **PDF filename includes the phase kind name** (§4). The machinery is reused unchanged
+  (`analyze`/`sumanalyze`, §9); the one content requirement is the qualification→finals **DNQ
+  tail** — {entered ∧ accepted} − {finalists}, marked `DNQ`, no final points (UIM 209; §5.1 step
+  4). Exact column layouts / display names are an implementation/testing detail. (§4)
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
@@ -385,6 +401,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 19** — closed the last two open items (owner, 19 Jul 2026), leaving **no open design questions**. **D (missed-buoy):** handled by the existing Edit-Records *disable-lap* action (delete the fastest lap on an official report) — no new mark type; §4.1 rewritten with the best-lap-recompute implementation check + optional audit annotation. **E (report catalogue):** closed — **reports are per-phase** (each phase owns its report set, a phase ≈ a standalone race event) and every **PDF filename includes the phase kind name** (owner); machinery reused unchanged, DNQ tail the one content requirement, names/layout left to implementation. §4/§9/§10 updated. Still **DRAFT — not approved for implementation.**
 - **rev 18** — folded two more 7948e787 rulebook items (owner, 19 Jul 2026). **DNQ tail:** §5.1 step 4 + §10-E now require the finals report to list every entered-and-accepted boat, non-qualifiers marked **DNQ** with no final points (UIM **209**; `DNQ` already a first-class §209 code). *Not classified* (scoring/seeding) and the DNQ tail (report) coexist. **Closed §10-C:** the 305.04.03 worked example (p.56) is **2 selection heats → one combined repechage**, matching the `qheat1`/`qheat2` + single `qheat3` model — no per-group repechage needed (p.56 also independently confirms decision A). Still **DRAFT — not approved for implementation.**
 - **rev 17** — **owner resolved review findings A and B** (19 Jul 2026). **A:** the first-final grid is ordered by **time-trial times** (307.01), not the qual-heat ranking — the time-trial is the *master ordering signal* (grouping, qualifying-heat jetty positions, first-final jetty positions; 7948e787's 305.04.02/305.04.03/307.01 read); **qualification is a membership gate only** (selects finalists, sends the repechage to the back); the Q-points ranking is now just the no-time-trial fallback. Rewrote §5.1, removed the §4↔§5.1 conflict. **B:** restart handling is **per-kind** — multi-heat circuit/finals **take-last** (70% threshold, 311.02.3/311.02.1), single-heat & endurance **aggregate** (20% threshold, 311.03.5/311.03.2); §5.2 states the split and notes circuit is this doc's focus so folding phases must not break single-lap/endurance. Both moved from §10 open questions to §9 settled. Still **DRAFT — not approved for implementation.**
 - **rev 16** — folded the **UIM 2026 rulebook review** (7948e787). Corrections applied: §1 a 2nd restart is legal only for the last final heat (311.02.2); §4.1 add the time-trial missed-buoy rule (305.04.02 → delete fastest lap). Two **owner decisions** flagged inline + in §10: (A) first-final grid should be **time-trial times** not the qual ranking (307.01), (B) restart handling is **per-kind** — aggregate for single-heat & endurance (311.03.5), take-last for multi-heat (311.02.3). Minor flags: per-group repechage not expressible by the tuple (305.04.03); jetty-vs-flying-start context (306/307.01). Review confirmed the rest faithful.
