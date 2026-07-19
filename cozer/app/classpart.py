@@ -19,9 +19,30 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import ruleset as rulesetmod
+from cozer.classes import getclass
 from cozer.racepattern import (
     crack_race_pattern, describe_pattern, format_circuit_pattern, parse_simple_pattern,
+    race_kind,
 )
+
+
+# Shown as the qheat1 column's header tooltip — tells the operator when it applies.
+_QHEAT1_TOOLTIP = (
+    "Qualification only: tick the boats the organizer placed in the first qualifying "
+    "heat (qheat1), per their group split. The rest of the class become qheat2, and the "
+    "repechage (last) heat is filled from the non-qualifiers. Ignored for classes "
+    "without qualification heats.")
+
+
+def has_qualification(eventdata, cl):
+    """True if class ``cl``'s base has a qualification-kind phase in the catalog — the
+    condition under which the qheat1 membership checkbox is shown (§5.1)."""
+    base = getclass(cl)
+    for row in eventdata.get("classes", []):
+        c = row[1] if len(row) > 1 else ""
+        if c and getclass(c) == base and race_kind(eventdata, c) == "qualification":
+            return True
+    return False
 
 
 # --- per-class participant table --------------------------------------------
@@ -33,41 +54,75 @@ class ParticipantClassModel(QAbstractTableModel):
 
     COLS = [(5, "Boat #"), (1, "Name"), (2, "Surname"), (3, "From")]
 
-    def __init__(self, participants, classname, warn=None):
+    def __init__(self, participants, classname, warn=None, qheat1=None, show_qheat1=False):
         super().__init__()
         self._all = participants          # master list, edited in place
         self._class = classname
         self._warn = warn
+        self._qheat1 = qheat1 if qheat1 is not None else {}   # eventdata['qheat1'] (per-base sets)
+        # The qheat1 membership checkbox (sentinel column ``None``) appears only for a
+        # class that has a qualification phase.
+        self._cols = list(self.COLS) + ([(None, "qheat1")] if show_qheat1 else [])
         self._reindex()
 
     def _reindex(self):
         self._idx = [i for i, p in enumerate(self._all)
                      if len(p) > 4 and p[4] == self._class]
 
+    def _qheat1_list(self):
+        """The mutable qheat1 boat-id list for this class's base (created on demand)."""
+        return self._qheat1.setdefault(getclass(self._class), [])
+
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self._idx)
 
     def columnCount(self, parent=QModelIndex()):
-        return len(self.COLS)
+        return 0 if parent.isValid() else len(self._cols)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.COLS[section][1]
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                return self._cols[section][1]
+            if role == Qt.ToolTipRole and self._cols[section][0] is None:
+                return _QHEAT1_TOOLTIP
         return None
 
     def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid() or role not in (Qt.DisplayRole, Qt.EditRole):
+        if not index.isValid():
             return None
         row = self._all[self._idx[index.row()]]
-        ci = self.COLS[index.column()][0]
-        return "" if ci >= len(row) else str(row[ci])
+        ci = self._cols[index.column()][0]
+        if ci is None:                    # the qheat1 checkbox column
+            if role == Qt.CheckStateRole:
+                bid = str(row[5]) if len(row) > 5 else ""
+                return Qt.Checked if bid and bid in self._qheat1_list() else Qt.Unchecked
+            return None
+        if role in (Qt.DisplayRole, Qt.EditRole):
+            return "" if ci >= len(row) else str(row[ci])
+        return None
 
     def setData(self, index, value, role=Qt.EditRole):
-        if role != Qt.EditRole or not index.isValid():
+        if not index.isValid():
             return False
         master = self._idx[index.row()]
         row = self._all[master]
-        ci = self.COLS[index.column()][0]
+        ci = self._cols[index.column()][0]
+        if ci is None:                    # toggle qheat1 membership (organizer's split)
+            if role != Qt.CheckStateRole:
+                return False
+            bid = str(row[5]) if len(row) > 5 else ""
+            if not bid:
+                return False
+            lst = self._qheat1_list()
+            if Qt.CheckState(value) == Qt.Checked:      # coerces both the enum and a raw int
+                if bid not in lst:
+                    lst.append(bid)
+            elif bid in lst:
+                lst.remove(bid)
+            self.dataChanged.emit(index, index)
+            return True
+        if role != Qt.EditRole:
+            return False
         if isinstance(value, str):
             value = value.strip()
         if ci == 5 and value:             # boat number must be unique within the class
@@ -85,7 +140,10 @@ class ParticipantClassModel(QAbstractTableModel):
         return True
 
     def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        f = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        if self._cols[index.column()][0] is None:
+            return f | Qt.ItemIsUserCheckable
+        return f | Qt.ItemIsEditable
 
     def add_row(self):
         n = len(self._idx)
@@ -120,10 +178,10 @@ class AutoCompleteDelegate(QStyledItemDelegate):
 
 
 class ClassParticipantsWidget(QWidget):
-    def __init__(self, participants, classname, warn=None):
+    def __init__(self, participants, classname, warn=None, qheat1=None, show_qheat1=False):
         super().__init__()
         self._participants = participants
-        self.model = ParticipantClassModel(participants, classname, warn)
+        self.model = ParticipantClassModel(participants, classname, warn, qheat1, show_qheat1)
         v = QVBoxLayout(self)
         self.view = QTableView()
         self.view.setModel(self.model)
@@ -320,7 +378,10 @@ class ClassesParticipantsPanel(QWidget):
         editp.clicked.connect(lambda _=False, r=classrow, s=summary: self._edit_pattern(r, s))
         prow.addWidget(editp)
         lv.addLayout(prow)
-        grid = ClassParticipantsWidget(self._participants(), cl, warn=self.window.log)
+        grid = ClassParticipantsWidget(
+            self._participants(), cl, warn=self.window.log,
+            qheat1=self.window.eventdata.setdefault("qheat1", {}),
+            show_qheat1=has_qualification(self.window.eventdata, cl))
         grid.model.rowsInserted.connect(self._update_counts)
         grid.model.rowsRemoved.connect(self._update_counts)
         lv.addWidget(grid, 1)

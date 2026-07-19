@@ -1425,3 +1425,39 @@ def test_log_pane_records_messages():
     w = MainWindow(_recorded_event())
     w.log("hello world")
     assert "hello world" in w.log_view.toPlainText()
+
+
+def test_has_qualification_detects_qualification_phase():
+    from cozer.app.classpart import has_qualification
+    ed = {"classes": [["", "C", "3*(1000):1"],
+                      ["", "C/Q", "3*(1000):1!qualification[1,1,1]"]]}
+    assert has_qualification(ed, "C") is True          # base C has a /Q sibling
+    assert has_qualification(ed, "C/Q") is True
+    assert has_qualification({"classes": [["", "D", "3*(1000):1"]]}, "D") is False
+
+
+def test_qheat1_checkbox_column_toggles_membership():
+    from PySide6.QtCore import Qt
+    from cozer.app.classpart import ParticipantClassModel
+    _app()
+    parts = [["", "A", "One", "EST", "C", "10"], ["", "B", "Two", "FIN", "C", "20"]]
+    qh = {}
+    m = ParticipantClassModel(parts, "C", qheat1=qh, show_qheat1=True)
+    assert m.columnCount() == 5                         # 4 base columns + qheat1
+    assert m.headerData(4, Qt.Horizontal, Qt.DisplayRole) == "qheat1"
+    assert m.headerData(4, Qt.Horizontal, Qt.ToolTipRole)  # tooltip present
+    idx = m.index(0, 4)
+    assert m.data(idx, Qt.CheckStateRole) == Qt.Unchecked
+    assert m.flags(idx) & Qt.ItemIsUserCheckable
+    assert m.setData(idx, Qt.Checked, Qt.CheckStateRole) is True
+    assert qh == {"C": ["10"]}                          # boat 10 added to eventdata['qheat1']['C']
+    assert m.data(idx, Qt.CheckStateRole) == Qt.Checked
+    assert m.setData(idx, Qt.Unchecked, Qt.CheckStateRole) is True
+    assert qh == {"C": []}                              # and removed
+
+
+def test_qheat1_column_absent_without_qualification():
+    from cozer.app.classpart import ParticipantClassModel
+    _app()
+    m = ParticipantClassModel([["", "A", "One", "EST", "C", "10"]], "C")  # show_qheat1=False
+    assert m.columnCount() == 4                         # no qheat1 column
