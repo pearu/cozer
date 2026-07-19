@@ -157,12 +157,13 @@ handlers; the abstraction does not change.
   with `2 … 2 0 … 0` (their top **N** score **2**) and the repechage `qheat3` with `1 … 1 0 … 0`
   (its top **M** score **1**); everyone else scores 0. A boat's qualification is the **best of
   its qual heats** (drop-worst), so a boat that qualifies only via the repechage still counts.
-  **Finalists = the non-zero scorers.** The finals' 1st-heat grid is then simply the **circuit
-  ranking** of the combined qualification results (points, then best average speed, then best
-  lap speed) — and because qheat1/qheat2 qualifiers hold 2 points and qheat3 qualifiers hold 1,
-  the repechage qualifiers land **behind** automatically, making the separate "repechage at the
-  back" rule (§5.1) redundant. This reuses the whole circuit scoring + mis-click machinery; only
-  the scoring differs. That Q-points scoring is a **hardcoded rule** for the `qualification`
+  **Finalists = the non-zero scorers.** Under **decision A** (§5.1) the finals' 1st-heat grid is
+  ordered by **time-trial times**, *not* by these Q-points — qualification only *selects* who is in.
+  The Q-points tier (2 for a primary qheat, 1 for the repechage) still **marks** the repechage
+  qualifiers so they sit at the **back** of the grid; the **circuit ranking** of the combined
+  qualification results (points, then best average speed, then best lap speed) is used only as the
+  **no-time-trial fallback** grid order. This reuses the whole circuit scoring + mis-click
+  machinery; only the scoring differs. That Q-points scoring is a **hardcoded rule** for the `qualification`
   kind — *the top `count` boats score the tier (2 for a primary qheat, 1 for the repechage), the
   rest score 0* — so cozer needs **no general per-qheat scoring-system data**; the only
   parameters are the per-qheat **counts** (the tuple, §5.1) and **which qheat is the repechage**.
@@ -401,6 +402,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 20** — consistency fix found in a pre-re-review sweep: **§4.1's qualification note still described the pre-decision-A grid** (finals 1st-heat grid = *circuit ranking* of Q-points, calling the repechage-at-the-back rule "redundant"). rev 17 rewrote §5.1 for decision A but left this mirror text stale (grep missed it — the phrase wraps a line break). Reconciled: the grid is ordered by **time-trial times** (decision A); Q-points only *select* finalists and the tier *marks* the repechage to the back; the circuit ranking is the **no-time-trial fallback** only. No other live grid statement was stale. Still **DRAFT — not approved for implementation.**
 - **rev 19** — closed the last two open items (owner, 19 Jul 2026), leaving **no open design questions**. **D (missed-buoy):** handled by the existing Edit-Records *disable-lap* action (delete the fastest lap on an official report) — no new mark type; §4.1 rewritten with the best-lap-recompute implementation check + optional audit annotation. **E (report catalogue):** closed — **reports are per-phase** (each phase owns its report set, a phase ≈ a standalone race event) and every **PDF filename includes the phase kind name** (owner); machinery reused unchanged, DNQ tail the one content requirement, names/layout left to implementation. §4/§9/§10 updated. Still **DRAFT — not approved for implementation.**
 - **rev 18** — folded two more 7948e787 rulebook items (owner, 19 Jul 2026). **DNQ tail:** §5.1 step 4 + §10-E now require the finals report to list every entered-and-accepted boat, non-qualifiers marked **DNQ** with no final points (UIM **209**; `DNQ` already a first-class §209 code). *Not classified* (scoring/seeding) and the DNQ tail (report) coexist. **Closed §10-C:** the 305.04.03 worked example (p.56) is **2 selection heats → one combined repechage**, matching the `qheat1`/`qheat2` + single `qheat3` model — no per-group repechage needed (p.56 also independently confirms decision A). Still **DRAFT — not approved for implementation.**
 - **rev 17** — **owner resolved review findings A and B** (19 Jul 2026). **A:** the first-final grid is ordered by **time-trial times** (307.01), not the qual-heat ranking — the time-trial is the *master ordering signal* (grouping, qualifying-heat jetty positions, first-final jetty positions; 7948e787's 305.04.02/305.04.03/307.01 read); **qualification is a membership gate only** (selects finalists, sends the repechage to the back); the Q-points ranking is now just the no-time-trial fallback. Rewrote §5.1, removed the §4↔§5.1 conflict. **B:** restart handling is **per-kind** — multi-heat circuit/finals **take-last** (70% threshold, 311.02.3/311.02.1), single-heat & endurance **aggregate** (20% threshold, 311.03.5/311.03.2); §5.2 states the split and notes circuit is this doc's focus so folding phases must not break single-lap/endurance. Both moved from §10 open questions to §9 settled. Still **DRAFT — not approved for implementation.**
