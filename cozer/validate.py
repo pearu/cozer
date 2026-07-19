@@ -14,7 +14,8 @@ import statistics
 from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
-from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed, race_kind
+from cozer.phases import to_phases
+from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed
 from cozer.records import gettimes
 
 # severity is advisory only; cl/heat may be None for event-level findings.
@@ -81,12 +82,26 @@ def check_results(eventdata):
             findings.append(Finding("warning", None, None, "empty-scoring",
                                     "scoring system is empty — every result scores 0 points"))
 
+        # Per-kind dispatch runs on the phase model (PHASES.md §8 step 2): a class's
+        # kind and pattern come from its Phase, not from re-inferring them here via the
+        # class/heat suffix. phase_of maps each legacy class name to its Phase; the
+        # legacy record dict is still iterated (same class-then-heat order) so findings
+        # stay byte-identical. Skipping a time-trial/qualification *phase* replaces the
+        # old per-heat ``h[-1] in ('q','t')`` skip -- identical on real data (a /T,/Q
+        # class's heats all carry the suffix); a hint-kinded class with a plain heat id
+        # can't occur in the legacy corpus.
+        phase_of = {}
+        for phases in to_phases(eventdata).values():
+            for ph in phases:
+                phase_of[ph.legacy_class] = ph
+
         classes = [c for c in get_classes(eventdata) if c in record]
         for cl in classes:
+            ph = phase_of.get(cl)
+            if ph is None or ph.kind in ("timetrial", "qualification"):
+                continue                            # scored differently, not click-checked
             heats = record.get(cl) or {}
             for h in sorted(heats):
-                if h and h[-1] in ("q", "t"):       # qualification / time-trial: scored differently
-                    continue
                 info, rec = heats[h]
 
                 # Mis-click detection: a boat whose EFFECTIVE lap (gettimes absorbs a
@@ -96,12 +111,11 @@ def check_results(eventdata):
                 # DNF'd can still have a click error). Report for Edit-Records review;
                 # scoring is unchanged. Only mass-start racing -- a time-trial or
                 # qualifier runs solo, so no pack and no wrong-boat click.
-                kind = race_kind(eventdata, cl)
-                if kind in ("circuit", "endurance"):
-                    min_lap = _class_min_lap_time(eventdata, cl)
+                if ph.kind in ("circuit", "endurance"):
+                    min_lap = _pattern_min_lap_time(ph.pattern)
                     if min_lap:
                         findings.extend(_misclick_findings(
-                            cl, h, rec, min_lap, kind == "endurance"))
+                            cl, h, rec, min_lap, ph.kind == "endurance"))
 
                 try:
                     res = analyze(h, heats[h], ss, rulecodes)
@@ -150,19 +164,18 @@ def check_results(eventdata):
     return findings
 
 
-def _class_min_lap_time(eventdata, cl):
-    """Fastest physically-possible lap (seconds) for class ``cl``: its shortest lap
-    length / its top speed (pattern ``'@<speed>'`` km/h, default 150). ``None`` if
-    the class has no usable pattern."""
-    for l in eventdata.get("classes", []):
-        if len(l) > 2 and l[1] == cl and l[2]:
-            try:
-                lengths = [x for hh in crack_race_pattern(l[2])[0] for x in hh if x > 0]
-                speed_ms = pattern_speed(l[2]) / 3.6
-            except Exception:
-                return None
-            return min(lengths) / speed_ms if lengths and speed_ms > 0 else None
-    return None
+def _pattern_min_lap_time(pattern):
+    """Fastest physically-possible lap (seconds) for a class with race ``pattern``:
+    its shortest lap length / its top speed (the pattern's ``'@<speed>'`` km/h hint,
+    default 150). ``None`` if the pattern is missing or unusable."""
+    if not pattern:
+        return None
+    try:
+        lengths = [x for hh in crack_race_pattern(pattern)[0] for x in hh if x > 0]
+        speed_ms = pattern_speed(pattern) / 3.6
+    except Exception:
+        return None
+    return min(lengths) / speed_ms if lengths and speed_ms > 0 else None
 
 
 def _misclick_findings(cl, h, rec, min_lap, endurance):
