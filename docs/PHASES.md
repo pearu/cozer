@@ -121,7 +121,7 @@ This per-kind dispatch is what makes phases **independent / conflict-free**.
 
 | kind | timer | validate | report | scoring |
 |---|---|---|---|---|
-| `timetrial` | solo / free, timed | light mis-click | best-time list | best lap → seeds the finals' 1st-heat start order (the timer ladder order) |
+| `timetrial` | solo / free, timed | light mis-click | best-time list | best lap → seeds the finals' 1st-heat grid — the master ordering signal, **incl. under a qualification phase** (§5.1) |
 | `qualification` | mass-start | mis-click (fast + slow) | qual ranking | per-qheat **Q / DNQ** (top `count` = `Q`) → finalist selection (§4.1) |
 | `circuit` | mass-start | mis-click (fast + slow) | finals sheet | UIM points |
 | `endurance` | mass-start, duration | mis-click (banded) | endurance sheet | laps in the race duration (§4.1) |
@@ -220,7 +220,8 @@ second chance (UIM **305.04**):
    the finals report to list every entered-and-accepted boat, so non-qualifiers appear in a **DNQ
    tail** (below the classified finishers, no final points). *Not classified* governs
    scoring/seeding; the DNQ tail governs the report — the two coexist. `DNQ` is already a
-   first-class outcome code (§209 work). (§10-E)
+   first-class outcome code (§209 work). (§10-E) *(Conversely, a `DNQ` boat may be **promoted** to
+   a withdrawn finalist's slot — the make-up rule, §10-F.)*
 
 **Qualification only *selects* finalists** — it does not order the finals grid. Each qheat marks
 its **top `count`** boats **`Q`** (qualified) and the rest **`DNQ`**, directly from the qheat
@@ -365,6 +366,11 @@ for new files:
   *selects* finalists and seeds the repechage to the back (structurally); the circuit ranking is
   the no-time-trial fallback. A single combined repechage (`qheat3`) matches the rulebook worked
   example (305.04.03 p.56) — no per-group second chance. (§5.1, Q10.1, A, rev 22)
+- **N and M are an organizer choice**, not rules-determined (7948e787 re-review): 305.04 gives no
+  formula — the p.56 8/8/4 is an *example*, and `G·N + M = H` alone allows several splits (P=30,
+  H=20 → five). So the `!qualification[N,N,M]` tuple **stays explicit**. A boats-per-heat **H**
+  racepattern param (to validate the tuple + default `M = H−G·N`) was considered and **deferred**
+  (owner, 19 Jul 2026). (§5.1, §10-F)
 - **Non-qualifiers stay in the finals report**, marked **DNQ** (no final points) — UIM 209
   requires every entered-and-accepted boat to appear; *not classified* (seeding) and the DNQ tail
   (report) coexist. (§5.1 step 4, §10-E)
@@ -385,9 +391,10 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-**No open design questions remain (19 Jul 2026)** — every item below is resolved; the spec awaits
-only the owner's implementation go-ahead. Findings **A**/**B** (grid order, per-kind restarts) were
-folded into §5.1/§5.2/§9; **C**/**D**/**E** are closed. Items are kept as a record.
+**One open item (F), surfaced by the 7948e787 re-review (19 Jul 2026)** — the make-up / substitution
+rule; everything else is resolved. Findings **A**/**B** (grid order, per-kind restarts) were folded
+into §5.1/§5.2/§9; **C**/**D**/**E** are closed (kept as a record). The re-review also **confirmed**
+that N and M are an **organizer choice**, not rules-determined (§9).
 
 - **C. *(closed, 19 Jul 2026)* — a single combined repechage matches the rulebook.** The 305.04.03
   worked example (p.56) runs **2 selection heats → one combined second-chance heat** grouping all
@@ -404,6 +411,12 @@ folded into §5.1/§5.2/§9; **C**/**D**/**E** are closed. Items are kept as a r
   (`analyze`/`sumanalyze`, §9); the one content requirement is the qualification→finals **DNQ
   tail** — {entered ∧ accepted} − {finalists}, marked `DNQ`, no final points (UIM 209; §5.1 step
   4). Exact column layouts / display names are an implementation/testing detail. (§4)
+- **F. *(open — approach decided 19 Jul 2026: manual override)* — make-up / substitution rule**
+  (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may promote a `DNQ` boat
+  from the repechage to fill the slot — *"not after the penultimate heat."* The Q/DNQ outcome is
+  **static**, so the model needs a **manual `DNQ → Q` outcome override in Edit Records** (reusing
+  the Reassign/edit machinery). The **approach is settled**; the exact mechanism/widgetry is an
+  implementation detail. Organizer-driven and rare. (§4.1, §5.1 step 4)
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
@@ -413,6 +426,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 23** — folded the **7948e787 re-review** (owner decisions, 19 Jul 2026). The re-review confirmed revs 16–22 faithful and internally consistent. **N/M answered:** an **organizer choice**, not rules-determined (305.04 has no formula; `G·N+M=H` alone allows several splits) → the `!qualification[N,N,M]` tuple **stays explicit**; a boats-per-heat **H** param (validation + fill-to-capacity default) was **deferred** (owner: hold). §9 records this. **New open item §10-F:** the **make-up / substitution rule** (p.56) — a `DNQ` boat may be promoted to a withdrawn finalist's slot (not after the penultimate heat); approach decided (**manual `DNQ → Q` override in Edit Records**, reusing the Reassign machinery), mechanism left to implementation; pointer added in §5.1 step 4. Trivial clarity fix: §4 `timetrial` row now cross-refs §5.1 (it seeds the finals grid even under a qualification phase). §10 reopened with the single item F. Still **DRAFT — not approved for implementation.**
 - **rev 22** — **went fully categorical** (owner, 19 Jul 2026): qualification emits a **`Q` / `DNQ` outcome directly**, with **no scoring system and no Q-points** at all. A qheat is analyzed for its *ranking* (so mis-click and the circuit machinery still apply), then the hardcoded rule marks **top `count` → `Q`, rest `DNQ`** — the `1…1 0…0` numeric encoding of rev 21 is gone. `DNQ` is the same **§209** code the finals-report tail already uses, so the qualification outcome and the report tail are a single thing, not parallel systems. Primary-vs-repechage stays **derived from the source qheat** (unchanged). Stored parameters unchanged: the per-qheat counts (`!qualification[N,N,M]`) and which qheat is the repechage (the last). Updated §4 table, §4.1, §5.1, §9. Still **DRAFT — not approved for implementation.**
 - **rev 21** — **simplified Q-points to a single tier** (owner, 19 Jul 2026), a consequence of decision A. Since the grid is now ordered by time-trial times, the old `2`-vs-`1` tier (whose only job was to make the Q-points circuit ranking sort the repechage behind) is redundant: every qheat now scores **`1 … 1 0 … 0`** (top `count` = qualified). Recognized this single tier *is* a binary **Q / DNQ** flag — the same `DNQ` already surfaced in the finals report (§209), so qualification produces no parallel numeric system. **Primary-vs-repechage is now derived structurally from the source qheat** (a `Q` from the last/repechage qheat), not from a score or a new code; the no-time-trial fallback applies the same primary-then-repechage split explicitly rather than leaning on the point gap. Updated §4 table, §4.1, §5.1 (three paragraphs), §9. *(Owner is weighing a fully categorical Q/DNQ framing — dropping the numeric encoding entirely — as a possible follow-up; this rev writes the single tier so that step is light.)* Still **DRAFT — not approved for implementation.**
 - **rev 20** — consistency fix found in a pre-re-review sweep: **§4.1's qualification note still described the pre-decision-A grid** (finals 1st-heat grid = *circuit ranking* of Q-points, calling the repechage-at-the-back rule "redundant"). rev 17 rewrote §5.1 for decision A but left this mirror text stale (grep missed it — the phrase wraps a line break). Reconciled: the grid is ordered by **time-trial times** (decision A); Q-points only *select* finalists and the tier *marks* the repechage to the back; the circuit ranking is the **no-time-trial fallback** only. No other live grid statement was stale. Still **DRAFT — not approved for implementation.**
