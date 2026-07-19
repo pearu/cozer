@@ -90,6 +90,13 @@ def check_results(eventdata):
         # old per-heat ``h[-1] in ('q','t')`` skip -- identical on real data (a /T,/Q
         # class's heats all carry the suffix); a hint-kinded class with a plain heat id
         # can't occur in the legacy corpus.
+        #
+        # TEMPORARY equivalence, NOT the §4 end state: this lumps timetrial and
+        # qualification into one skip only to stay byte-identical with legacy. Per
+        # PHASES.md §4 they diverge -- timetrial gets a *light* (physics-only) mis-click
+        # check, and qualification is a real mass-start kind (fast+slow mis-click). When
+        # the §4.1 code ripples land, qualification comes OUT of this skip and timetrial
+        # gets the light check.
         phase_of = {}
         for phases in to_phases(eventdata).values():
             for ph in phases:
