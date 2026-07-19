@@ -198,6 +198,10 @@ ranking(heat)     = the analyzer's finishing order for that heat's canonical rec
   list under the Rules tab), so a lot-draw is entered simply by ordering the participants — no
   dedicated draw-entry UI is needed. *(Requirement: the Classes & Participants tab must support
   reordering the participant list, as the Rules tab already does for classes.)*
+- **No-prior-ranking joiner** (mid-series make-up, §10-F): a boat promoted **between** final heats
+  (e.g. after heat 1) has no previous-heat result to seed from, so it seeds to the **back** of the
+  next heat's grid — the natural place for a latecomer, mirroring the repechage-to-back rule. This
+  keeps the derived seeding from tripping on a participant with a missing prior-heat ranking.
 - **Seed rule is per-transition** (`from-kind → to-kind`) and **hard-coded initially**,
   pluggable so a new rule drops in. Examples: "sort by best training time, fastest on top";
   "grid heat→heat by previous ranking".
@@ -411,25 +415,31 @@ that N and M are an **organizer choice**, not rules-determined (§9).
   (`analyze`/`sumanalyze`, §9); the one content requirement is the qualification→finals **DNQ
   tail** — {entered ∧ accepted} − {finalists}, marked `DNQ`, no final points (UIM 209; §5.1 step
   4). Exact column layouts / display names are an implementation/testing detail. (§4)
-- **F. *(open — mechanism refined 19 Jul 2026)* — make-up / substitution rule** (305.04.03 cont.,
-  p.56). When a qualified finalist withdraws, organizers may promote a boat from the second-chance
-  heat to fill the slot — *"not after the penultimate heat."* The Q/DNQ outcome is **static**, so a
-  make-up reuses the existing Edit-Records **outcome-override** action, applied as **two independent
-  edits — never a coupled action**:
-    - the **withdrawing finalist → `DNS`** — an *existing* §209 code (they did not start the final);
-      **no new "withdraw" rule or code** is introduced. *(A `Q` boat with no final crossings is DNS
-      anyway; an explicit `DNS` just makes it intentional and auditable.)*
+- **F. *(open — mechanism refined 19 Jul 2026; reviewed & confirmed by 7948e787)* — make-up /
+  substitution rule** (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may
+  promote a boat from the second-chance heat to fill the slot — *"not after the penultimate **final**
+  heat."* The Q/DNQ outcome is **static**, so a make-up reuses the existing Edit-Records
+  **outcome-override** action, applied as **two independent edits — never a coupled action**:
+    - the **withdrawing finalist → `DNS`** — an *existing* §209 code (*"did not come to the start
+      position"*); **no new "withdraw" rule or code** is introduced. *(A `Q` boat with no final
+      crossings is DNS anyway; an explicit `DNS` just makes it intentional and auditable.)*
     - a **repechage boat → `DNQ → Q`** — the promotion.
   They are **separately legal** — a finalist may withdraw with **no** make-up (the final runs one
   short; the make-up is the organizer's *right*, not mandatory), so forcing them together would be
   wrong. The **organizer's decision** links the two; the system only records them.
-  The promotion **needs no special seeding**: the promoted boat's source qheat *is* the repechage
-  (last) qheat, so the existing structural rule (§5.1) seeds it to the **back** of the grid
+  **Promotion order is rank-determined** (the rulebook is silent, but second-chance qualification is
+  purely by finishing rank): the **next-best repechage finisher** — the `M+1`th, then `M+2`, … —
+  never a free organizer pick; **one promotion per withdrawal** (*"to the maximum permitted"* = fill
+  to capacity, no over-filling).
+  The promotion **needs no special seeding for the 1st final heat**: the promoted boat's source
+  qheat *is* the repechage (last) qheat, so the structural rule (§5.1) seeds it to the **back**
   automatically — constrain the promotion to a **repechage-qheat boat**, matching *"from the second
-  chance heat."* Add only **warnings, not rules**: a soft flag if the finalist count drifts from
-  grid **capacity** (the natural home for the deferred **H** param, §9) and if a make-up is entered
-  **after the penultimate heat** (the 305.04.03 time bound). Organizer-driven and rare; the exact
-  widgetry is an implementation detail. (§4.1, §5.1 step 4)
+  chance heat."* A make-up **between final heats** (allowed up to the penultimate) has no
+  previous-heat result, so it seeds to the **back of the next heat's grid** (§5, no-prior-ranking
+  joiner). Add only **warnings, not rules**: a soft flag if the finalist count drifts from grid
+  **capacity** (the natural home for the deferred **H** param, §9) and if a make-up is entered
+  **after the penultimate final heat** (the 305.04.03 time bound). Organizer-driven and rare; the
+  exact widgetry is an implementation detail. (§4.1, §5, §5.1 step 4)
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
@@ -439,6 +449,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 25** — folded the **§10-F review** (7948e787; owner, 19 Jul 2026), which confirmed the two-independent-overrides mechanism rulebook-faithful (verbatim §209 + p.56). Three refinements: **(1)** the time bound is the penultimate **final** heat (disambiguated the series); **(2)** the **promotion order is rank-determined** — the next-best repechage finisher (`M+1`th, then `M+2`, …), one promotion per withdrawal (fill-to-capacity, no over-filling), not a free organizer pick; **(3)** new **§5 rule** for a mid-series make-up — a boat promoted *between* final heats has no previous-heat ranking, so it seeds to the **back of the next heat's grid** (no-prior-ranking joiner), with a §10-F pointer. §209 confirmations: `DNS` = *"did not come to the start position"* (fits; `DNR`/`ACC` don't); make-up source is the second-chance heat only. Still **DRAFT — not approved for implementation.**
 - **rev 24** — **refined §10-F's mechanism** (owner, 19 Jul 2026). A make-up is **two independent outcome overrides**, never a coupled action: the withdrawing finalist → **`DNS`** (an *existing* §209 code — no new "withdraw" rule) and a repechage boat → **`DNQ → Q`**. They are **separately legal** (a finalist may withdraw with no make-up — it's the organizer's right, not mandatory), so coupling them would be wrong; the organizer's decision links them, the system records. The promotion **auto-seeds to the back** — the promoted boat's source qheat is the repechage, so the existing structural rule applies (constrain the promotion to a repechage-qheat boat). Capacity + "not after the penultimate heat" become **warnings, not rules** (capacity is the natural home for the deferred **H**). Still **DRAFT — not approved for implementation.**
 - **rev 23** — folded the **7948e787 re-review** (owner decisions, 19 Jul 2026). The re-review confirmed revs 16–22 faithful and internally consistent. **N/M answered:** an **organizer choice**, not rules-determined (305.04 has no formula; `G·N+M=H` alone allows several splits) → the `!qualification[N,N,M]` tuple **stays explicit**; a boats-per-heat **H** param (validation + fill-to-capacity default) was **deferred** (owner: hold). §9 records this. **New open item §10-F:** the **make-up / substitution rule** (p.56) — a `DNQ` boat may be promoted to a withdrawn finalist's slot (not after the penultimate heat); approach decided (**manual `DNQ → Q` override in Edit Records**, reusing the Reassign machinery), mechanism left to implementation; pointer added in §5.1 step 4. Trivial clarity fix: §4 `timetrial` row now cross-refs §5.1 (it seeds the finals grid even under a qualification phase). §10 reopened with the single item F. Still **DRAFT — not approved for implementation.**
 - **rev 22** — **went fully categorical** (owner, 19 Jul 2026): qualification emits a **`Q` / `DNQ` outcome directly**, with **no scoring system and no Q-points** at all. A qheat is analyzed for its *ranking* (so mis-click and the circuit machinery still apply), then the hardcoded rule marks **top `count` → `Q`, rest `DNQ`** — the `1…1 0…0` numeric encoding of rev 21 is gone. `DNQ` is the same **§209** code the finals-report tail already uses, so the qualification outcome and the report tail are a single thing, not parallel systems. Primary-vs-repechage stays **derived from the source qheat** (unchanged). Stored parameters unchanged: the per-qheat counts (`!qualification[N,N,M]`) and which qheat is the repechage (the last). Updated §4 table, §4.1, §5.1, §9. Still **DRAFT — not approved for implementation.**
