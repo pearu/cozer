@@ -150,7 +150,8 @@ def _outcome_qheat(winner, others):
                     "dnf": [(1, 25.0), (27, 50.0, "")],           # DNF mark (code 27)
                     "dns": [],                                    # no laps -> DNS
                     "dsq": [(1, 25.0), (22, 50.0, "409.01")],     # DSQ mark (code 22)
-                    "acc": [(1, 25.0), (25, 50.0, "")]            # ACC mark (code 25)
+                    "acc": [(1, 25.0), (25, 50.0, "")],           # ACC mark (code 25)
+                    "dnr": [(1, 25.0), (24, 50.0, "")]            # DNR mark (code 24)
                     }[o]
     return [info, boats]
 
@@ -193,3 +194,14 @@ def test_repechage_acc_is_operator_gated_like_dsq_dns():
     assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "60"}          # ACC in by default
     ed2 = _outcome_ev(q1, exclude=["60"], boats=(10, 20, 60))
     assert set(qheat_boats(ed2, "C/Q", 2)) == {"20"}               # protest upheld -> ACC excluded
+
+
+def test_repechage_all_four_gated_codes_default_include_and_excludable():
+    # DSQ, DNS, ACC, DNR all gated (default include, operator can exclude); DNF/finisher never gated
+    others = {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq", "60": "acc", "70": "dnr"}
+    q1 = _outcome_qheat("10", others)
+    boats = (10, 20, 30, 40, 50, 60, 70)
+    ed = _outcome_ev(q1, boats=boats)
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30", "40", "50", "60", "70"}   # all default-in
+    ed2 = _outcome_ev(q1, exclude=["40", "50", "60", "70"], boats=boats)            # protests upheld
+    assert set(qheat_boats(ed2, "C/Q", 2)) == {"20", "30"}      # only finisher + DNF remain (ungatable)
