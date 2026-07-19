@@ -214,27 +214,37 @@ per qheat (`qheat1→N`, `qheat2→N`, `qheat3→M`). Each entry feeds the **har
 scoring rule for that qheat (top *count* score the tier — §4.1); no per-qheat scoring-system
 data is stored. The **tuple length is the number of qheats**, so a qualification pattern needs
 no leading `NofHeats*` count — it would be redundant (if present, it must match the tuple
-length). What the tuple does **not** say is which qheat is the **repechage** — the
-one that scores 1 (not 2) so it sorts to the back; that's the qheat whose field is the earlier
-qheats' non-qualifiers. How to mark it (positional last vs. structural) is open (§10).
+length). The **repechage is the last qheat** (the last tuple entry — owner Q10.1); it scores 1
+(not 2), so the circuit ranking sorts it to the back, and its field is the earlier qheats'
+non-qualifiers.
 
-### 5.2 Restarts and Reports heat-selection
+### 5.2 Restarts, labels, and fixing a mis-filed heat
 
 A heat number may hold several records (original + restarts). The **canonical** record for a
 number — used for seeding (§5) and the total ranking / final report (`sumanalyze`) — is the
-**last non-empty** one. The recalled legacy use case ("for finals, use only the last restart")
-is therefore the **default** here; no manual selection is needed for it.
+**last non-empty** one, so "for finals use only the last restart" is the default (no manual
+selection needed).
 
-- **Empty restart records are skipped**, never treated as canonical. An empty trailing restart
-  generally signals a Timer defect (it should not create a record with no crossings); the
-  ranking ignores it, and such a record is worth a validator warning.
-- The Reports "check which heats" feature is the manual **override** of the default — letting the
-  operator include/exclude specific records of a number (e.g. count the 1st restart, not the
-  2nd).
-- **Selection is by *set*, not order.** The report tree yields the chosen heats in **sorted**
-  order and `sumanalyze` is order-independent (best-of-`sheats`), so legacy's *order-of-selection*
-  significance is **not** preserved (only report column order would ever be affected). No current
-  use case for order significance is recalled; flag one if it surfaces (§10).
+- **Restart labels come for free from position:** the 2nd record for a number is the "1st
+  restart", the 3rd the "2nd restart" (§2). A report labels them without any selection trick.
+- **Empty restart records are skipped**, never canonical. An empty trailing restart signals a
+  Timer defect (it should not create a record with no crossings); the ranking ignores it, worth
+  a validator warning.
+- **Reports selection is a *set*, not an order** (rev 12): checking heats picks *which* count;
+  the record used is automatic (last non-empty), and `sumanalyze` is order-independent.
+
+The one case legacy solved with *selection order* is a **mis-filed heat** — the operator
+accidentally records under the wrong race/heat in the Timer (e.g. a restart `1r` when it was
+heat `1`, or the wrong class), uncorrectable mid-race. The new model prefers to fix the cause,
+not re-derive it in a report (**proposed, owner Q10.2/Q10.3 — confirm**):
+
+1. **Prevent** the wrong pick in the Timer — constrain/confirm the race+heat being recorded.
+2. **Reassign** afterward — a direct edit-records action to move a heat's records to the correct
+   number / restart-position, so the data is right everywhere.
+
+*Fallback if prevention + reassignment prove insufficient: legacy's selection-order mapping —
+1st selected = original, 2nd = 1st restart, 3rd = 2nd restart; last used for ranking, the earlier
+ones only for the restart labels.*
 
 ---
 
@@ -284,28 +294,26 @@ for new files:
 - Start-order base case = the **participant order** in Classes & Participants, which is
   drag-reorderable (like classes under Rules) — so a lot-draw needs no dedicated UI, just a
   reorder. (§5)
+- Qualification: per-qheat counts via `!qualification[N,N,M]`; the **repechage is the last
+  qheat** (last tuple entry), scored 1 so it sorts to the back. (§5.1, Q10.1)
+- Restart labels ("1st/2nd restart") derive from **record position**; a mis-filed heat is fixed
+  by Timer prevention + edit-records reassignment, not selection order (proposed, §5.2). (Q10.2/3)
 - Backward-compat via a read-time mapping; workarounds deprecated for new files. (§6)
 
 ## 10. Open questions / to revisit
 
-1. **Which qheat is the repechage.** Per-qheat counts are authored as `!qualification[N,N,M]`
-   (one entry per qheat) and feed the hardcoded qualification scoring (top *count* score the
-   tier — §4.1); no per-qheat scoring-system data. Open only: how the **repechage** qheat (tier
-   1, sorts to the back) is identified — positionally (last entry) vs structurally (the qheat fed
-   by the earlier qheats' non-qualifiers). Ordering/elimination already fall out of the ranking
-   (§5.1).
-2. **Reports heat-selection UI** on the results-list model — how the operator picks which
-   record of a repeated number counts (§5.2). To detail with the report work.
-3. **Order-of-selection significance?** Legacy's Reports treated heat *selection order* as
-   significant; the new model does not (selection is a set; §5.2). No use case recalled — flag if
-   one surfaces.
-4. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
+1. **Confirm the mis-filed-heat resolution (§5.2).** Proposed: Timer **mis-pick prevention** +
+   an edit-records **heat-reassignment** action, keeping Reports selection a plain set — rather
+   than legacy's selection-order mapping (kept as fallback). Needs owner sign-off, then the two
+   capabilities are new work items.
+2. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
    implementation.
 
 ---
 
 ## Change log
 
+- **rev 13** — Q10.1: the **repechage is the last qheat** (last tuple entry, scored 1 → sorts to the back); resolved. Q10.2/Q10.3 (proposed, pending owner sign-off): restart **labels come from record position** (2nd record = 1st restart, …), and a **mis-filed heat** is fixed by Timer mis-pick **prevention** + edit-records **reassignment** rather than legacy's Reports selection-*order* (kept as fallback) — so rev 12's set-not-order selection stands. §9/§10 updated; two new capabilities noted (prevention, reassignment).
 - **rev 12** — §5.2: canonical record is the **last non-empty** one, so an **empty restart** record (a Timer defect) is skipped, not used (worth a validator warning); the "finals use only the last restart" case is then the default. Recorded that the new model selects heats by **set, not order** — legacy's order-of-selection significance is not preserved (only report column order could differ; scoring is order-independent). New §10 flag.
 - **rev 11** — note: the `!qualification[N,N,M]` **tuple length is the number of qheats**, so the legacy `NofHeats*` prefix is redundant on a qualification pattern (omit it; must match if present).
 - **rev 10** — qualification scoring is a **hardcoded rule** (top `count` score the tier, rest
