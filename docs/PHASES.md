@@ -244,9 +244,8 @@ report (**settled, owner Q10.2/Q10.3**):
    its target identity (**Class → Phase → heat number**, plus its **slot among same-numbered
    records**: original / 1st restart / 2nd restart) and moves the whole heat's records there via
    one journaled store op. The dialog **defaults to the current identity**, so the common
-   `1`↔`1r` fix is a single field change; a full class/phase move is the same dialog. *(GUI form
-   proposed; refinable during implementation. Alternatives considered: a dedicated "Heats"
-   overview panel, or a "Move to…" context action in the heat tree.)*
+   `1`↔`1r` fix is a single field change; a full class/phase move is the same dialog. *(Edit-
+   Records home confirmed — owner; the exact dialog widgetry is refinable during implementation.)*
 
 *(Fallback, if prevention + reassignment ever prove insufficient: legacy's Reports
 selection-order mapping — 1st selected = original, 2nd = 1st restart, …; last used for ranking.)*
@@ -311,13 +310,12 @@ for new files:
 
 1. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
    implementation.
-2. **Reassign GUI form** — settled as an Edit-Records "Reassign…" dialog (§5.2); exact form
-   refinable during implementation (dialog vs. inline fields vs. a "Heats" overview panel).
 
 ---
 
 ## Change log
 
+- **rev 15** — owner confirmed the **Edit-Records "Reassign…"** action (option 1) as the mis-filed-heat GUI home; dropped the alternatives and the "proposed" hedge. §10 now has a single open item (the per-kind report catalogue); the abstraction and behavior are otherwise settled.
 - **rev 14** — mis-filed-heat resolution **settled**: prevent-and-reassign. GUI = an Edit-Records **"Reassign…"** action setting a heat's Class → Phase → number + restart slot (defaults to current identity, so the common 1<->1r fix is one field); moves the records via one journaled store op. Two new work items noted (Timer mis-pick guard, Reassign action); legacy selection-order kept only as fallback. §9/§10 updated.
 - **rev 13** — Q10.1: the **repechage is the last qheat** (last tuple entry, scored 1 → sorts to the back); resolved. Q10.2/Q10.3 (proposed, pending owner sign-off): restart **labels come from record position** (2nd record = 1st restart, …), and a **mis-filed heat** is fixed by Timer mis-pick **prevention** + edit-records **reassignment** rather than legacy's Reports selection-*order* (kept as fallback) — so rev 12's set-not-order selection stands. §9/§10 updated; two new capabilities noted (prevention, reassignment).
 - **rev 12** — §5.2: canonical record is the **last non-empty** one, so an **empty restart** record (a Timer defect) is skipped, not used (worth a validator warning); the "finals use only the last restart" case is then the default. Recorded that the new model selects heats by **set, not order** — legacy's order-of-selection significance is not preserved (only report column order could differ; scoring is order-independent). New §10 flag.
