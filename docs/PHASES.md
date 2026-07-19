@@ -8,17 +8,19 @@ change that contradicts something already agreed here (see *Change log*).
 
 ## 1. Motivation
 
-A racing class (e.g. `F125`) reaches its **finals** either directly or after **one seeding
-phase** whose results define the finals' starting order (and, for qualification, which boats
-race at all). The realistic shapes are exactly:
+A racing class (e.g. `F125`) reaches its **finals** either directly or after one or two
+**seeding phases** — an optional **time-trial** and/or a **qualification**, in that order —
+whose results define the finals' starting order (and, for qualification, which boats race at
+all). The realistic shapes are:
 
 - `finals`
-- `training → finals`
 - `time-trial → finals`
 - `qualification → finals`
+- `time-trial → qualification → finals`
 
-There is **at most one** seeding phase before finals — a `training → time-trial → qualification
-→ finals` chain does **not** occur.
+A class has **at most one time-trial and at most one qualification**, and a time-trial (if any)
+comes **before** qualification. **Training is a special case of time-trial** — a practice
+session used only for seeding — so `training → finals` is just `time-trial → finals`.
 
 - **`finals`** is itself a series of heats that seed each other — `heat1 → heat2 → heat3 → …` —
   and any `heatK` may be re-run as one or two restarts before it seeds the next:
@@ -27,8 +29,8 @@ There is **at most one** seeding phase before finals — a `training → time-tr
   `qheat1` and `qheat2` over disjoint participant subsets; each sends its top boats to the
   finals and the rest to a repechage `qheat3`, whose top boats also reach the finals while the
   remainder are not classified (UIM 305.04, §5.1).
-- **`training` and `time-trial`** produce a ranking by **best lap**; in legacy the boat's
-  best-lap record is kept and the others disabled in the Edit Records tab.
+- **`time-trial`** ranks by **best lap** (cozer keeps each boat's best lap and disables the
+  rest, §4).
 
 Today this is modelled with workarounds the owner wants to eventually retire:
 
@@ -177,18 +179,28 @@ ranking(heat)     = the analyzer's finishing order for that heat's canonical rec
 - **Consumers:** the **timer orders its buttons by the start order** (fastest on top, not boat
   number); **reports print the start order** as the heat's participant list.
 
-### 5.1 Qualification → finals (UIM 305.04) — *rule captured, exact `seed()` TBD*
+### 5.1 Qualification → finals (UIM 305.04)
 
 When a class has too many entries to fit the course, entries are split and a repechage gives a
 second chance (UIM **305.04**):
 
-1. Entry list too large → split into **two qualification heats**.
-2. **Top N** qualify for the final.
-3. Non-qualified boats race a **third (repechage) qualification heat**; its **top M** qualify.
-4. The remaining boats in the 3rd heat are **not classified** and race no final heat.
+1. Entry list too large → split into **two qualification heats** `qheat1`, `qheat2` (disjoint
+   participant subsets).
+2. **Top N** of the two qualify for the final.
+3. Non-qualified boats race a **third (repechage) qualification heat** `qheat3`; its **top M**
+   qualify.
+4. The remaining boats in `qheat3` are **not classified** and race no final heat.
 
-This is the heaviest `seed()` (subset selection + ordering + elimination). The exact N/M and
-grid mapping is **deferred** — to be specified with the owner against 305.04.
+**Grid order for the finals' 1st heat:**
+- `qheat1` + `qheat2` qualifiers are ranked **by total qualification time** — i.e. exactly the
+  circuit two-heat ranking, only over disjoint participant sets. (The rules don't fix the
+  qheat1-vs-qheat2 interleaving; total time is the assumed tie-breaker.)
+- `qheat3` (repechage) qualifiers go **at the lower (back) end of the grid** — UIM: *"The
+  qualifying boats from the second chance heat to the first heat for points are positioned at
+  the lower end of the jetty."*
+
+Only **N and M** (how many qualify at each stage) remain event/rule parameters to pin down;
+the ordering and elimination are as above.
 
 ### 5.2 Restarts and Reports heat-selection
 
@@ -250,8 +262,9 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-1. **Qualification → finals `seed()`** — exact UIM 305.04 mapping (N, M, grid order,
-   elimination). Deferred (§5.1).
+1. **Qualification `seed()` — N and M only.** The ordering (qheat1/2 by total qual time;
+   repechage at the back) and elimination are now fixed (§5.1); only how many qualify at each
+   stage (N, M) remains an event/rule parameter.
 2. **Dedicated draw entry?** — confirmed *not* needed for now (registration order carries it);
    revisit only if a first-start draw must be entered as distinct data. (§5)
 3. **Reports heat-selection UI** on the results-list model — how the operator picks which
@@ -263,6 +276,12 @@ for new files:
 
 ## Change log
 
+- **rev 5** — §1: a **time-trial may precede qualification** (`time-trial → qualification →
+  finals` is real), so the "at most one seeding phase" claim is replaced by "at most one
+  time-trial and one qualification, time-trial first"; **training is a special case of
+  time-trial**. §5.1: qual→finals **grid order fixed** — qheat1/2 qualifiers by total
+  qualification time (circuit two-heat ranking over disjoint sets), qheat3 repechage qualifiers
+  at the back (305.04 jetty rule); only N/M remain open (§10).
 - **rev 4** — §4 reshaped. `training` folds into `timetrial` (no separate kind; cozer
   auto-disables all but the best lap). Time-trial gets a **light** mis-click check (physics
   only). `qualification` is modelled as a circuit heat with a `1…1 0…0` **Q-points** scoring
