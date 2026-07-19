@@ -8,19 +8,22 @@ change that contradicts something already agreed here (see *Change log*).
 
 ## 1. Motivation
 
-A racing class (e.g. `F125`) reaches its **finals** either directly or after one or two
-**seeding phases** — an optional **time-trial** and/or a **qualification**, in that order —
-whose results define the finals' starting order (and, for qualification, which boats race at
-all). The realistic shapes are:
+A racing class (e.g. `F125`) reaches its **finals** after **zero or more seeding phases** whose
+results define the finals' starting order (and, for qualification, which boats race at all). A
+class's phases are **exactly the race patterns authored for it** in the Classes & Participants
+tab — one pattern per phase, in order (§2) — so the **implementation must not hard-code their
+number or types**; whatever pattern list is authored defines the phases.
+
+In practice the common shapes are:
 
 - `finals`
 - `time-trial → finals`
 - `qualification → finals`
 - `time-trial → qualification → finals`
 
-A class has **at most one time-trial and at most one qualification**, and a time-trial (if any)
-comes **before** qualification. **Training is a special case of time-trial** — a practice
-session used only for seeding — so `training → finals` is just `time-trial → finals`.
+where **training is a special case of time-trial** (a practice session used only for seeding,
+so `training → finals` is just `time-trial → finals`) and a time-trial, when present, runs
+before qualification. These are **conventions, not constraints** the model enforces.
 
 - **`finals`** is itself a series of heats that seed each other — `heat1 → heat2 → heat3 → …` —
   and any `heatK` may be re-run as one or two restarts before it seeds the next:
@@ -276,6 +279,10 @@ for new files:
 
 ## Change log
 
+- **rev 6** — §1 generalized: a class has **zero or more** phases, defined entirely by the
+  race-pattern list authored in the Classes tab; the implementation must not hard-code the
+  count or types ("one or two seeding phases" was too specific). The listed shapes are common
+  conventions, not enforced constraints.
 - **rev 5** — §1: a **time-trial may precede qualification** (`time-trial → qualification →
   finals` is real), so the "at most one seeding phase" claim is replaced by "at most one
   time-trial and one qualification, time-trial first"; **training is a special case of
