@@ -148,7 +148,10 @@ Adding a kind = add a row + its handlers; the abstraction does not change.
   lap speed) — and because qheat1/qheat2 qualifiers hold 2 points and qheat3 qualifiers hold 1,
   the repechage qualifiers land **behind** automatically, making the separate "repechage at the
   back" rule (§5.1) redundant. This reuses the whole circuit scoring + mis-click machinery; only
-  the scoring system differs. (Only **N/M** remain a parameter, §5.1 / 305.04.)
+  the scoring system differs — and that system is **per-qheat**: a qheat's `2 … 2 0 … 0` /
+  `1 … 1 0 … 0` *is* its qualifier count (N/M) **and** tier, so N/M are qheat parameters, not a
+  single phase value (§5.1). *Code implication: cozer's scoring system is currently per-event;
+  qualification needs it per-qheat.*
 - **Endurance defines the total race *time*, not a lap count.** The pattern's `/hours` term *is*
   the race duration; it replaces the legacy hack of setting a very high lap number.
 
@@ -205,8 +208,12 @@ qualifiers hold **1**, the repechage qualifiers land at the back automatically �
 305.04's *"positioned at the lower end of the jetty"* with **no special case**. (Within a points
 tier, the disjoint qheat1/qheat2 fields are interleaved by the circuit speed tie-breaks.)
 
-Only **N and M** (how many qualify at each stage) remain event/rule parameters; the ordering and
-elimination fall out of the Q-points + circuit ranking.
+The only remaining choice is **how many qualify from each qheat** — a **per-qheat** count,
+authored compactly as a tuple on the qualification pattern: `!qualification[N,N,M]` = one entry
+per qheat (`qheat1→N`, `qheat2→N`, `qheat3→M`). Each entry materializes that qheat's Q-points
+scoring system (§4.1). What the tuple does **not** say is which qheat is the **repechage** — the
+one that scores 1 (not 2) so it sorts to the back; that's the qheat whose field is the earlier
+qheats' non-qualifiers. How to mark it (positional last vs. structural) is open (§10).
 
 ### 5.2 Restarts and Reports heat-selection
 
@@ -269,9 +276,11 @@ for new files:
 
 ## 10. Open questions / to revisit
 
-1. **Qualification `seed()` — N and M only.** The ordering and elimination now fall out of the
-   Q-points + circuit ranking (§5.1); only how many qualify at each stage (N, M) remains an
-   event/rule parameter.
+1. **Qualifier counts + which qheat is the repechage.** Per-qheat counts are authored compactly
+   as `!qualification[N,N,M]` (one entry per qheat) → each qheat's Q-points scoring system (§4.1).
+   Open: how the **repechage** qheat (scores 1, sorts to the back) is identified — positionally
+   (the last entry) vs structurally (the qheat fed by the earlier qheats' non-qualifiers).
+   Ordering/elimination already fall out of the Q-points + circuit ranking (§5.1).
 2. **Reports heat-selection UI** on the results-list model — how the operator picks which
    record of a repeated number counts (§5.2). To detail with the report work.
 3. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
@@ -281,6 +290,11 @@ for new files:
 
 ## Change log
 
+- **rev 9** — qualifier counts are **per-qheat** (owner: "N/M are qheat parameters"), authored
+  compactly as a tuple `!qualification[N,N,M]` (one entry per qheat), each materializing that
+  qheat's Q-points scoring system. Flagged a code implication (cozer's scoring system is
+  per-event; qualification needs it per-qheat) and a new open question: how the **repechage**
+  qheat (scores 1, sorts to the back) is identified — positional vs structural (§10).
 - **rev 8** — base-case seeding resolved: the **participant list in Classes & Participants is
   drag-reorderable** (like the class list under Rules), so a lot-draw is entered by reordering
   — no dedicated draw-entry UI. Adds a small UI requirement (participant reordering). Closed the
