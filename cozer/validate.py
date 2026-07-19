@@ -10,13 +10,38 @@ rather than silently producing a confusing report.
 Add checks by appending to ``_CHECKS``; each takes the per-heat context and
 yields ``Finding``s.
 """
+import statistics
 from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
-from cozer.racepattern import get_classes
+from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed, race_kind
+from cozer.records import gettimes
 
 # severity is advisory only; cl/heat may be None for event-level findings.
 Finding = namedtuple("Finding", "severity cl heat code message")
+
+# A recorded lap FASTER than the class could physically go is a MIS-CLICK: the
+# operator clicked the wrong boat (a spurious crossing at another boat's line time)
+# or double-tapped when several boats cross close together. The fastest possible lap
+# is the class's shortest lap length / its top speed (the pattern's '@<speed>' km/h
+# hint, default DEFAULT_CLASS_SPEED); a lap under that is impossible. Per-class speed
+# beats a fixed window -- an F-500 runs ~3x a GT-15, so a "short" lap differs by
+# class. Reported for Edit-Records review, NEVER auto-corrected (scoring stays the
+# analyzer's). Uses gettimes, so a mis-click the operator already disabled is
+# absorbed into the next lap and not re-flagged. Time-trials excluded (solo runs).
+#
+# The opposite mis-click is a MISSED click: the operator didn't click a crossing, so
+# one recorded lap spans two -- it reads ~2x the boat's median. This can't be decided
+# physically (a boat CAN run slow), so it is only a POSSIBLE finding, corrected by
+# INSERTING a mark in Edit Records. Circuit and endurance need SEPARATE handling
+# because their lap-time distributions differ completely: a circuit boat never pits,
+# so any lap well above typical is worth a look (unbounded); an endurance boat pits
+# and breaks down (huge laps that are NOT missed clicks -- clear outliers that must
+# not be allowed to shape the circuit rule), so only a lap in a narrow band around 2x
+# counts.
+_MISSED_CLICK_FACTOR = 1.8      # lower edge, both disciplines (~2x with margin)
+_ENDURANCE_MISSED_MAX = 2.5     # endurance upper edge: above this it's a pit/breakdown, not a miss
+_MISSED_CLICK_MIN_LAPS = 4      # need a few laps for a stable median
 
 
 def _laps(marks):
@@ -63,6 +88,21 @@ def check_results(eventdata):
                 if h and h[-1] in ("q", "t"):       # qualification / time-trial: scored differently
                     continue
                 info, rec = heats[h]
+
+                # Mis-click detection: a boat whose EFFECTIVE lap (gettimes absorbs a
+                # disabled/already-corrected click) is faster than physically possible
+                # (or, for a missed click, ~2x its median) likely got a spurious/absent
+                # crossing. Runs independent of analyze/placements (a heat where everyone
+                # DNF'd can still have a click error). Report for Edit-Records review;
+                # scoring is unchanged. Only mass-start racing -- a time-trial or
+                # qualifier runs solo, so no pack and no wrong-boat click.
+                kind = race_kind(eventdata, cl)
+                if kind in ("circuit", "endurance"):
+                    min_lap = _class_min_lap_time(eventdata, cl)
+                    if min_lap:
+                        findings.extend(_misclick_findings(
+                            cl, h, rec, min_lap, kind == "endurance"))
+
                 try:
                     res = analyze(h, heats[h], ss, rulecodes)
                 except Exception:
@@ -108,6 +148,49 @@ def check_results(eventdata):
     except Exception:                               # validation must never break the app
         pass
     return findings
+
+
+def _class_min_lap_time(eventdata, cl):
+    """Fastest physically-possible lap (seconds) for class ``cl``: its shortest lap
+    length / its top speed (pattern ``'@<speed>'`` km/h, default 150). ``None`` if
+    the class has no usable pattern."""
+    for l in eventdata.get("classes", []):
+        if len(l) > 2 and l[1] == cl and l[2]:
+            try:
+                lengths = [x for hh in crack_race_pattern(l[2])[0] for x in hh if x > 0]
+                speed_ms = pattern_speed(l[2]) / 3.6
+            except Exception:
+                return None
+            return min(lengths) / speed_ms if lengths and speed_ms > 0 else None
+    return None
+
+
+def _misclick_findings(cl, h, rec, min_lap, endurance):
+    out = []
+    for pid in sorted(rec, key=str):
+        laps = gettimes(rec[pid])
+        fast = [round(t, 2) for t in laps if 0 <= t < min_lap]
+        if fast:
+            out.append(Finding(
+                "warning", cl, h, "misclick",
+                "boat %s has %d lap(s) faster than physically possible for this class (< %.0fs, "
+                "%s) — likely a mis-click (wrong boat / double tap when boats cross together); "
+                "review and correct in Edit Records" % (pid, len(fast), min_lap, fast)))
+        # Missed click: a lap ~2x the boat's median. Circuit (no pits) flags any lap
+        # well above typical; endurance (pits are huge legit outliers) only a narrow band.
+        if len(laps) >= _MISSED_CLICK_MIN_LAPS:
+            med = statistics.median(laps)
+            if med > 0:
+                lo, hi = _MISSED_CLICK_FACTOR * med, (_ENDURANCE_MISSED_MAX * med if endurance
+                                                      else float("inf"))
+                slow = [round(t, 2) for t in laps if lo <= t <= hi]
+                if slow:
+                    out.append(Finding(
+                        "warning", cl, h, "missed-click",
+                        "boat %s has %d lap(s) roughly 2x its typical %.0fs (%s) — a lap crossing "
+                        "may have been MISSED (or the boat ran slow); if a click was missed, insert "
+                        "a mark in Edit Records" % (pid, len(slow), med, slow)))
+    return out
 
 
 def format_findings(findings):

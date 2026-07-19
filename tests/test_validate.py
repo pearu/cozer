@@ -103,3 +103,60 @@ def test_never_raises_on_garbage():
     for bad in ({}, {"record": None}, {"record": {"C": {"1": "nonsense"}}},
                 {"record": {"C": {"1": [{}, {"x": [("?",)]}]}}, "scoringsystem": None}):
         assert isinstance(check_results(bad), list)
+
+
+# --- mis-click detection -----------------------------------------------------
+
+from cozer.validate import _misclick_findings  # noqa: E402
+from cozer.racepattern import race_kind  # noqa: E402
+
+
+def _race_event(marks_by_boat, pattern="1*(6*1000):1", classname="C"):
+    return {"record": {classname: {"1": [{"course": [1000] * 6}, marks_by_boat]}},
+            "classes": [["", classname, pattern]],
+            "scoringsystem": [400, 300, 225], "races": [], "rules": [], "participants": []}
+
+
+def test_misclick_too_fast_flagged():
+    # 1000m @150km/h -> fastest possible lap 24s; a 10s lap is physically impossible
+    rec = {"7": [(1, 40.0), (1, 10.0), (1, 41.0)]}
+    assert [f.code for f in _misclick_findings("C", "1", rec, 24.0, False)] == ["misclick"]
+
+
+def test_misclick_disabled_click_absorbed_not_flagged():
+    # a spurious click the operator already disabled: gettimes rolls its time into the
+    # next lap, so nothing looks impossible -- no false positive
+    rec = {"7": [(1, 40.0), (-1, 10.0), (1, 31.0), (1, 40.0)]}       # effective: 40, 41, 40
+    assert _misclick_findings("C", "1", rec, 24.0, False) == []
+
+
+def test_missed_click_circuit_is_unbounded():
+    # circuit boats don't pit: both a 2x and a 5x lap read as a possible missed crossing
+    for slow in (80.0, 200.0):
+        rec = {"7": [(1, 40.0)] * 3 + [(1, slow)]}
+        assert [f.code for f in _misclick_findings("C", "1", rec, 12.0, False)] == ["missed-click"]
+
+
+def test_missed_click_endurance_bands_out_pit_stops():
+    # endurance: a 2x lap is a possible missed click; a 5x lap is a pit/breakdown, NOT
+    # flagged -- the two disciplines use separate rules so pits don't shape circuit
+    assert [f.code for f in _misclick_findings(
+        "P", "1", {"7": [(1, 40.0)] * 3 + [(1, 80.0)]}, 12.0, True)] == ["missed-click"]
+    assert _misclick_findings("P", "1", {"7": [(1, 40.0)] * 3 + [(1, 200.0)]}, 12.0, True) == []
+
+
+def test_check_results_flags_circuit_misclick():
+    ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]})
+    assert "misclick" in _codes(check_results(ed))
+
+
+def test_check_results_excludes_time_trial_kind():
+    ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}, classname="C/T")
+    assert race_kind(ed, "C/T") == "timetrial"
+    assert "misclick" not in _codes(check_results(ed))              # solo runs -> no wrong-boat click
+
+
+def test_per_class_speed_hint_raises_the_bar():
+    marks = {"7": [(1, 40.0), (1, 15.0), (1, 41.0), (1, 40.0)]}     # a 15s lap
+    assert "misclick" in _codes(check_results(_race_event(marks)))                        # 150 -> min 24s -> flagged
+    assert "misclick" not in _codes(check_results(_race_event(marks, "1*(6*1000):1@300")))  # 300 -> min 12s -> ok

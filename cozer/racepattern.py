@@ -92,14 +92,105 @@ def markoutercomma(line, comma=','):
     return l
 
 
+DEFAULT_CLASS_SPEED = 150.0   # km/h, when a pattern carries no '@<speed>' hint
+
+# Race kinds -- an explicit '!<kind>' pattern hint, else inferred (see race_kind).
+RACE_KINDS = ("circuit", "endurance", "timetrial", "training", "qualification")
+
+# Trailing pattern hints, in any order: '@<speed>' (km/h) and '!<kind>'. They are
+# not part of the lap structure; crack_race_pattern strips them.
+_HINT_SIGILS = ("@", "!")
+
+
+def _bare_pattern(pat):
+    """The lap-structure part of ``pat`` -- everything before the first hint sigil."""
+    cut = len(pat)
+    for sig in _HINT_SIGILS:
+        i = pat.find(sig)
+        if 0 <= i < cut:
+            cut = i
+    return pat[:cut]
+
+
+def _hint(pat, sig):
+    """The token following hint sigil ``sig`` (up to the next hint), or None."""
+    i = pat.find(sig)
+    if i < 0:
+        return None
+    rest = pat[i + 1:]
+    for s in _HINT_SIGILS:
+        j = rest.find(s)
+        if j >= 0:
+            rest = rest[:j]
+    return rest.replace(" ", "")
+
+
+def pattern_speed(pat, default=DEFAULT_CLASS_SPEED):
+    """The class's fastest expected speed in km/h, from an optional ``'@<speed>'``
+    hint on the race pattern (e.g. ``'2*(1600+4*1600):2@150'``); ``default`` if
+    absent or unparseable. Used to estimate the fastest physically possible lap
+    (mis-click detection) and the timer's lap-line closing hint."""
+    tok = _hint(pat, "@")
+    if tok is None:
+        return default
+    try:
+        v = float(tok)
+        return v if v > 0 else default
+    except ValueError:
+        return default
+
+
+def pattern_kind(pat, default=None):
+    """The explicit race kind from a ``'!<kind>'`` pattern hint (one of
+    ``RACE_KINDS``, e.g. ``'...:2@150!circuit'``), or ``default`` if absent/unknown.
+    Prefer ``race_kind`` for the full picture (it also infers)."""
+    tok = _hint(pat, "!")
+    if tok and tok.lower() in RACE_KINDS:
+        return tok.lower()
+    return default
+
+
+def class_pattern(eventdata, cl):
+    """The race-pattern string for class ``cl``, or None."""
+    for l in eventdata.get("classes", []):
+        if len(l) > 2 and l[1] == cl and l[2]:
+            return l[2]
+    return None
+
+
+def race_kind(eventdata, cl):
+    """The race kind for class ``cl``: an explicit ``'!<kind>'`` pattern hint if
+    present, else inferred -- a ``/T`` class is timetrial, ``/Q`` qualification, an
+    endurance pattern (has a duration) endurance, else circuit. Central so callers
+    stop inferring discipline from side-effects (a duration present, a class suffix)."""
+    pat = class_pattern(eventdata, cl)
+    explicit = pattern_kind(pat) if pat else None
+    if explicit:
+        return explicit
+    if istclass(cl):
+        return "timetrial"
+    if isqclass(cl):
+        return "qualification"
+    if pat:
+        try:
+            if len(crack_race_pattern(pat)) == 3:      # endurance -> (laps, 1, seconds)
+                return "endurance"
+        except Exception:
+            pass
+    return "circuit"
+
+
 def crack_race_pattern(pat, cl='', warn=None):
     """Parse a race pattern.
 
     ``'NofHeats*(NofLaps*LapLength+..)+..:Scored'`` -> ``(heats, sheats)`` where
     ``heats`` is a list (one per heat) of lap-length lists; or endurance
     ``'NofEstLaps*LapLength/Hours'`` -> ``([[LapLength]*NofEstLaps], 1, seconds)``.
+
+    Trailing ``'@<speed>'`` (see ``pattern_speed``) and ``'!<kind>'`` (see
+    ``race_kind``) hints are stripped here -- they aren't part of the lap structure.
     """
-    pat = pat.replace(' ', '')
+    pat = _bare_pattern(pat.replace(' ', ''))
     if '/' in pat:
         parts = pat.split('/')
         if len(parts) != 2:

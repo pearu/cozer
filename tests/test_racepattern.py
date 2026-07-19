@@ -88,3 +88,31 @@ def test_crack_rejects_malformed_cleanly(bad):
     an unpack error -- so every caller's try/except catches them uniformly."""
     with pytest.raises(ValueError):
         crack_race_pattern(bad)
+
+
+def test_pattern_speed_and_kind_hints():
+    """Trailing '@<speed>' and '!<kind>' hints, in either order, are read by
+    pattern_speed / pattern_kind and stripped from the lap structure."""
+    from cozer.racepattern import (pattern_speed, pattern_kind, DEFAULT_CLASS_SPEED)
+    for p in ("2*(1600+4*1600):2@150!circuit", "2*(1600+4*1600):2!circuit@150"):
+        assert crack_race_pattern(p)[0] == crack_race_pattern("2*(1600+4*1600):2")[0]
+        assert pattern_speed(p) == 150.0 and pattern_kind(p) == "circuit"
+    assert pattern_speed("2*(1600+4*1600):2") == DEFAULT_CLASS_SPEED   # absent -> default
+    assert pattern_kind("2*(1600+4*1600):2") is None                  # absent -> None (infer)
+    assert pattern_speed("x@bad") == DEFAULT_CLASS_SPEED               # unparseable -> default
+    assert pattern_speed("x@-3") == DEFAULT_CLASS_SPEED                # non-positive -> default
+    assert pattern_kind("x!nonsense") is None                         # unknown kind -> None
+
+
+def test_race_kind_inference_and_explicit_override():
+    """race_kind uses an explicit '!<kind>' hint, else infers from the class suffix
+    (/T, /Q) and the pattern (a duration -> endurance, else circuit)."""
+    from cozer.racepattern import race_kind
+    def ev(cl, pat):
+        return {"classes": [["", cl, pat]]}
+    assert race_kind(ev("GT-15", "3*(1100+7*1100):3"), "GT-15") == "circuit"
+    assert race_kind(ev("PR2", "2110/6"), "PR2") == "endurance"
+    assert race_kind(ev("F125/T", "3*(1000):1"), "F125/T") == "timetrial"
+    assert race_kind(ev("F125/Q", "3*(1000):1"), "F125/Q") == "qualification"
+    assert race_kind(ev("PR2", "2110/6!circuit"), "PR2") == "circuit"   # explicit overrides infer
+    assert race_kind({"classes": []}, "X") == "circuit"                # no pattern -> default
