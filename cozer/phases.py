@@ -131,6 +131,18 @@ def phase_heat_ids(phase):
     return ids
 
 
+def canonical_record(phase, number):
+    """``(heat_id, [info, boats])`` for ``number``'s canonical record in ``phase`` —
+    the **last non-empty** one (an empty restart is skipped, §5.2) — or ``None`` if the
+    number has no non-empty record. Shared by the seeding and qualification layers."""
+    same = [(h, rec) for h, rec, num in zip(phase_heat_ids(phase), phase.heats, phase.numbers)
+            if num == number]
+    for h, rec in reversed(same):
+        if any(rec[1].values()):                 # rec = [info, boats]; some boat has marks
+            return h, rec
+    return None
+
+
 def phase_heat_map(phase):
     """``{heat_id: [info, boats]}`` for this phase — the legacy per-class heat dict
     restricted to this phase. For a legacy-read phase this is exactly the original

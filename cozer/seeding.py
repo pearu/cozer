@@ -26,7 +26,7 @@ start-list, timer ladder) are also later. The timer button grid stays boat-numbe
 """
 from cozer.analyzer import analyze, getresorder, rule_action_codes
 from cozer.classes import getclass
-from cozer.phases import class_phase_map, heat_number, phase_heat_ids
+from cozer.phases import canonical_record, class_phase_map, heat_number, phase_heat_ids
 from cozer.racepattern import get_classes, race_kind
 
 _KIND_ORDER = {"timetrial": 0, "qualification": 1}   # finals/endurance sort last
@@ -38,7 +38,7 @@ def start_order(eventdata, cl, heat):
         # intra-phase: heat N seeded by heat N-1's canonical finishing order.
         ph = class_phase_map(eventdata).get(cl)
         if ph is not None:
-            prev = _canonical_record(ph, heat_number(heat) - 1)
+            prev = canonical_record(ph, heat_number(heat) - 1)
             if prev is not None:
                 return _rank(eventdata, *prev)
         return _participant_order(eventdata, cl)
@@ -101,17 +101,6 @@ def _rank(eventdata, hid, rec):
     res = analyze(hid, [dict(rec[0]), rec[1]], eventdata.get("scoringsystem", []),
                   rule_action_codes(eventdata))
     return [str(pid) for pid in getresorder(res)]
-
-
-def _canonical_record(phase, number):
-    """``(heat_id, [info, boats])`` for ``number``'s canonical record in ``phase`` —
-    the **last non-empty** one (an empty restart is skipped, §5.2) — or ``None``."""
-    same = [(h, rec) for h, rec, num in zip(phase_heat_ids(phase), phase.heats, phase.numbers)
-            if num == number]
-    for h, rec in reversed(same):
-        if any(rec[1].values()):                 # rec = [info, boats]; some boat has marks
-            return h, rec
-    return None
 
 
 def _participant_order(eventdata, cl):
