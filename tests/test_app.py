@@ -877,6 +877,18 @@ def test_estimate_next_lap():
     assert estimate_next_lap([1000], [], 0) is None                       # first lap, no speed -> none
 
 
+def test_heat_course_handles_suffixed_and_restart_heats():
+    # The timer decodes the heat-id suffix via phases.heat_number now; a restart
+    # (1r/1R) and a time-trial heat (1t) must resolve to the right heat's lap lengths.
+    # (No timer test exercised a suffixed heat before this.)
+    from cozer.app.timer import heat_course
+    ed = {"classes": [["", "C", "3*(1000+2*1500):2"], ["", "C/T", "1*(1000):1"]]}
+    assert heat_course(ed, "C", "1") == heat_course(ed, "C", "1r") == heat_course(ed, "C", "1R")
+    assert heat_course(ed, "C", "1")[0] == [1000, 1500, 1500]     # heat 1 lap lengths
+    assert heat_course(ed, "C", "2")[0] == [1000, 1500, 1500]     # heat 2
+    assert heat_course(ed, "C/T", "1t")[0] == [1000]             # /T time-trial heat -> heat 1
+
+
 def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
     from cozer.app.timer import C_COMING, C_LATE
     _app()

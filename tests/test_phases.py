@@ -16,8 +16,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cozer import analyzer  # noqa: E402
-from cozer.phases import (Phase, class_phase_map, phase_heat_ids, phase_heat_map,  # noqa: E402
-                          synth_heat_id, to_legacy, to_phases, _parse_heat_id)
+from cozer.phases import (Phase, class_phase_map, heat_number, phase_heat_ids,  # noqa: E402
+                          phase_heat_map, synth_heat_id, to_legacy, to_phases, _parse_heat_id)
 from cozer.store import read_legacy_coz  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -216,6 +216,12 @@ def test_phase_iteration_api_reproduces_legacy(path):
         hm = phase_heat_map(phase_of[cl])
         assert hm == record[cl]                        # same heat ids, same [info, boats] objects
         assert sorted(phase_heat_ids(phase_of[cl])) == sorted(record[cl])
+
+
+@pytest.mark.parametrize("hid,num", [
+    ("1", 1), ("1r", 1), ("1R", 1), ("2t", 2), ("3q", 3), ("10", 10), ("10r", 10)])
+def test_heat_number(hid, num):
+    assert heat_number(hid) == num
 
 
 def test_phase_heat_map_rejects_forward_tq_collision():

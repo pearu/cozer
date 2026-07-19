@@ -108,6 +108,13 @@ def synth_heat_id(kind, number, rank):
     return "%d%s" % (number, _CIRCUIT_RESTART[rank])
 
 
+def heat_number(heat_id):
+    """The heat number encoded in a legacy heat id: ``'1'``/``'1r'``/``'1R'`` → 1,
+    ``'2t'`` → 2, ``'3q'`` → 3. Centralizes the suffix decoding so a consumer (e.g.
+    the timer) does not special-case ``h[-1]``."""
+    return _parse_heat_id(heat_id)[0]
+
+
 def phase_heat_ids(phase):
     """The legacy heat id per heat record in this phase, in results-list order — the
     phase's preserved originals, or canonically synthesized (:func:`synth_heat_id`)

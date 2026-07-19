@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
+from cozer.phases import heat_number
 from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed
 from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
@@ -163,7 +164,7 @@ def heat_course(eventdata, cl, h):
             r = crack_race_pattern(l[2], cl)
             rpat, sheats = r[0], r[1]
             duration = r[2] if len(r) == 3 else None
-            li = int(h[:-1]) - 1 if (h and h[-1] in "rqtR") else int(h) - 1
+            li = heat_number(h) - 1                      # phase model decodes the heat-id suffix
             li = max(0, min(li, len(rpat) - 1))
             return list(rpat[li]), sheats, duration
     return [], 1, None
