@@ -180,8 +180,8 @@ handlers; the abstraction does not change.
 
 ## 5. Starting-order flux (information flowing between heats)
 
-Every heat has a **start order**: the ordered boat list that seeds the grid. It is
-**derived, not stored**:
+Every heat has a **start order**: the ordered boat list for its **start / jetty positions** (the
+race grid — *not* the timer's on-screen button grid). It is **derived, not stored**:
 
 ```
 start_order(heat) = seed( previous_heat, ranking(previous_heat) )
@@ -191,7 +191,7 @@ ranking(heat)     = the analyzer's finishing order for that heat's canonical rec
 
 - **Derived, not stored** (Q2, confirmed): there is no separate seeding data to keep in sync.
   The start order is computed from the *current* ranking of the previous heat whenever needed
-  (timer grid, report participant list).
+  (the report start list, the timer ladder).
 - **No retroactive risk** (Q2 clarification): a later protest may re-evaluate an earlier heat,
   but that only changes the **points/best-laps aggregated into the final report**, not the
   grid of a later heat that has **already been raced**. Seeding flows strictly **forward** and
@@ -211,8 +211,11 @@ ranking(heat)     = the analyzer's finishing order for that heat's canonical rec
 - **Seed rule is per-transition** (`from-kind → to-kind`) and **hard-coded initially**,
   pluggable so a new rule drops in. Examples: "sort by best training time, fastest on top";
   "grid heat→heat by previous ranking".
-- **Consumers:** the **timer orders its buttons by the start order** (fastest on top, not boat
-  number); **reports print the start order** as the heat's participant list.
+- **Consumers** *(clarified — owner, 19 Jul 2026)*: **reports print the start order** as the heat's
+  start list / jetty positions — the primary consumer. In the timer, the button **grid stays
+  boat-number** (deliberately fixed positions for operator muscle memory) and is **not** reordered
+  by the start order; the timer's **ladder** is the fastest-on-top view. So §5's "fastest on top" is
+  the **ladder**, not the grid — the start order is a **report / ladder** signal, not a grid one.
 
 ### 5.1 Qualification → finals (UIM 305.04)
 
@@ -461,6 +464,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 29** — **§5 consumer clarification** (owner, 19 Jul 2026, during step-3 implementation). §5's "the timer orders its buttons by the start order (fastest on top)" was ambiguous — it read as the on-screen button **grid**, which is deliberately **boat-number** (fixed positions for operator muscle memory). Clarified: the start order is a **report / ladder** signal — reports print it (start list / jetty positions), the timer **ladder** is the fastest-on-top view, and the timer **grid stays boat-number**, not reordered by the start order. So the derived seeding has **no timer-grid consumer**; its consumers are the reports (and the ladder's ordering). Wording fixed in §5 opening, the derived-not-stored bullet, and the Consumers bullet.
 - **rev 28** — **owner APPROVED the spec for implementation** (19 Jul 2026), closing the design phase. The review cycle — two rulebook reviews (7948e787), a §10-F review, and two consistency passes — is complete; the doc is internally consistent and design-complete. Status banner flipped DRAFT → APPROVED; §8 is now the active plan (compat reader → per-kind dispatch → derived seeding). The remaining §10 item **F** is a build task (new outcome-override action + two warnings), not an open design question.
 - **rev 27** — folded the **final consistency review** (7948e787; owner, 19 Jul 2026), which found the doc coherent with four nits (a fifth left as optional). **#1 (real bug):** the pre-decision-B "last canonical" phrasing that rev 26 fixed in §2 still survived in **§3** and **§9** (where it even contradicted §9's own per-kind restart bullet) — both now scoped to *multi-heat take-last; single-heat/endurance aggregate (§5.2)*. **#2 (labeling):** §10 reframed — **no open *design* questions remain**; F is design-complete like C/D/E, flagged only because it needs **new machinery** (the override action + two warnings), a criterion now stated. **#3 (cross-ref):** §10-F's `§4.1` pointer made explicit (it reuses the Q/DNQ *outcome*). **#4 (first-reader):** §9's N/M formula now defines `P`/`G`/`H`/`N`/`M`. #5 (the word "selection" used two ways) left as-is — context disambiguates. Still **DRAFT — not approved for implementation.**
 - **rev 26** — **end-to-end consistency read** (owner, 19 Jul 2026). Found and fixed one stale bullet: §2's "Canonical record per number" still described *pre-rev-12 / pre-decision-B* behavior — it claimed the operator could "override which record(s) count" via Reports selection (contradicts §5.2 rev 12: selection is a **set** of heat numbers, the record is **automatic**) and stated **take-last** canonical universally (contradicts decision B: single-heat/endurance **aggregate**). Reconciled §2 to match §5.2 (per-kind canonical; selection picks which heats aggregate, not which record; mis-filed records fixed by Reassign). Cosmetic: smoothed a ragged line wrap in §5.1. No new design; the rest of the document read consistent end-to-end. Still **DRAFT — not approved for implementation.**
