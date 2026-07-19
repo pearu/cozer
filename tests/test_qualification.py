@@ -8,8 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cozer.qualification import (classify, finalists, participant_boats,  # noqa: E402
-                                 qheat1_members, qheat3_excluded, qheat_boats,
-                                 qualification_counts)
+                                 qheat1_members, qheat_boats, qualification_counts)
 
 
 def _q(fast, slow):
@@ -139,10 +138,11 @@ def test_repechage_field_edge_cases():
     assert qheat_boats(unrecorded, "D/Q", 3) == []
 
 
-# --- repechage outcome-code handling (DNF auto; DSQ/DNS default-include, op-exclude) ---
+# --- repechage field = EVERY below-cutoff non-qualifier (no gating; §5.1) ----------
 
 def _outcome_qheat(winner, others):
-    """A 3-lap qheat where `winner` finishes top; `others` = {boat: 'finish'|'dnf'|'dns'|'dsq'}."""
+    """A 3-lap qheat where `winner` finishes top; `others` maps a boat to an outcome mark
+    ('finish'|'dnf'|'dns'|'dsq'|'acc'|'dnr')."""
     info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
     boats = {winner: [(1, 20.0)] * 3}
     for b, o in others.items():
@@ -156,52 +156,12 @@ def _outcome_qheat(winner, others):
     return [info, boats]
 
 
-def _outcome_ev(qheat1, exclude=None, boats=(10, 20, 30, 40, 50)):
-    ed = _members_ev({"1q": qheat1}, pattern="2*(1000):1!qualification[1,1]", boats=boats)
-    if exclude is not None:
-        ed["qheat3_exclude"] = {"C": exclude}
-    return ed
-
-
-def test_repechage_auto_includes_finishers_and_dnf_default_includes_dsq_dns():
-    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq"})
-    ed = _outcome_ev(q1)                                # top-1 (10) qualifies
-    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30", "40", "50"}   # all in by default
-
-
-def test_repechage_operator_excludes_only_dsq_dns():
-    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq"})
-    ed = _outcome_ev(q1, exclude=["40", "50"])         # protests upheld against DNS 40, DSQ 50
-    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30"}
-
-
-def test_repechage_exclude_ignored_for_finisher_and_dnf():
-    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf"})
-    ed = _outcome_ev(q1, exclude=["20", "30"], boats=(10, 20, 30))     # can't gate these
-    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30"}
-
-
-def test_qheat3_excluded_reads_flag():
-    assert qheat3_excluded(_members_ev({}), "C/Q") == []
-    ed = _members_ev({})
-    ed["qheat3_exclude"] = {"C": ["40"]}
-    assert qheat3_excluded(ed, "C/Q") == ["40"]
-
-
-def test_repechage_acc_is_operator_gated_like_dsq_dns():
-    q1 = _outcome_qheat("10", {"20": "finish", "60": "acc"})
-    ed = _outcome_ev(q1, boats=(10, 20, 60))
-    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "60"}          # ACC in by default
-    ed2 = _outcome_ev(q1, exclude=["60"], boats=(10, 20, 60))
-    assert set(qheat_boats(ed2, "C/Q", 2)) == {"20"}               # protest upheld -> ACC excluded
-
-
-def test_repechage_all_four_gated_codes_default_include_and_excludable():
-    # DSQ, DNS, ACC, DNR all gated (default include, operator can exclude); DNF/finisher never gated
+def test_repechage_field_includes_every_below_cutoff_boat_regardless_of_outcome():
+    # No gating: a finisher, a DNF, a DNS, a DSQ, an ACC and a DNR that all placed below the
+    # cutoff are ALL in the repechage field. Removing a boat is a downstream DNQ mark, never a
+    # pre-filter here (that would be a default-exclude, which the owner rejected).
     others = {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq", "60": "acc", "70": "dnr"}
-    q1 = _outcome_qheat("10", others)
-    boats = (10, 20, 30, 40, 50, 60, 70)
-    ed = _outcome_ev(q1, boats=boats)
-    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30", "40", "50", "60", "70"}   # all default-in
-    ed2 = _outcome_ev(q1, exclude=["40", "50", "60", "70"], boats=boats)            # protests upheld
-    assert set(qheat_boats(ed2, "C/Q", 2)) == {"20", "30"}      # only finisher + DNF remain (ungatable)
+    q1 = _outcome_qheat("10", others)                  # top-1 (10) qualifies; everyone else drops
+    ed = _members_ev({"1q": q1}, pattern="2*(1000):1!qualification[1,1]",
+                     boats=(10, 20, 30, 40, 50, 60, 70))
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30", "40", "50", "60", "70"}

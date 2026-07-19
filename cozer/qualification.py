@@ -29,12 +29,6 @@ from cozer.racepattern import class_pattern
 # The tuple of per-qheat qualifier counts, e.g. '...!qualification[3,3,2]'.
 _QUAL_TUPLE = re.compile(r"qualification\[([\d,\s]+)\]", re.I)
 
-# Outcome codes (by analyze `notes` key name, §209 and legacy spellings) whose qheat3
-# membership is an OPERATOR call — a disqualification, or a did-not-start / accident.
-# A DNF/IR (raced and failed) and a plain finisher are NOT here: they are auto-included.
-_GATED_CODES = frozenset(("DSQ", "DQ", "RC",           # disqualified (incl. red card)
-                          "DNS", "DS", "DNR", "ACC"))  # did-not-start / accident family
-
 
 def qualification_counts(pattern):
     """Per-qheat qualifier counts from a ``!qualification[N,N,M]`` pattern hint, as a
@@ -137,44 +131,21 @@ def qheat_boats(eventdata, cl, number):
     return []                                            # 3+ selection qheats: needs a flag each
 
 
-def _repechage_gated(notes):
-    """True if a below-cutoff boat's qheat3 membership is an **operator call**
-    (default-include, operator-exclude): a **DSQ** / **DNS** / **DNR** / **ACC** outcome
-    (owner resolution via 7948e787). A **DNF/IR** (raced and failed) and a plain finisher
-    are **not** gated — always in the repechage. Read from the analyze ``notes`` keys,
-    the reliable signal — never ``place``/lap count (a DSQ or ACC boat can have a full or
-    partial lap count). A gated key wins even if the boat also carries a DNF key."""
-    return bool(set(notes or ()) & _GATED_CODES)
-
-
-def qheat3_excluded(eventdata, cl):
-    """Boat-ids the operator EXCLUDED from the repechage, from
-    ``eventdata['qheat3_exclude'][base]``; empty if unset. Read-only.
-
-    The default is **include**: a gated (DSQ / DNS / DNR / ACC) boat still starts qheat3
-    until a protest is resolved against it — a boat may protest, and until then it has the
-    right to start — so the operator removes it here only once the ruling stands (a
-    heat-scoped DSQ or a dead-engine DNS may simply stay in). A DNF and a plain finisher
-    are always included, never gated."""
-    base = getclass(cl)
-    return [str(b) for b in (eventdata.get("qheat3_exclude") or {}).get(base) or []]
-
-
 def _repechage_field(eventdata, cl):
-    """The boats that raced a **selection** qheat but finished outside its top ``count``
-    — the field for the repechage (second-chance) qheat.
+    """The boats that raced a **selection** qheat but finished outside its top ``count`` —
+    the field for the repechage (second-chance) qheat.
 
-    A plain non-qualifier (finished, ranked below the cutoff) and a **DNF** are
-    auto-included. A **DSQ / DNS / DNR / ACC** is **included by default** but the operator
-    can exclude it (:func:`qheat3_excluded`) once a protest is resolved against it (owner
-    resolution via 7948e787). Outcomes are read from the analyze ``notes`` keys."""
+    Every below-cutoff non-qualifier is in the field, **whatever its outcome** — a plain
+    non-finish, a DNF, a DSQ / DNS / DNR / ACC all get the second chance. The field never
+    pre-excludes anyone (that would be a *default-exclude*): a boat the jury rules out is
+    handled downstream by the operator marking it ``DNQ`` in Edit Records (disable ``Q`` /
+    insert ``DNQ`` — DNQ is a first-class §209 code that :func:`classify` respects)."""
     ph = class_phase_map(eventdata).get(cl)
     counts = qualification_counts(class_pattern(eventdata, cl))
     if ph is None or not counts:
         return []
     ss = eventdata.get("scoringsystem", [])
     rc = rule_action_codes(eventdata)
-    excluded = set(qheat3_excluded(eventdata, cl))
     field = []
     for number in range(1, len(counts)):                 # selection qheats (exclude the last)
         canon = canonical_record(ph, number)
@@ -182,9 +153,5 @@ def _repechage_field(eventdata, cl):
             continue
         hid, rec = canon
         res = analyze(hid, [dict(rec[0]), rec[1]], ss, rc)
-        for boat in getresorder(res)[counts[number - 1]:]:   # boats outside the top `count`
-            b = str(boat)
-            if b in excluded and _repechage_gated((res[boat] or {}).get("notes")):
-                continue                                 # operator removed it (protest upheld)
-            field.append(b)
+        field.extend(str(boat) for boat in getresorder(res)[counts[number - 1]:])   # below top `count`
     return field
