@@ -141,6 +141,66 @@ def test_qualification_roundtrip_synthetic():
     assert to_legacy(ph) == record                     # /Q + base reconstruct exactly
 
 
+# --- non-canonical provenance: exact identity is PRESERVED, not re-synthesized ----
+# (regression for the 7948e787 review of 2f9f161: classes.py accepts \Q /q \t etc.,
+#  and a kind can come from a !hint on an unsuffixed name — re-synthesizing renames.)
+
+from cozer.racepattern import race_kind  # noqa: E402
+
+
+@pytest.mark.parametrize("clsname,heat,kind", [
+    ("F125\\Q", "1q", "qualification"),   # backslash variant
+    ("GT-15/t", "1t", "timetrial"),        # lowercase variant
+    ("F125\\T", "1t", "timetrial"),
+])
+def test_noncanonical_suffix_roundtrips_exactly(clsname, heat, kind):
+    classes = [["", clsname, "3*(1000):1"]]
+    record = {clsname: {heat: [{"course": [1000]}, {"7": [(1, 20.0)]}]}}
+    ed = _ev(classes, record)
+    assert race_kind(ed, clsname) == kind
+    assert to_legacy(to_phases(ed)) == record          # exact name preserved, not canonicalized
+
+
+def test_hint_kind_on_unsuffixed_name_keeps_name():
+    # kind from a !hint, class name has NO suffix -> must NOT gain a /T on round-trip
+    classes = [["", "F125", "3*(1000):1!timetrial"]]
+    record = {"F125": {"1": [{"course": [1000]}, {"7": [(1, 20.0)]}]}}
+    ed = _ev(classes, record)
+    assert race_kind(ed, "F125") == "timetrial"
+    assert to_legacy(to_phases(ed)) == record          # stays "F125", not "F125/T"
+
+
+def test_same_base_kind_different_suffix_no_overwrite():
+    # F-4/T and F-4\T both -> base F-4, kind timetrial; must stay two distinct classes
+    r = lambda s: [{"course": [1000]}, {"7": [(1, s)]}]
+    classes = [["", "F-4/T", "1*(1000):1"], ["", "F-4\\T", "1*(1000):1"]]
+    record = {"F-4/T": {"1t": r(20.0)}, "F-4\\T": {"1t": r(21.0)}}
+    ed = _ev(classes, record)
+    ph = to_phases(ed)
+    assert len(ph["F-4"]) == 2                          # two distinct time-trial phases, no collapse
+    assert to_legacy(ph) == record                      # both preserved, neither overwrites the other
+
+
+def test_noncanonical_heatid_preserved():
+    # a /T class carrying a plain '1' heat (no 't') -> preserve it, don't synthesize '1t'
+    classes = [["", "GT-15/T", "1*(1000):1"]]
+    record = {"GT-15/T": {"1": [{"course": [1000]}, {"7": [(1, 20.0)]}]}}
+    ed = _ev(classes, record)
+    assert to_legacy(to_phases(ed)) == record
+
+
+def test_forward_created_phase_synthesizes_canonical():
+    # a Phase with no provenance (legacy_class/heatids None) -> to_legacy synthesizes
+    # canonical class names + ids (the step-2+ forward path), per kind.
+    r = lambda s: [{"course": [1000]}, {"7": [(1, s)]}]
+    assert to_legacy({"F125": [Phase("circuit", "2*(1000):1", [r(30.0), r(31.0)], [1, 1])]}) \
+        == {"F125": {"1": r(30.0), "1r": r(31.0)}}
+    assert to_legacy({"F125": [Phase("timetrial", "1*(1000):1", [r(20.0)], [1])]}) \
+        == {"F125/T": {"1t": r(20.0)}}
+    assert to_legacy({"F125": [Phase("qualification", "1*(1000):1", [r(20.0), r(21.0)], [1, 2])]}) \
+        == {"F125/Q": {"1q": r(20.0), "2q": r(21.0)}}
+
+
 def test_phase_equality():
     a = Phase("circuit", "p", [[{}, {}]], [1])
     b = Phase("circuit", "p", [[{}, {}]], [1])
