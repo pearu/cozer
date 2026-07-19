@@ -16,8 +16,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cozer import analyzer  # noqa: E402
-from cozer.phases import (Phase, synth_heat_id, to_legacy, to_phases,  # noqa: E402
-                          _parse_heat_id)
+from cozer.phases import (Phase, class_phase_map, phase_heat_ids, phase_heat_map,  # noqa: E402
+                          synth_heat_id, to_legacy, to_phases, _parse_heat_id)
 from cozer.store import read_legacy_coz  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -199,6 +199,30 @@ def test_forward_created_phase_synthesizes_canonical():
         == {"F125/T": {"1t": r(20.0)}}
     assert to_legacy({"F125": [Phase("qualification", "1*(1000):1", [r(20.0), r(21.0)], [1, 2])]}) \
         == {"F125/Q": {"1q": r(20.0), "2q": r(21.0)}}
+
+
+# --- phase-iteration API (for the reports migration, §8 step 2) ------------------
+
+@pytest.mark.parametrize("path", _coz_files(),
+                         ids=[os.path.basename(p) for p in _coz_files()])
+def test_phase_iteration_api_reproduces_legacy(path):
+    # class_phase_map + phase_heat_map reproduce record[cl] exactly for every class,
+    # and phase_heat_ids matches sorted(record[cl].keys()) as a set.
+    ed = read_legacy_coz(path)
+    record = ed.get("record", {}) or {}
+    phase_of = class_phase_map(ed)
+    assert set(phase_of) == set(record)                # a Phase per legacy class
+    for cl in record:
+        hm = phase_heat_map(phase_of[cl])
+        assert hm == record[cl]                        # same heat ids, same [info, boats] objects
+        assert sorted(phase_heat_ids(phase_of[cl])) == sorted(record[cl])
+
+
+def test_phase_heat_ids_preserved_vs_synthesized():
+    p_leg = Phase("circuit", "p", [[{}, {}], [{}, {}]], [1, 1], "F125", ["1", "1r"])
+    assert phase_heat_ids(p_leg) == ["1", "1r"]        # preserved originals
+    p_fwd = Phase("timetrial", "p", [[{}, {}]], [1])   # no provenance -> synthesized
+    assert phase_heat_ids(p_fwd) == ["1t"]
 
 
 def test_phase_equality():

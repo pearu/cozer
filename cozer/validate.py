@@ -14,7 +14,7 @@ import statistics
 from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
-from cozer.phases import to_phases
+from cozer.phases import class_phase_map
 from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed
 from cozer.records import gettimes
 
@@ -97,10 +97,7 @@ def check_results(eventdata):
         # check, and qualification is a real mass-start kind (fast+slow mis-click). When
         # the §4.1 code ripples land, qualification comes OUT of this skip and timetrial
         # gets the light check.
-        phase_of = {}
-        for phases in to_phases(eventdata).values():
-            for ph in phases:
-                phase_of[ph.legacy_class] = ph
+        phase_of = class_phase_map(eventdata)
 
         classes = [c for c in get_classes(eventdata) if c in record]
         for cl in classes:

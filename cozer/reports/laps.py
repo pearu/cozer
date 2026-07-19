@@ -4,6 +4,7 @@ completed within race time). This is the tally sheet the lap counters use.
 """
 from cozer.analyzer import countlaps
 from cozer.classes import getclass
+from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
 from cozer.reports.common import esc, display, meta_of, document_html
 from cozer.reports.labels import get_labels
@@ -15,16 +16,19 @@ def build_laps_protocol(eventdata, classes=None, heat_map=None):
     labels = get_labels(eventdata)
     if classes is None:
         classes = [c for c in get_classes(eventdata) if c in record]
+    phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     tables = []
     for cl in classes:
-        if cl not in record:
+        ph = phase_of.get(cl)
+        if ph is None:                                  # cl not in record
             continue
-        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
-        heats = [h for h in heats if h in record[cl]]   # a selected heat may be unrecorded (stale
+        heat_recs = phase_heat_map(ph)                  # {heat_id: [info, boats]} for this phase
+        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(heat_recs)
+        heats = [h for h in heats if h in heat_recs]    # a selected heat may be unrecorded (stale
         if not heats:                                   # selection / programmatic heat_map) -> skip
-            continue                                    # it rather than KeyError on record[cl][curheat]
+            continue                                    # it rather than KeyError on heat_recs[curheat]
         curheat = heats[-1]
-        grid = countlaps(curheat, record[cl][curheat])
+        grid = countlaps(curheat, heat_recs[curheat])
         ncols = max((len(row) for row in grid), default=1)
         cells = []
         for row in grid:

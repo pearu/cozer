@@ -108,6 +108,30 @@ def synth_heat_id(kind, number, rank):
     return "%d%s" % (number, _CIRCUIT_RESTART[rank])
 
 
+def phase_heat_ids(phase):
+    """The legacy heat id per heat record in this phase, in results-list order — the
+    phase's preserved originals, or canonically synthesized (:func:`synth_heat_id`)
+    for a forward-created phase. This is the sequence a consumer iterates in place of
+    ``sorted(record[cl].keys())``, and each id still carries the sub-kind/restart last
+    char that ``analyze`` dispatches on."""
+    if phase.heatids is not None:
+        return list(phase.heatids)
+    ids, seen = [], {}
+    for number in phase.numbers:
+        rank = seen.get(number, 0)
+        seen[number] = rank + 1
+        ids.append(synth_heat_id(phase.kind, number, rank))
+    return ids
+
+
+def phase_heat_map(phase):
+    """``{heat_id: [info, boats]}`` for this phase — the legacy per-class heat dict
+    restricted to this phase. For a legacy-read phase this is exactly the original
+    ``record[legacy_class]`` (same heat-id keys, same record objects), so a consumer
+    can swap ``record[cl]`` for ``phase_heat_map(phase)`` with no change in behavior."""
+    return dict(zip(phase_heat_ids(phase), phase.heats))
+
+
 def to_phases(eventdata):
     """Group ``eventdata['record']`` into ``{base_class: [Phase, ...]}``.
 
@@ -148,29 +172,30 @@ def to_phases(eventdata):
     return out
 
 
+def class_phase_map(eventdata):
+    """``{legacy_class_name: Phase}`` for every class in the record — the per-class
+    phase lookup a consumer uses to dispatch on ``phase.kind`` and address a class's
+    heats without re-inferring the kind from the class/heat suffix."""
+    out = {}
+    for phases in to_phases(eventdata).values():
+        for ph in phases:
+            out[ph.legacy_class] = ph
+    return out
+
+
 def to_legacy(phases_by_base):
     """Reconstruct the legacy ``{class: {heat_id: [info, boats]}}`` record from a
-    phase grouping — the **compat view**. Exact inverse of :func:`to_phases`: the
-    same class names (re-suffixed from ``phase.kind``) and the same heat ids
-    (re-synthesized from number + occurrence rank), so a legacy-addressed consumer
-    sees no change."""
+    phase grouping — the **compat view**. Exact inverse of :func:`to_phases`: each
+    class re-suffixed from its preserved ``legacy_class`` (or ``phase.kind`` for a
+    forward-created phase) and its heats keyed by :func:`phase_heat_ids`, so a
+    legacy-addressed consumer sees no change."""
     record = {}
     for base, phases in phases_by_base.items():
         for ph in phases:
             # Prefer preserved provenance (exact legacy identity); synthesize only for
             # a forward-created phase with no legacy origin (step 2+).
             cl = ph.legacy_class if ph.legacy_class is not None else _legacy_class_name(base, ph.kind)
-            heatmap = {}
-            seen = {}                 # number → occurrences so far → restart rank
-            for i, (rec, number) in enumerate(zip(ph.heats, ph.numbers)):
-                if ph.heatids is not None:
-                    hid = ph.heatids[i]
-                else:
-                    rank = seen.get(number, 0)
-                    seen[number] = rank + 1
-                    hid = synth_heat_id(ph.kind, number, rank)
-                heatmap[hid] = rec
-            record[cl] = heatmap
+            record[cl] = phase_heat_map(ph)
     return record
 
 
