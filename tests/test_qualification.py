@@ -8,7 +8,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cozer.qualification import (classify, finalists, participant_boats,  # noqa: E402
-                                 qheat1_members, qheat_boats, qualification_counts)
+                                 qheat1_members, qheat3_excluded, qheat_boats,
+                                 qualification_counts)
 
 
 def _q(fast, slow):
@@ -136,3 +137,50 @@ def test_repechage_field_edge_cases():
     unrecorded = {"classes": [["", "D/Q", "3*(1000):1!qualification[1,1,1]"]], "record": {},
                   "scoringsystem": [400, 300, 225], "participants": [], "races": [], "rules": []}
     assert qheat_boats(unrecorded, "D/Q", 3) == []
+
+
+# --- repechage outcome-code handling (DNF auto; DSQ/DNS default-include, op-exclude) ---
+
+def _outcome_qheat(winner, others):
+    """A 3-lap qheat where `winner` finishes top; `others` = {boat: 'finish'|'dnf'|'dns'|'dsq'}."""
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    boats = {winner: [(1, 20.0)] * 3}
+    for b, o in others.items():
+        boats[b] = {"finish": [(1, 25.0)] * 3,
+                    "dnf": [(1, 25.0), (27, 50.0, "")],           # DNF mark (code 27)
+                    "dns": [],                                    # no laps -> DNS
+                    "dsq": [(1, 25.0), (22, 50.0, "409.01")]      # DSQ mark (code 22)
+                    }[o]
+    return [info, boats]
+
+
+def _outcome_ev(qheat1, exclude=None, boats=(10, 20, 30, 40, 50)):
+    ed = _members_ev({"1q": qheat1}, pattern="2*(1000):1!qualification[1,1]", boats=boats)
+    if exclude is not None:
+        ed["qheat3_exclude"] = {"C": exclude}
+    return ed
+
+
+def test_repechage_auto_includes_finishers_and_dnf_default_includes_dsq_dns():
+    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq"})
+    ed = _outcome_ev(q1)                                # top-1 (10) qualifies
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30", "40", "50"}   # all in by default
+
+
+def test_repechage_operator_excludes_only_dsq_dns():
+    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf", "40": "dns", "50": "dsq"})
+    ed = _outcome_ev(q1, exclude=["40", "50"])         # protests upheld against DNS 40, DSQ 50
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30"}
+
+
+def test_repechage_exclude_ignored_for_finisher_and_dnf():
+    q1 = _outcome_qheat("10", {"20": "finish", "30": "dnf"})
+    ed = _outcome_ev(q1, exclude=["20", "30"], boats=(10, 20, 30))     # can't gate these
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "30"}
+
+
+def test_qheat3_excluded_reads_flag():
+    assert qheat3_excluded(_members_ev({}), "C/Q") == []
+    ed = _members_ev({})
+    ed["qheat3_exclude"] = {"C": ["40"]}
+    assert qheat3_excluded(ed, "C/Q") == ["40"]
