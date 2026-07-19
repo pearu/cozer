@@ -114,14 +114,34 @@ This per-kind dispatch is what makes phases **independent / conflict-free**.
 
 | kind | timer | validate | report | scoring |
 |---|---|---|---|---|
-| `training` | solo / free, timed | light | best-time list | best lap (others disabled) → seeds finals |
-| `timetrial` | solo run (3 laps) | no mis-click (solo) | TT ranking | best lap (others disabled) |
-| `qualification` | mass-start heat | mis-click | qual ranking | points → finalist selection |
-| `circuit` | mass-start | mis-click (fast + slow) | finals sheet | UIM points, drop-worst |
-| `endurance` | mass-start, duration | mis-click (banded) | endurance sheet | laps in duration |
+| `timetrial` | solo / free, timed | light mis-click | best-time list | best lap → seeds the finals' 1st-heat start order (the timer ladder order) |
+| `qualification` | mass-start | mis-click (fast + slow) | qual ranking | Q-points → finalist selection, drop-worst (§4.1) |
+| `circuit` | mass-start | mis-click (fast + slow) | finals sheet | UIM points |
+| `endurance` | mass-start, duration | mis-click (banded) | endurance sheet | laps in the race duration (§4.1) |
 
 Report names above are **intent, not final** (owner to adjust during implementation/testing).
 Adding a kind = add a row + its handlers; the abstraction does not change.
+
+### 4.1 Notes
+
+- **Training folds into `timetrial`** — there is no separate `training` kind. A practice /
+  seeding session is a `timetrial` phase (so §1's `training → finals` and `time-trial → finals`
+  are both the `timetrial` kind). Unlike legacy, **cozer auto-disables all but each boat's best
+  lap** (an initial mark unselect) rather than the operator doing it by hand in Edit Records.
+  *Code ripple: the implemented `RACE_KINDS` still lists `training` — drop it / alias to
+  `timetrial`.*
+- **Time-trial gets *light* mis-click** — a solo run can still be double-tapped (too-fast) or
+  miss a crossing, so the physics/too-fast check applies; there is no wrong-boat case (no pack),
+  and the too-slow median check needs ≥4 laps so it's inert on a 3-lap run. *Code ripple:
+  validate currently **excludes** time-trials from mis-click — enable the light check.*
+- **Qualification = a circuit heat with a Q-points scoring system.** Score each qual heat
+  `1 … 1 0 … 0`: the top N in `qheat1`/`qheat2` and the top M in the repechage `qheat3` score 1,
+  the rest 0. A boat's qualification is the **best of its qual heats** (drop-worst), so a boat
+  that qualifies only via the repechage still counts. **Finalists = the non-zero scorers.** This
+  reuses the whole circuit scoring + mis-click machinery; only the scoring system differs. (N/M
+  and grid order per §5.1 / 305.04.)
+- **Endurance defines the total race *time*, not a lap count.** The pattern's `/hours` term *is*
+  the race duration; it replaces the legacy hack of setting a very high lap number.
 
 ---
 
@@ -243,6 +263,13 @@ for new files:
 
 ## Change log
 
+- **rev 4** — §4 reshaped. `training` folds into `timetrial` (no separate kind; cozer
+  auto-disables all but the best lap). Time-trial gets a **light** mis-click check (physics
+  only). `qualification` is modelled as a circuit heat with a `1…1 0…0` **Q-points** scoring
+  system (non-zero scorers = finalists, best-of-qual-heats drop-worst). `circuit` scoring is
+  plain UIM points. Endurance's pattern defines the total **race time** (`/hours`), not a high
+  lap count. Two **code ripples** flagged (to handle when implementing): drop/alias `training`
+  in the implemented `RACE_KINDS`; stop excluding time-trials from the mis-click check.
 - **rev 3** — §1 corrected: a class runs **at most one** seeding phase before finals (realistic
   shapes: `finals`, `training→finals`, `time-trial→finals`, `qualification→finals`), NOT a
   four-type chain (that earlier example was wrong). Spelled out finals-as-heat-series with
