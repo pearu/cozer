@@ -30,6 +30,7 @@ from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
 from cozer.phases import heat_number
+from cozer.qualification import qheat_boats
 from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed
 from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
@@ -176,6 +177,19 @@ def class_ids(eventdata, cl):
             if len(p) > 5 and p[4] == base and p[5] != ""]
 
 
+def heat_membership(eventdata, cl, h):
+    """The boat-ids that make up class ``cl``'s heat ``h`` — who the Timer materializes and
+    shows. For a qualification qheat this is the qheat's OWN group
+    (``qualification.qheat_boats`` — qheat1 = the organizer's flag, qheat2 = the complement,
+    qheat3 = the repechage field), so a boat appears only in the qheat it actually races (no
+    phantom DNS for boats that belong to another qheat). Everything else — a circuit /
+    time-trial / endurance heat, an out-of-range heat number, a 3+-way split the single flag
+    can't express, or a repechage whose selection qheats aren't recorded yet — falls back to
+    the full class field (``class_ids``)."""
+    boats = qheat_boats(eventdata, cl, heat_number(h))
+    return boats if boats else class_ids(eventdata, cl)
+
+
 class GridButtons(QWidget):
     """Square boat-number buttons that auto-fit the widget's area (all always
     visible), arranged in tens-grouped rows (calclayout)."""
@@ -293,7 +307,7 @@ class TimerPanel(QWidget):
         rec = self._rec(cl, h)
         if rec:
             return sorted(rec[1].keys(), key=_idkey)
-        return sorted(class_ids(self.eventdata, cl), key=_idkey)
+        return sorted(heat_membership(self.eventdata, cl, h), key=_idkey)
 
     def _boat_color(self, cl, h, pid):
         rec = self._rec(cl, h)
@@ -522,7 +536,7 @@ class TimerPanel(QWidget):
         course, sheats, duration = heat_course(self.eventdata, cl, h)
         info = {"course": course, "sheats": sheats, "duration": duration, "starttime": now}
         self.window.store.record({"op": "heat", "cl": cl, "h": h, "info": info,
-                                  "ids": class_ids(self.eventdata, cl)})
+                                  "ids": heat_membership(self.eventdata, cl, h)})
 
     def record_lap(self, cl, h, pid):
         if not self._started:

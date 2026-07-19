@@ -889,6 +889,52 @@ def test_heat_course_handles_suffixed_and_restart_heats():
     assert heat_course(ed, "C/T", "1t")[0] == [1000]             # /T time-trial heat -> heat 1
 
 
+def _memb_ev(classes, record=None, qheat1=None, boats=(10, 20, 30, 40)):
+    ed = {"classes": classes, "record": record or {}, "scoringsystem": [400, 300, 225],
+          "participants": [["", "A", "One", "X", "C", str(b)] for b in boats], "rules": []}
+    if qheat1 is not None:
+        ed["qheat1"] = {"C": qheat1}
+    return ed
+
+
+def test_heat_membership_nonqualification_is_full_field():
+    # a circuit heat materializes every class participant, at any heat number
+    from cozer.app.timer import heat_membership
+    ed = _memb_ev([["", "C", "3*(1000):1"]], boats=(10, 20, 30))
+    assert heat_membership(ed, "C", "1") == ["10", "20", "30"]
+    assert heat_membership(ed, "C", "2") == ["10", "20", "30"]
+
+
+def test_heat_membership_qualification_splits_by_qheat():
+    # a qualification qheat materializes only its OWN group (no phantom-DNS for the others)
+    from cozer.app.timer import heat_membership
+    ed = _memb_ev([["", "C/Q", "3*(1000):1!qualification[1,1,1]"]],
+                  record={"C/Q": {}}, qheat1=["10", "30"])
+    assert heat_membership(ed, "C/Q", "1q") == ["10", "30"]     # qheat1 = the organizer's flag
+    assert heat_membership(ed, "C/Q", "2q") == ["20", "40"]     # qheat2 = the complement
+
+
+def test_heat_membership_repechage_is_selection_non_qualifiers():
+    from cozer.app.timer import heat_membership
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+
+    def qh(fast, slow):
+        return [dict(info), {fast: [(1, 20.0)] * 3, slow: [(1, 25.0)] * 3}]
+    ed = _memb_ev([["", "C/Q", "3*(1000):1!qualification[1,1,1]"]],
+                  record={"C/Q": {"1q": qh("10", "20"), "2q": qh("30", "40")}},
+                  qheat1=["10", "20"])
+    # 1q: 10 Q -> 20 down; 2q: 30 Q -> 40 down. Repechage field = {20, 40}.
+    assert sorted(heat_membership(ed, "C/Q", "3q"), key=int) == ["20", "40"]
+
+
+def test_heat_membership_repechage_falls_back_before_selections_recorded():
+    # repechage field is empty until the selection qheats are recorded -> full field fallback
+    from cozer.app.timer import heat_membership
+    ed = _memb_ev([["", "C/Q", "3*(1000):1!qualification[1,1,1]"]],
+                  record={"C/Q": {}}, qheat1=["10", "30"])
+    assert heat_membership(ed, "C/Q", "3q") == ["10", "20", "30", "40"]
+
+
 def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
     from cozer.app.timer import C_COMING, C_LATE
     _app()
