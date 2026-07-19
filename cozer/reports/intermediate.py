@@ -4,6 +4,7 @@ import time as _time
 
 from cozer.analyzer import analyze, sumanalyze, getresorder, rule_action_codes
 from cozer.classes import getclass
+from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
@@ -20,20 +21,23 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
     labels = get_labels(eventdata)
     if classes is None:
         classes = [c for c in get_classes(eventdata) if c in record]
+    phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     parts = participants_index(eventdata)
     tables = []
     for cl in classes:
-        if cl not in record:
+        ph = phase_of.get(cl)
+        if ph is None:                                  # cl not in record
             continue
-        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
-        heats = [h for h in heats if h in record[cl]]   # a selected heat may be unrecorded (stale
+        heat_recs = phase_heat_map(ph)                  # {heat_id: [info, boats]} for this phase
+        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(heat_recs)
+        heats = [h for h in heats if h in heat_recs]    # a selected heat may be unrecorded (stale
         if not heats:                                   # selection / programmatic heat_map) -> skip
-            continue                                    # it rather than KeyError on record[cl][h]
+            continue                                    # it rather than KeyError on heat_recs[h]
         rulecodes = rule_action_codes(eventdata)
-        res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
+        res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         curheat = heats[-1]
         multi = len(heats) > 1
-        istt = curheat.endswith("t")
+        istt = ph.kind == "timetrial"                   # dispatch on the phase (was: curheat.endswith("t"))
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats))) if multi else {}
         legend = {}
         rows = []
@@ -56,7 +60,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
                 row["best"] = ("%.1f/&#8203;%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if ok else "-"
                 row["sumpoints"] = str(sr["points"]) if ok else "-"
             rows.append(row)
-        st = record[cl][curheat][0].get("starttime")
+        st = heat_recs[curheat][0].get("starttime")
         starttime = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(st)) if st else labels["None"]
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
                        "starttime": starttime, "rows": rows, "legend": _legend_html(legend, labels)})

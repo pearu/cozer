@@ -289,13 +289,16 @@ def test_letters():
 
 def test_intermediate_timetrial_and_multidriver():
     from cozer.reports.intermediate import build_intermediate, intermediate_html
+    # A time-trial is a /T class (get_allowed_heats only permits a '1t' heat under a
+    # /T class); intermediate now reads the kind from the phase (phase.kind ==
+    # "timetrial"), so the class must carry the /T suffix, not just a 't' heat id.
     ed = {
         "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
-        "classes": [["x", "TT", "2*(2*1000):1"]],
+        "classes": [["x", "TT/T", "2*(2*1000):1"]],
         "participants": [["x", "A;B", "One;Two", "EST", "TT", "1"],
                          ["x", "C", "Three", "FIN", "TT", "2"]],
-        "record": {"TT": {"1t": [{"course": [1000, 1000], "racetime": 1000.0},
-                                 {"1": [(1, 20.0), (1, 21.0)], "2": [(1, 22.0)]}]}},
+        "record": {"TT/T": {"1t": [{"course": [1000, 1000], "racetime": 1000.0},
+                                   {"1": [(1, 20.0), (1, 21.0)], "2": [(1, 22.0)]}]}},
     }
     html = intermediate_html(build_intermediate(ed))
     assert "Lap Time" in html                      # time-trial column header
