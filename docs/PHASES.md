@@ -8,9 +8,27 @@ change that contradicts something already agreed here (see *Change log*).
 
 ## 1. Motivation
 
-A single racing class (e.g. `F125`) runs several **race types in sequence** within one
-event — typically *training → time-trial → qualification → finals* — and the results of the
-earlier types define the starting order (and even the entry list) of the later ones.
+A racing class (e.g. `F125`) reaches its **finals** either directly or after **one seeding
+phase** whose results define the finals' starting order (and, for qualification, which boats
+race at all). The realistic shapes are exactly:
+
+- `finals`
+- `training → finals`
+- `time-trial → finals`
+- `qualification → finals`
+
+There is **at most one** seeding phase before finals — a `training → time-trial → qualification
+→ finals` chain does **not** occur.
+
+- **`finals`** is itself a series of heats that seed each other — `heat1 → heat2 → heat3 → …` —
+  and any `heatK` may be re-run as one or two restarts before it seeds the next:
+  `heatK`, or `heatK → heatK′`, or `heatK → heatK′ → heatK″` (the restart records of §2).
+- **`qualification`** applies when there are too many entries to fit the course: it splits into
+  `qheat1` and `qheat2` over disjoint participant subsets; each sends its top boats to the
+  finals and the rest to a repechage `qheat3`, whose top boats also reach the finals while the
+  remainder are not classified (UIM 305.04, §5.1).
+- **`training` and `time-trial`** produce a ranking by **best lap**; in legacy the boat's
+  best-lap record is kept and the others disabled in the Edit Records tab.
 
 Today this is modelled with workarounds the owner wants to eventually retire:
 
@@ -96,8 +114,8 @@ This per-kind dispatch is what makes phases **independent / conflict-free**.
 
 | kind | timer | validate | report | scoring |
 |---|---|---|---|---|
-| `training` | solo / free, timed | light | best-time list | unscored → seeds next |
-| `timetrial` | solo run (3 laps) | no mis-click (solo) | TT ranking | best / aggregate lap |
+| `training` | solo / free, timed | light | best-time list | best lap (others disabled) → seeds finals |
+| `timetrial` | solo run (3 laps) | no mis-click (solo) | TT ranking | best lap (others disabled) |
 | `qualification` | mass-start heat | mis-click | qual ranking | points → finalist selection |
 | `circuit` | mass-start | mis-click (fast + slow) | finals sheet | UIM points, drop-worst |
 | `endurance` | mass-start, duration | mis-click (banded) | endurance sheet | laps in duration |
@@ -225,6 +243,12 @@ for new files:
 
 ## Change log
 
+- **rev 3** — §1 corrected: a class runs **at most one** seeding phase before finals (realistic
+  shapes: `finals`, `training→finals`, `time-trial→finals`, `qualification→finals`), NOT a
+  four-type chain (that earlier example was wrong). Spelled out finals-as-heat-series with
+  restarts and qualification's qheat1/2 + repechage qheat3 (305.04). Recorded that
+  training/time-trial rank by **best lap** (others disabled in Edit Records); §4 scoring
+  aligned.
 - **rev 2** — restarts: drop `r`/`R` suffixes; model a restart as a **repeated heat number**
   in a phase **results list** (was: keep `1r`/`1R` in rev 1). `phase.heats` becomes an ordered
   list (was a number-keyed dict). Start order confirmed **derived** with the no-retroactive-risk
