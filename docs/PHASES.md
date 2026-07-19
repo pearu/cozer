@@ -175,11 +175,11 @@ ranking(heat)     = the analyzer's finishing order for that heat's canonical rec
   always safe.
 - **Restarts** share their heat number's start order (a restart re-runs the same heat, so it
   uses the same grid). The **last** record of a number then seeds the **next** number.
-- **Base case** (Q2, re 2): the first heat with no predecessor is seeded by **registration /
-  boat-number order**. Some events draw the first-start order by **lot**; rather than a
-  dedicated draw-entry UI (likely overkill), the operator can arrange the registration order
-  to be the draw result, and the base case reads it. (Flag if a dedicated draw entry is
-  actually wanted.)
+- **Base case** (Q2, re 2): the first heat with no predecessor is seeded by the **participant
+  order** in the Classes & Participants tab. That list is **drag-reorderable** (like the class
+  list under the Rules tab), so a lot-draw is entered simply by ordering the participants — no
+  dedicated draw-entry UI is needed. *(Requirement: the Classes & Participants tab must support
+  reordering the participant list, as the Rules tab already does for classes.)*
 - **Seed rule is per-transition** (`from-kind → to-kind`) and **hard-coded initially**,
   pluggable so a new rule drops in. Examples: "sort by best training time, fastest on top";
   "grid heat→heat by previous ranking".
@@ -262,26 +262,30 @@ for new files:
 - Scoring core (`analyze`/`sumanalyze`) unchanged; phases are an organizational layer. (§3)
 - Start order is **derived** from the previous heat's post-edit ranking; forward-only, no
   retroactive risk. (§5, Q2)
-- Start-order base case = registration/boat-number order; a lot-draw is reflected via
-  registration order rather than a dedicated UI. (§5)
+- Start-order base case = the **participant order** in Classes & Participants, which is
+  drag-reorderable (like classes under Rules) — so a lot-draw needs no dedicated UI, just a
+  reorder. (§5)
 - Backward-compat via a read-time mapping; workarounds deprecated for new files. (§6)
 
 ## 10. Open questions / to revisit
 
-1. **Qualification `seed()` — N and M only.** The ordering (qheat1/2 by total qual time;
-   repechage at the back) and elimination are now fixed (§5.1); only how many qualify at each
-   stage (N, M) remains an event/rule parameter.
-2. **Dedicated draw entry?** — confirmed *not* needed for now (registration order carries it);
-   revisit only if a first-start draw must be entered as distinct data. (§5)
-3. **Reports heat-selection UI** on the results-list model — how the operator picks which
+1. **Qualification `seed()` — N and M only.** The ordering and elimination now fall out of the
+   Q-points + circuit ranking (§5.1); only how many qualify at each stage (N, M) remains an
+   event/rule parameter.
+2. **Reports heat-selection UI** on the results-list model — how the operator picks which
    record of a repeated number counts (§5.2). To detail with the report work.
-4. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
+3. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
    implementation.
 
 ---
 
 ## Change log
 
+- **rev 8** — base-case seeding resolved: the **participant list in Classes & Participants is
+  drag-reorderable** (like the class list under Rules), so a lot-draw is entered by reordering
+  — no dedicated draw-entry UI. Adds a small UI requirement (participant reordering). Closed the
+  §10 "dedicated draw entry?" question; also fixed a stale §10 line still describing the pre-rev-7
+  qualification ordering.
 - **rev 7** — qualification Q-points made **tiered**: `qheat1`/`qheat2` qualifiers score **2**,
   the `qheat3` repechage scores **1** (reconciling an edit slip that wrote both "2…2 0…0" and
   "score 1"). The finals grid is now the plain **circuit ranking** of the combined qual results
