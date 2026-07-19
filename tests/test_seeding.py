@@ -155,6 +155,19 @@ def test_qualification_to_finals_no_timetrial_fallback():
     assert set(grid[:-1]) == {"10", "30"} and "40" not in grid   # primaries first, DNQ out
 
 
+def test_qualification_qheat_not_seeded_from_previous_qheat():
+    # finding 1 (7948e787): a qualifying heat's N>1 must NOT seed from the previous qheat
+    # (disjoint groups). With a preceding time trial, a qualifying heat is TT-seeded (307.01).
+    rec = dict(_QHEATS)
+    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    classes = [["", "C/T", "1*(1000):1"], ["", "C/Q", "3*(1000):1!qualification[1,1,1]"]]
+    parts = [["", "A", "One", "X", "C", str(b)] for b in (10, 20, 30, 40)]
+    ed = {"classes": classes, "record": rec, "scoringsystem": [400, 300, 225],
+          "participants": parts, "races": [], "rules": []}
+    # 2q is TT-seeded (the TT order), NOT qheat1's finishers ["10","20"]
+    assert start_order(ed, "C/Q", "2q") == ["10", "30", "20", "40"]
+
+
 def test_class_not_in_catalog_falls_back_to_base_case():
     ed = {"classes": [], "record": {}, "scoringsystem": [400, 300, 225],
           "participants": _PARTS, "races": [], "rules": []}

@@ -34,16 +34,17 @@ _KIND_ORDER = {"timetrial": 0, "qualification": 1}   # finals/endurance sort las
 
 def start_order(eventdata, cl, heat):
     """Ordered boat-id list (strings) for class ``cl``'s ``heat`` start positions."""
-    if heat_number(heat) > 1:
-        # intra-phase: heat N seeded by heat N-1's canonical finishing order.
-        ph = class_phase_map(eventdata).get(cl)
-        if ph is not None:
-            prev = canonical_record(ph, heat_number(heat) - 1)
-            if prev is not None:
-                return _rank(eventdata, *prev)
-        return _participant_order(eventdata, cl)
-    # first heat: cross-phase seed (qualification -> finals or time-trial -> finals),
-    # else the base case (participant order).
+    ph = class_phase_map(eventdata).get(cl)
+    # Intra-phase heat N -> N+1 seeding applies ONLY to a CONTINUATION phase (circuit /
+    # finals / endurance): heat N is seeded by heat N-1's finishing order. A qualification
+    # phase's qheats are DISJOINT groups, not a sequence (§5.1), and time-trial sessions
+    # run solo -- so those are seeded cross-phase (from the time trial), never from the
+    # previous heat number.
+    if heat_number(heat) > 1 and ph is not None and ph.kind in ("circuit", "endurance"):
+        prev = canonical_record(ph, heat_number(heat) - 1)
+        if prev is not None:
+            return _rank(eventdata, *prev)
+    # first heat, or a non-continuation phase: cross-phase seed, else base case.
     seeded = _cross_phase_seed(eventdata, cl)
     return seeded if seeded is not None else _participant_order(eventdata, cl)
 

@@ -254,9 +254,10 @@ grouping, the **qualifying-heat** jetty positions *and* the **first-final** jett
 *only* grid contribution is sending the **repechage qualifiers to the back** — identified by their
 **source qheat** (the last qheat), not by any score: the grid is [primary-`Q` boats by time-trial
 time] then [repechage-`Q` boats by time-trial time]. *Fallback:* a pure `qualification → finals`
-with no recorded time-trial phase orders the grid by the **circuit ranking**, applying the same
-structural split — [primary-`Q` by circuit rank] then [repechage-`Q` by circuit rank] — so the
-repechage still lands at the back **without relying on a point tier** (305.04.03 makes this shape
+with no recorded time-trial phase orders the grid by **best-lap speed** (the well-defined
+cross-qheat metric — points/finish position aren't comparable across the *disjoint* qheats),
+applying the same structural split — [primary-`Q` by best-lap speed] then [repechage-`Q` by
+best-lap speed] — so the repechage still lands at the back (305.04.03 makes this shape
 rare — a time trial is mandatory whenever grouping is needed).
 
 *(307.01 is the **jetty / dead-engine start** rule; the flying start — 306, ≤14 boats, not for
@@ -271,7 +272,7 @@ no leading `NofHeats*` count — it would be redundant (if present, it must matc
 length). The **repechage is the last qheat** (the last tuple entry — owner Q10.1); its field is
 the earlier qheats' non-qualifiers, and its `Q` boats seed to the **back** of the finals grid —
 identified **structurally** (source qheat = the last one), with the grid itself ordered by
-time-trial times (decision A) or, in the no-time-trial fallback, by circuit rank under the same
+time-trial times (decision A) or, in the no-time-trial fallback, by best-lap speed under the same
 primary-then-repechage split.
 
 ### 5.2 Restarts, labels, and fixing a mis-filed heat
@@ -464,6 +465,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 30** — **§5.1 fallback wording fixed to match implementation** (7948e787 review finding 2, 20 Jul 2026). The no-time-trial qualification→finals fallback said "circuit ranking (points → avg speed → best lap speed)", but across the *disjoint* qheats points/finish position aren't comparable — the well-defined cross-qheat metric is **best-lap speed** (`maxlapspeed`), which is what `cozer/seeding.py` uses. Reconciled §5.1 to say "best-lap speed" for the fallback (the primary-vs-repechage split is unchanged; time-trial times remain the primary ordering per decision A).
 - **rev 29** — **§5 consumer clarification** (owner, 19 Jul 2026, during step-3 implementation). §5's "the timer orders its buttons by the start order (fastest on top)" was ambiguous — it read as the on-screen button **grid**, which is deliberately **boat-number** (fixed positions for operator muscle memory). Clarified: the start order is a **report / ladder** signal — reports print it (start list / jetty positions), the timer **ladder** is the fastest-on-top view, and the timer **grid stays boat-number**, not reordered by the start order. So the derived seeding has **no timer-grid consumer**; its consumers are the reports (and the ladder's ordering). Wording fixed in §5 opening, the derived-not-stored bullet, and the Consumers bullet.
 - **rev 28** — **owner APPROVED the spec for implementation** (19 Jul 2026), closing the design phase. The review cycle — two rulebook reviews (7948e787), a §10-F review, and two consistency passes — is complete; the doc is internally consistent and design-complete. Status banner flipped DRAFT → APPROVED; §8 is now the active plan (compat reader → per-kind dispatch → derived seeding). The remaining §10 item **F** is a build task (new outcome-override action + two warnings), not an open design question.
 - **rev 27** — folded the **final consistency review** (7948e787; owner, 19 Jul 2026), which found the doc coherent with four nits (a fifth left as optional). **#1 (real bug):** the pre-decision-B "last canonical" phrasing that rev 26 fixed in §2 still survived in **§3** and **§9** (where it even contradicted §9's own per-kind restart bullet) — both now scoped to *multi-heat take-last; single-heat/endurance aggregate (§5.2)*. **#2 (labeling):** §10 reframed — **no open *design* questions remain**; F is design-complete like C/D/E, flagged only because it needs **new machinery** (the override action + two warnings), a criterion now stated. **#3 (cross-ref):** §10-F's `§4.1` pointer made explicit (it reuses the Q/DNQ *outcome*). **#4 (first-reader):** §9's N/M formula now defines `P`/`G`/`H`/`N`/`M`. #5 (the word "selection" used two ways) left as-is — context disambiguates. Still **DRAFT — not approved for implementation.**
