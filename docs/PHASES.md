@@ -206,7 +206,13 @@ second chance (UIM **305.04**):
 2. **Top N** of the two qualify for the final.
 3. Non-qualified boats race a **third (repechage) qualification heat** `qheat3`; its **top M**
    qualify.
-4. The remaining boats in `qheat3` are **not classified** and race no final heat.
+4. The remaining boats in `qheat3` are **not classified** and race no final heat — but they are
+   **not dropped from the report**: UIM **209** *("All entered drivers … must be mentioned in the
+   race final results … which not qualified to the final heats with mentioning **DNQ**")* requires
+   the finals report to list every entered-and-accepted boat, so non-qualifiers appear in a **DNQ
+   tail** (below the classified finishers, no final points). *Not classified* governs
+   scoring/seeding; the DNQ tail governs the report — the two coexist. `DNQ` is already a
+   first-class outcome code (§209 work). (§10-E)
 
 **Qualification only *selects* finalists** — it does not order the finals grid. Each qheat's
 Q-points (§4.1) decide who is in: **non-zero scorers qualify** (top N of qheat1/qheat2 at tier 2,
@@ -338,7 +344,11 @@ for new files:
   (UIM 307.01, decision A) — the time-trial is the *master ordering signal* (grouping,
   qualifying-heat jetty positions, first-final jetty positions); qualification only *selects*
   finalists and sends the repechage to the back; Q-points ranking is the no-time-trial fallback.
-  (§5.1, Q10.1, A)
+  A single combined repechage (`qheat3`) matches the rulebook worked example (305.04.03 p.56) —
+  no per-group second chance. (§5.1, Q10.1, A)
+- **Non-qualifiers stay in the finals report**, marked **DNQ** (no final points) — UIM 209
+  requires every entered-and-accepted boat to appear; *not classified* (seeding) and the DNQ tail
+  (report) coexist. (§5.1 step 4, §10-E)
 - **Restart handling is per-kind** (decision B): multi-heat circuit/finals **take-last** (earlier
   laps discarded, 70% threshold — 311.02.3/311.02.1); single-heat & endurance **aggregate** (20%
   threshold — 311.03.5/311.03.2). Circuit is this doc's focus; the aggregate branch is recorded so
@@ -355,12 +365,17 @@ for new files:
 **time-trial times** (307.01); qualification is a membership gate only. **B** — restart handling is
 **per-kind** (take-last multi-heat, aggregate single-heat/endurance). Both folded into §5.1/§5.2/§9.*
 
-- **C. `!qualification[N,N,M]` can't express a *per-group* second-chance heat** (305.04.03 is
-  grammatically ambiguous; a single trailing repechage is common practice). Low priority; confirm
-  against how the target discipline actually runs it. (§5.1)
+- **C. *(closed, 19 Jul 2026)* — a single combined repechage matches the rulebook.** The 305.04.03
+  worked example (p.56) runs **2 selection heats → one combined second-chance heat** grouping all
+  non-selected boats — exactly `qheat1`/`qheat2` + a single trailing `qheat3`. So the
+  `!qualification[N,N,M]` model needs no per-group repechage; the earlier grammatical ambiguity
+  resolves toward our model. (§5.1)
 - **D. Time-trial missed-buoy** (305.04.02) — a new per-lap "missed-buoy → delete fastest lap"
   Edit-Records mark (§4.1). Work item.
 - **E. Per-kind report catalogue** — §4 lists intent; report names fixed during implementation.
+  Concrete requirement: the **finals report carries a DNQ tail** — {entered ∧ accepted} −
+  {finalists}, marked `DNQ` with no final points (UIM 209; §5.1 step 4). Arises only when a
+  `qualification` phase exists.
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
@@ -370,6 +385,7 @@ points (317); split-into-groups + mandatory time trials (305.04.03); repechage-t
 
 ## Change log
 
+- **rev 18** — folded two more 7948e787 rulebook items (owner, 19 Jul 2026). **DNQ tail:** §5.1 step 4 + §10-E now require the finals report to list every entered-and-accepted boat, non-qualifiers marked **DNQ** with no final points (UIM **209**; `DNQ` already a first-class §209 code). *Not classified* (scoring/seeding) and the DNQ tail (report) coexist. **Closed §10-C:** the 305.04.03 worked example (p.56) is **2 selection heats → one combined repechage**, matching the `qheat1`/`qheat2` + single `qheat3` model — no per-group repechage needed (p.56 also independently confirms decision A). Still **DRAFT — not approved for implementation.**
 - **rev 17** — **owner resolved review findings A and B** (19 Jul 2026). **A:** the first-final grid is ordered by **time-trial times** (307.01), not the qual-heat ranking — the time-trial is the *master ordering signal* (grouping, qualifying-heat jetty positions, first-final jetty positions; 7948e787's 305.04.02/305.04.03/307.01 read); **qualification is a membership gate only** (selects finalists, sends the repechage to the back); the Q-points ranking is now just the no-time-trial fallback. Rewrote §5.1, removed the §4↔§5.1 conflict. **B:** restart handling is **per-kind** — multi-heat circuit/finals **take-last** (70% threshold, 311.02.3/311.02.1), single-heat & endurance **aggregate** (20% threshold, 311.03.5/311.03.2); §5.2 states the split and notes circuit is this doc's focus so folding phases must not break single-lap/endurance. Both moved from §10 open questions to §9 settled. Still **DRAFT — not approved for implementation.**
 - **rev 16** — folded the **UIM 2026 rulebook review** (7948e787). Corrections applied: §1 a 2nd restart is legal only for the last final heat (311.02.2); §4.1 add the time-trial missed-buoy rule (305.04.02 → delete fastest lap). Two **owner decisions** flagged inline + in §10: (A) first-final grid should be **time-trial times** not the qual ranking (307.01), (B) restart handling is **per-kind** — aggregate for single-heat & endurance (311.03.5), take-last for multi-heat (311.02.3). Minor flags: per-group repechage not expressible by the tuple (305.04.03); jetty-vs-flying-start context (306/307.01). Review confirmed the rest faithful.
 - **rev 15** — owner confirmed the **Edit-Records "Reassign…"** action (option 1) as the mis-filed-heat GUI home; dropped the alternatives and the "proposed" hedge. §10 now has a single open item (the per-kind report catalogue); the abstraction and behavior are otherwise settled.
