@@ -220,12 +220,21 @@ qheats' non-qualifiers. How to mark it (positional last vs. structural) is open 
 
 ### 5.2 Restarts and Reports heat-selection
 
-A heat number may have several records (original + restarts). By default the **last** is
-canonical for seeding (§5) and for the total ranking / final report (`sumanalyze`). The Reports
-"check which heats" feature is exactly the manual override of that default — letting the
-operator choose which record of a number is counted (e.g. keep the 1st restart, not the 2nd).
-This is why heat-selection exists in Reports, and it generalises cleanly to the results-list
-model.
+A heat number may hold several records (original + restarts). The **canonical** record for a
+number — used for seeding (§5) and the total ranking / final report (`sumanalyze`) — is the
+**last non-empty** one. The recalled legacy use case ("for finals, use only the last restart")
+is therefore the **default** here; no manual selection is needed for it.
+
+- **Empty restart records are skipped**, never treated as canonical. An empty trailing restart
+  generally signals a Timer defect (it should not create a record with no crossings); the
+  ranking ignores it, and such a record is worth a validator warning.
+- The Reports "check which heats" feature is the manual **override** of the default — letting the
+  operator include/exclude specific records of a number (e.g. count the 1st restart, not the
+  2nd).
+- **Selection is by *set*, not order.** The report tree yields the chosen heats in **sorted**
+  order and `sumanalyze` is order-independent (best-of-`sheats`), so legacy's *order-of-selection*
+  significance is **not** preserved (only report column order would ever be affected). No current
+  use case for order significance is recalled; flag one if it surfaces (§10).
 
 ---
 
@@ -287,13 +296,17 @@ for new files:
    (§5.1).
 2. **Reports heat-selection UI** on the results-list model — how the operator picks which
    record of a repeated number counts (§5.2). To detail with the report work.
-3. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
+3. **Order-of-selection significance?** Legacy's Reports treated heat *selection order* as
+   significant; the new model does not (selection is a set; §5.2). No use case recalled — flag if
+   one surfaces.
+4. **Per-kind report catalogue** — §4 lists intent; concrete report names to be fixed during
    implementation.
 
 ---
 
 ## Change log
 
+- **rev 12** — §5.2: canonical record is the **last non-empty** one, so an **empty restart** record (a Timer defect) is skipped, not used (worth a validator warning); the "finals use only the last restart" case is then the default. Recorded that the new model selects heats by **set, not order** — legacy's order-of-selection significance is not preserved (only report column order could differ; scoring is order-independent). New §10 flag.
 - **rev 11** — note: the `!qualification[N,N,M]` **tuple length is the number of qheats**, so the legacy `NofHeats*` prefix is redundant on a qualification pattern (omit it; must match if present).
 - **rev 10** — qualification scoring is a **hardcoded rule** (top `count` score the tier, rest
   0), not general per-qheat scoring-system *data* (owner: "the Q-heat scoring system could be
