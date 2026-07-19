@@ -29,12 +29,11 @@ from cozer.racepattern import class_pattern
 # The tuple of per-qheat qualifier counts, e.g. '...!qualification[3,3,2]'.
 _QUAL_TUPLE = re.compile(r"qualification\[([\d,\s]+)\]", re.I)
 
-# Outcome-code families for repechage eligibility, by analyze `notes` key name
-# (accepts §209 and legacy spellings). A boat may carry more than one; priority is
-# DSQ > DNS > DNF.
-_DSQ_CODES = frozenset(("DSQ", "DQ", "RC"))            # disqualified (incl. red card)
-_DNS_CODES = frozenset(("DNS", "DS", "DNR", "ACC"))    # did-not-start family
-_DNF_CODES = frozenset(("DNF", "IR"))                  # did-not-finish / interruption
+# Outcome codes (by analyze `notes` key name, §209 and legacy spellings) whose qheat3
+# membership is an OPERATOR call — a disqualification, or a did-not-start / accident.
+# A DNF/IR (raced and failed) and a plain finisher are NOT here: they are auto-included.
+_GATED_CODES = frozenset(("DSQ", "DQ", "RC",           # disqualified (incl. red card)
+                          "DNS", "DS", "DNR", "ACC"))  # did-not-start / accident family
 
 
 def qualification_counts(pattern):
@@ -138,29 +137,25 @@ def qheat_boats(eventdata, cl, number):
     return []                                            # 3+ selection qheats: needs a flag each
 
 
-def _outcome_from_notes(notes):
-    """Classify a below-cutoff boat from its analyze ``notes`` keys — ``"dsq"`` >
-    ``"dns"`` > ``"dnf"`` (priority order), else ``None`` (a plain finisher). Reads the
-    keys (both §209 and legacy spellings), the reliable signal — never ``place`` or lap
-    count (a DSQ can have a full lap count; a slow finisher a positive place)."""
-    keys = set(notes or ())
-    if keys & _DSQ_CODES:
-        return "dsq"
-    if keys & _DNS_CODES:
-        return "dns"
-    if keys & _DNF_CODES:
-        return "dnf"
-    return None
+def _repechage_gated(notes):
+    """True if a below-cutoff boat's qheat3 membership is an **operator call**
+    (default-include, operator-exclude): a **DSQ** / **DNS** / **DNR** / **ACC** outcome
+    (owner resolution via 7948e787). A **DNF/IR** (raced and failed) and a plain finisher
+    are **not** gated — always in the repechage. Read from the analyze ``notes`` keys,
+    the reliable signal — never ``place``/lap count (a DSQ or ACC boat can have a full or
+    partial lap count). A gated key wins even if the boat also carries a DNF key."""
+    return bool(set(notes or ()) & _GATED_CODES)
 
 
 def qheat3_excluded(eventdata, cl):
     """Boat-ids the operator EXCLUDED from the repechage, from
     ``eventdata['qheat3_exclude'][base]``; empty if unset. Read-only.
 
-    The default is **include**: a DSQ or DNS boat still starts qheat3 until a protest is
-    resolved against it — a boat may protest, and until then it has the right to start —
-    so the operator removes it here only once the ruling stands (a heat-scoped DSQ or a
-    dead-engine DNS may simply stay in). A DNF is always included, never gated."""
+    The default is **include**: a gated (DSQ / DNS / DNR / ACC) boat still starts qheat3
+    until a protest is resolved against it — a boat may protest, and until then it has the
+    right to start — so the operator removes it here only once the ruling stands (a
+    heat-scoped DSQ or a dead-engine DNS may simply stay in). A DNF and a plain finisher
+    are always included, never gated."""
     base = getclass(cl)
     return [str(b) for b in (eventdata.get("qheat3_exclude") or {}).get(base) or []]
 
@@ -170,8 +165,8 @@ def _repechage_field(eventdata, cl):
     — the field for the repechage (second-chance) qheat.
 
     A plain non-qualifier (finished, ranked below the cutoff) and a **DNF** are
-    auto-included. A **DSQ** or **DNS** is **included by default** but the operator can
-    exclude it (:func:`qheat3_excluded`) once a protest is resolved against it (owner
+    auto-included. A **DSQ / DNS / DNR / ACC** is **included by default** but the operator
+    can exclude it (:func:`qheat3_excluded`) once a protest is resolved against it (owner
     resolution via 7948e787). Outcomes are read from the analyze ``notes`` keys."""
     ph = class_phase_map(eventdata).get(cl)
     counts = qualification_counts(class_pattern(eventdata, cl))
@@ -189,8 +184,7 @@ def _repechage_field(eventdata, cl):
         res = analyze(hid, [dict(rec[0]), rec[1]], ss, rc)
         for boat in getresorder(res)[counts[number - 1]:]:   # boats outside the top `count`
             b = str(boat)
-            if _outcome_from_notes((res[boat] or {}).get("notes")) in ("dsq", "dns") \
-                    and b in excluded:
+            if b in excluded and _repechage_gated((res[boat] or {}).get("notes")):
                 continue                                 # operator removed it (protest upheld)
             field.append(b)
     return field

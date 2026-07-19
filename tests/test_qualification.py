@@ -149,7 +149,8 @@ def _outcome_qheat(winner, others):
         boats[b] = {"finish": [(1, 25.0)] * 3,
                     "dnf": [(1, 25.0), (27, 50.0, "")],           # DNF mark (code 27)
                     "dns": [],                                    # no laps -> DNS
-                    "dsq": [(1, 25.0), (22, 50.0, "409.01")]      # DSQ mark (code 22)
+                    "dsq": [(1, 25.0), (22, 50.0, "409.01")],     # DSQ mark (code 22)
+                    "acc": [(1, 25.0), (25, 50.0, "")]            # ACC mark (code 25)
                     }[o]
     return [info, boats]
 
@@ -184,3 +185,11 @@ def test_qheat3_excluded_reads_flag():
     ed = _members_ev({})
     ed["qheat3_exclude"] = {"C": ["40"]}
     assert qheat3_excluded(ed, "C/Q") == ["40"]
+
+
+def test_repechage_acc_is_operator_gated_like_dsq_dns():
+    q1 = _outcome_qheat("10", {"20": "finish", "60": "acc"})
+    ed = _outcome_ev(q1, boats=(10, 20, 60))
+    assert set(qheat_boats(ed, "C/Q", 2)) == {"20", "60"}          # ACC in by default
+    ed2 = _outcome_ev(q1, exclude=["60"], boats=(10, 20, 60))
+    assert set(qheat_boats(ed2, "C/Q", 2)) == {"20"}               # protest upheld -> ACC excluded
