@@ -63,6 +63,49 @@ def test_unraced_predecessor_falls_back_to_base_case():
     assert start_order(ed, "C", "2") == ["7", "3"]        # can't seed -> participant order
 
 
+# --- cross-phase: time-trial -> finals (decision A / 307.01) ---------------------
+
+_TT_INFO = {"course": [1000], "sheats": 1, "duration": None}
+_TT_CLASSES = [["", "C/T", "1*(1000):1"], ["", "C", "2*(3*1000):1"]]
+
+
+def test_finals_heat1_seeds_from_preceding_timetrial():
+    # boat 3's best time-trial lap (18) beats boat 7's (22) -> 3 seeds ahead in the final
+    tt = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 18.0)]}]
+    ed = _ev(_PARTS, {"C/T": {"1t": tt}}, classes=_TT_CLASSES)   # only the time-trial is raced
+    assert start_order(ed, "C", "1") == ["3", "7"]              # final grid = time-trial order
+
+
+def test_timetrial_ranking_takes_best_lap_across_heats():
+    # two time-trial heats; boat 7's best (17 in 2t) beats boat 3's best (19 in 1t)
+    tt1 = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 19.0)]}]
+    tt2 = [dict(_TT_INFO), {"7": [(1, 17.0)], "3": [(1, 30.0)]}]
+    classes = [["", "C/T", "2*(1000):1"], ["", "C", "2*(3*1000):1"]]
+    ed = _ev(_PARTS, {"C/T": {"1t": tt1, "2t": tt2}}, classes=classes)
+    assert start_order(ed, "C", "1") == ["7", "3"]              # best-lap across heats
+
+
+def test_timetrial_ranking_skips_empty_heats():
+    tt1 = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 18.0)]}]
+    empty = [dict(_TT_INFO), {"7": [], "3": []}]                 # materialized, no laps
+    classes = [["", "C/T", "2*(1000):1"], ["", "C", "2*(3*1000):1"]]
+    ed = _ev(_PARTS, {"C/T": {"1t": tt1, "2t": empty}}, classes=classes)
+    assert start_order(ed, "C", "1") == ["3", "7"]              # empty 2t skipped; 3 fastest in 1t
+
+
+def test_finals_heat1_base_case_when_timetrial_not_raced():
+    ed = _ev(_PARTS, {}, classes=_TT_CLASSES)                    # time-trial phase has no record
+    assert start_order(ed, "C", "1") == ["7", "3"]              # -> base case (participant order)
+
+
+def test_qualification_predecessor_falls_back_to_base_case():
+    # qualification -> finals is deferred (needs Q/DNQ); a qual predecessor -> base case
+    q = [dict(_INFO), {"3": [(1, 20.0)] * 3, "7": [(1, 25.0)] * 3}]
+    classes = [["", "C/Q", "3*(1000):1"], ["", "C", "2*(3*1000):1"]]
+    ed = _ev(_PARTS, {"C/Q": {"1q": q}}, classes=classes)
+    assert start_order(ed, "C", "1") == ["7", "3"]              # deferred -> participant order
+
+
 def test_does_not_mutate_eventdata():
     ed = _ev(_PARTS, {"C": {"1": _heat(("3", "7"))}})
     before = repr(ed)
