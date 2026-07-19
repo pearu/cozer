@@ -2,6 +2,7 @@
 summary only) results reports, built from the proven scoring core."""
 from cozer.analyzer import analyze, sumanalyze, getsumresorder, rule_action_codes
 from cozer.classes import getclass
+from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
@@ -63,17 +64,20 @@ def _build(eventdata, classes, heat_map, orientation, full):
     labels = get_labels(eventdata)
     if classes is None:
         classes = [c for c in get_classes(eventdata) if c in record]
+    phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     parts = participants_index(eventdata)
     tables = []
     for cl in classes:
-        if cl not in record:
+        ph = phase_of.get(cl)
+        if ph is None:                                  # cl not in record
             continue
-        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(record[cl].keys())
-        heats = [h for h in heats if h in record[cl]]   # a selected heat may be unrecorded (stale
+        heat_recs = phase_heat_map(ph)                  # {heat_id: [info, boats]} for this phase
+        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(heat_recs)
+        heats = [h for h in heats if h in heat_recs]    # a selected heat may be unrecorded (stale
         if not heats:                                   # selection / programmatic heat_map) -> skip
-            continue                                    # it rather than KeyError on record[cl][h]
+            continue                                    # it rather than KeyError on heat_recs[h]
         rulecodes = rule_action_codes(eventdata)
-        res = {h: analyze(h, record[cl][h], ss, rulecodes) for h in heats}
+        res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
         legend = {}

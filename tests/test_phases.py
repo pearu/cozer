@@ -218,6 +218,16 @@ def test_phase_iteration_api_reproduces_legacy(path):
         assert sorted(phase_heat_ids(phase_of[cl])) == sorted(record[cl])
 
 
+def test_phase_heat_map_rejects_forward_tq_collision():
+    # a forward-created timetrial phase with a repeated number synthesizes colliding
+    # ids ('1t','1t' -- synth ignores rank for t/q) -> fail loudly, not silently drop.
+    bad = Phase("timetrial", "p", [[{}, {}], [{}, {}]], [1, 1])   # no provenance, repeated number
+    with pytest.raises(ValueError):
+        phase_heat_map(bad)
+    ok = Phase("timetrial", "p", [[{}, {}], [{}, {}]], [1, 2], "C/T", ["1t", "2t"])
+    assert phase_heat_map(ok) == {"1t": [{}, {}], "2t": [{}, {}]}   # legacy ids never collide
+
+
 def test_phase_heat_ids_preserved_vs_synthesized():
     p_leg = Phase("circuit", "p", [[{}, {}], [{}, {}]], [1, 1], "F125", ["1", "1r"])
     assert phase_heat_ids(p_leg) == ["1", "1r"]        # preserved originals

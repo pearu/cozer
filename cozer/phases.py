@@ -129,7 +129,15 @@ def phase_heat_map(phase):
     restricted to this phase. For a legacy-read phase this is exactly the original
     ``record[legacy_class]`` (same heat-id keys, same record objects), so a consumer
     can swap ``record[cl]`` for ``phase_heat_map(phase)`` with no change in behavior."""
-    return dict(zip(phase_heat_ids(phase), phase.heats))
+    ids = phase_heat_ids(phase)
+    if len(set(ids)) != len(ids):
+        # Legacy-read phases can't collide (ids are preserved dict keys). This only
+        # trips a forward-created time-trial/qualification phase with a *repeated*
+        # number: synth_heat_id ignores rank for t/q, so its ids would clash and a
+        # record would be silently dropped. Fail loudly instead (a t/q phase has no
+        # restarts, so repeated numbers are a construction bug). (7948e787 review.)
+        raise ValueError("phase %r has duplicate heat ids %r" % (phase.kind, ids))
+    return dict(zip(ids, phase.heats))
 
 
 def to_phases(eventdata):
