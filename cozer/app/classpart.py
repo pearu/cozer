@@ -361,6 +361,11 @@ class NationalityDelegate(QStyledItemDelegate):
         for code, name in self._items:
             combo.addItem("%s — %s" % (code, name), code)
         combo.completer().setCaseSensitivity(Qt.CaseInsensitive)
+        # The cell is narrow, so widen the drop-down popup to fit the longest "CODE — Country"
+        # (plus scrollbar/margin) -- otherwise the country name is truncated while choosing.
+        fm = combo.view().fontMetrics()
+        widest = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+        combo.view().setMinimumWidth(widest + 40)
         return combo
 
     def setEditorData(self, editor, index):
