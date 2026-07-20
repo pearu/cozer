@@ -139,9 +139,10 @@ def ensure_heat(eventdata, cl, h, slot):
 
 
 def legacy_races_to_native(eventdata, races):
-    """Race schedule → suffix-free heat refs. Accepts either shape per entry so a native model
-    that still holds legacy ``[_, class, heat]`` rows (the Races tab authors those) normalises
-    cleanly; already-native dict entries pass through. Used on save."""
+    """Race schedule → suffix-free heat refs. The in-memory model is native now, so this is
+    mainly the legacy ``.coz`` import path (``to_native``): legacy ``[_, class, heat]`` rows →
+    ``{name, kind, number, occurrence}``. Accepts either shape per entry — already-native dict
+    entries pass through — so it is safe on already-native input too."""
     out = []
     for race in races or []:
         entries = []
@@ -159,9 +160,10 @@ def legacy_races_to_native(eventdata, races):
 
 
 def native_races_to_legacy(races):
-    """Suffix-free heat refs → legacy ``[_, class, heat]`` rows. The in-memory model keeps the
-    race schedule in this legacy shape (the Races tab edits it directly); the store converts to
-    the native refs only on disk. Already-legacy entries pass through."""
+    """Suffix-free heat refs → legacy ``[_, class, heat]`` rows. The model and the store are both
+    native now, so this is the inverse used by ``from_native`` (legacy export / tests) and to
+    derive a legacy ``(class, heat)`` addressing key from a native entry. Already-legacy entries
+    pass through."""
     out = []
     for race in races or []:
         entries = []
@@ -178,10 +180,11 @@ def native_races_to_legacy(races):
 def to_native(eventdata):
     """Legacy suffixed ``eventdata`` → the suffix-free shape (a new dict; input untouched).
     Tags the result with ``schema = SCHEMA`` so the on-disk format is self-describing.
-    Idempotent for record/classes; races are always normalised (the model keeps them legacy)."""
+    Idempotent: already-native input (record/classes/races) is returned unchanged — races are
+    still run through ``legacy_races_to_native``, which passes native dict entries through."""
     if eventdata.get("schema", 1) >= SCHEMA:
         out = dict(eventdata)
-        if "races" in eventdata:                      # the model holds legacy race rows -> native refs
+        if "races" in eventdata:                      # native dict entries pass through unchanged
             out["races"] = legacy_races_to_native(eventdata, eventdata["races"])
         return out
     out = dict(eventdata)
