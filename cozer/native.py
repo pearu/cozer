@@ -109,7 +109,10 @@ def _phase_of(eventdata, name):
 
 def to_native(eventdata):
     """Legacy suffixed ``eventdata`` → the suffix-free shape (a new dict; input untouched).
-    Tags the result with ``schema = SCHEMA`` so the on-disk format is self-describing."""
+    Tags the result with ``schema = SCHEMA`` so the on-disk format is self-describing.
+    Idempotent: already-native input is returned as-is (safe once the in-memory model is native)."""
+    if eventdata.get("schema", 1) >= SCHEMA:
+        return dict(eventdata)
     out = dict(eventdata)
     out["schema"] = SCHEMA
 
@@ -161,7 +164,10 @@ def to_native(eventdata):
 
 def from_native(native):
     """Suffix-free shape → the legacy suffixed ``eventdata`` (canonical). Inverse of
-    :func:`to_native` on canonically-suffixed data."""
+    :func:`to_native` on canonically-suffixed data. Idempotent: already-suffixed (legacy /
+    unversioned) input is returned as-is."""
+    if not is_native(native):
+        return dict(native)
     out = dict(native)
     out.pop("schema", None)            # the legacy/in-memory shape carries no version tag
 

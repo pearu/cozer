@@ -165,7 +165,14 @@ def to_phases(eventdata):
     Classes sharing a base (``F-4`` and ``F-4/T``) collapse to one entry whose
     phases are ordered time-trial → qualification → finals. Reads ``eventdata`` for
     each class's kind/pattern (``race_kind``/``class_pattern``); does not mutate it.
-    Lossless — :func:`to_legacy` inverts it exactly."""
+    Lossless — :func:`to_legacy` inverts it exactly.
+
+    Handles BOTH event shapes during the suffix migration: the suffix-free native shape
+    (``schema >= 2``: ``classes`` grouped, ``record[base][kind][number]``) and the legacy
+    suffixed shape. Either way the returned ``Phase`` objects carry a synthesized
+    ``legacy_class``/``heatids`` so every phases-based consumer sees an unchanged interface."""
+    if eventdata.get("schema", 1) >= 2:
+        return _to_phases_native(eventdata)
     record = eventdata.get("record", {}) or {}
     bases = []                        # base-class order = first appearance in record
     by_base = {}                      # base → [legacy_class, ...]
@@ -194,6 +201,42 @@ def to_phases(eventdata):
             # true inverse for every input, not only canonically-suffixed ones.
             phases.append(Phase(kind, pattern, heats, numbers,
                                 legacy_class=cl, heatids=ordered))
+        phases.sort(key=lambda p: _KIND_ORDER.get(p.kind, 2))
+        out[base] = phases
+    return out
+
+
+def _native_pattern(ph):
+    """The full pattern string of a native phase dict (re-appends the qualifiers token)."""
+    pat = ph.get("pattern", "") or ""
+    if ph.get("qualifiers"):
+        pat = "%s!qualification[%s]" % (pat, ",".join(str(c) for c in ph["qualifiers"]))
+    return pat
+
+
+def _to_phases_native(eventdata):
+    """``to_phases`` for the suffix-free native shape: ``classes`` = ``[{name, phases:[…]}]``
+    and ``record[base][kind][number] = [records]`` (a restart is an extra list entry). Like the
+    legacy path this is **record-based** — a phase appears only if it has a record — and builds
+    the same ``Phase`` objects with a *synthesized* canonical ``legacy_class``/``heatids``, so
+    phases-based consumers are unchanged while the storage is native."""
+    record = eventdata.get("record", {}) or {}
+    patterns = {}                                        # (base, kind) -> full pattern, from classes
+    for entry in eventdata.get("classes", []) or []:
+        for ph in entry.get("phases", []) or []:
+            patterns[(entry.get("name"), ph["kind"])] = _native_pattern(ph)
+    out = {}
+    for base, kinds in record.items():
+        phases = []
+        for kind, kd in kinds.items():                   # kd = {number: [records]}
+            heats, numbers, heatids = [], [], []
+            for num in sorted(kd, key=int):
+                for rank, rec in enumerate(kd[num]):
+                    heats.append(rec)
+                    numbers.append(int(num))
+                    heatids.append(synth_heat_id(kind, int(num), rank))
+            phases.append(Phase(kind, patterns.get((base, kind)), heats, numbers,
+                                legacy_class=_legacy_class_name(base, kind), heatids=heatids))
         phases.sort(key=lambda p: _KIND_ORDER.get(p.kind, 2))
         out[base] = phases
     return out

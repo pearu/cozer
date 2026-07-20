@@ -61,6 +61,15 @@ def test_native_sees_the_corpus():
     assert _EVENTS, "no legacy events found -- corpus round-trip would pass vacuously"
 
 
+@pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
+def test_to_phases_reads_native_identically(path):
+    # the phases hub builds identical Phase objects from the native shape and the legacy shape,
+    # so every phases-based consumer is unchanged when the in-memory model goes native.
+    from cozer.phases import to_phases
+    ed = read_legacy_coz(path)
+    assert to_phases(to_native(ed)) == to_phases(ed)
+
+
 def test_native_shape_is_suffix_free():
     ed = {"classes": [["", "F 500/T", "1*(1000):1"],
                       ["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"],
@@ -125,6 +134,15 @@ def test_dump_event_writes_suffix_free_and_round_trips():
     assert '"1q"' not in text                               # no heat-id suffixes on disk
     rt = load_event(text)
     assert rt["record"] == ed["record"]                    # record byte-identical through the store
+
+
+def test_to_native_and_from_native_are_idempotent():
+    ed = {"classes": [["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"], ["", "F 500", "4*(1400):3"]],
+          "record": {}, "races": []}
+    nat = to_native(ed)
+    assert to_native(nat) == nat            # already native -> returned as-is (no double-encode)
+    suf = from_native(nat)
+    assert from_native(suf) == suf          # already suffixed -> returned as-is
 
 
 def test_native_passes_other_keys_through():
