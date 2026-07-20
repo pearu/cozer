@@ -173,6 +173,30 @@ per kind). All 209 common content applies per heat and in the summary.
 - Legacy byte-faithful reports (`*_legacy`) are intentionally frozen — do any 209 fixes
   apply to them, or only to the native builders? *(so far: native builders only.)*
 
+## 9. Content relevance (2026-07-20 pass)
+
+A per-report pass on *whether the information shown fits each report's purpose* — complementing the
+§3–§5 UIM-compliance audit. Triggered by the owner spotting the time-trial footer. Owner decisions
+inline.
+
+| Report / mode | Finding | Action |
+|---|---|---|
+| **Intermediate — time trial** (`istt`) | Footer prints `ResNote` = "Result = AverSpeed / MaxLapSpeed [km/h]", but the `istt` table has **no Res column** — it shows **Lap Time** (s). The note describes a column that isn't there. | **[owner: replace]** In `istt` mode show **"Lap Time = best full lap [s]"** (305.04.02) instead of the speed note; keep real rule-code footnotes. |
+| **Endurance final** | Renders `From` **unconditionally** and has **no Nationality column** — the D1 conditional From/Nationality pass skipped this report. Its `Total Laps Time` / `Total Laps` headers are also **hardcoded English** (no label → no ET). | Apply the D1 treatment (`show_from`/`show_nationality`/`nationalities_index`, threaded like intermediate/finals); move the two headers into `labels`. |
+| **Intermediate `isqual` + Qualification summary** | The `Qualify` = Q/DNQ column has no legend explaining Q vs DNQ. | Minor: add a short "Q = qualified, DNQ = did not qualify" note. |
+| **Endurance final** | `heading` reuses `FinalResults` — no endurance/phase-kind subtitle (the finals report has one). | Minor: give it its own heading/subtitle. |
+
+**Clean** (content fits purpose, no change): Participants, Full/Short Final, Qualification summary
+(the speed `ResNote` is correct — its Res column *is* speed), Laps protocol (boat-number crossing
+tally), Checklist (operational).
+
+**Mechanics for the footer note:** `final._legend_html` currently prepends `ResNote`
+*unconditionally*. The note is correct wherever a Res=speed column exists (finals, intermediate
+circuit/qual, qsummary) and wrong only in `istt`. Fix by making the prepended note **mode-aware**
+(pass the phase kind or an explicit note string) — do **not** drop the legend, since its rule-code
+footnotes stay relevant. Owner chose a **full content pass** (this section) with fixes coordinated to
+`b76f2173`.
+
 ## Change log
 
 - **2026-07-20** — Initial draft: audit of the four native report builders vs UIM 209 /
@@ -203,3 +227,8 @@ per kind). All 209 common content applies per heat and in the summary.
   `phase_native`, so the frozen legacy finals are untouched. **Reports plan items 1/2/2b/3 +
   D1/D2/D3 all complete.**
   Remaining: D1 (nationality) + D3 (laps) owner calls.
+- **2026-07-20** — **Content-relevance pass (§9)** added (7948e787). Owner spotted the time-trial
+  footer printing a speed note over a Lap Time column → replace with "Lap Time = best full lap [s]".
+  Also found: the **endurance report** missed the D1 From/Nationality treatment + has hardcoded EN
+  `Total Laps` headers; minor Q/DNQ-legend and endurance-heading nits. Owner chose a full content
+  pass; fixes to be coordinated with b76f2173. Other reports content-clean.
