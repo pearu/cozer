@@ -404,3 +404,7 @@ def test_intermediate_timetrial_and_multidriver():
     html = intermediate_html(build_intermediate(ed))
     assert "Lap Time" in html                      # time-trial column header
     assert "One" in html and "Two" in html         # multi-driver rows
+    # UIM 305.04.02 best-lap TIME: boat 1's fastest lap is 20s (not the last, 21s);
+    # boat 2 ran a single lap (22s) -> it now shows a time (used to render "-", laptime=0).
+    assert "20.000" in html and "22.000" in html
+    assert "21.000" not in html                    # the slower lap is not the reported time

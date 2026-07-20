@@ -421,6 +421,7 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
         pastafterstoppage = 0
         esttime = 0
         lapstime = []
+        bestlaptime = 0
         dt = 0
         li = 0
         for m in rec[pid]:
@@ -446,6 +447,7 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                         lapspeed = round2(3.6 * course[li] / float(dt), roundopt)
                         if lapspeed > maxlapspeed:
                             maxlapspeed = lapspeed
+                            bestlaptime = dt          # the best (fastest) lap's measured time
                         esttime = round2(3.6 * course[min(len(course) - 1, li + 1)] / float(maxlapspeed), roundopt)
                         lapstime.append(t)
                     dt = 0
@@ -598,7 +600,7 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                        lapsleft, -penlapavgspeed,
                        -avgspeed, -maxlapspeed, lapstime,
                        (pastafterstoppage, penlapsleft, laps),
-                       pid, notes))
+                       pid, notes, bestlaptime))
     preres = py2_sorted(preres)
 
     requiredlapscoef = 0.70           # U.I.M. 2000,2009 311.02.1
@@ -626,7 +628,7 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
     for item in preres:
         i = i + 1
         ip = min(i, len(scoringsystem) - 1)
-        code, qualification, lapsleft, penlapavgspeed, avgspeed, maxlapspeed, lapstime, (pastafterstoppage, penlapsleft, laps), pid, notes = item
+        code, qualification, lapsleft, penlapavgspeed, avgspeed, maxlapspeed, lapstime, (pastafterstoppage, penlapsleft, laps), pid, notes, bestlaptime = item
         penlapavgspeed, avgspeed, maxlapspeed = -penlapavgspeed, -avgspeed, -maxlapspeed
         points = -1
         place = -1
@@ -673,10 +675,10 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
         if istimetrial or isqualification:
             res[pid]['points'] = 0
             if istimetrial:
-                if len(lapstime) > 1:
-                    res[pid]['laptime'] = lapstime[-1] - lapstime[-2]
-                else:
-                    res[pid]['laptime'] = 0
+                # UIM 305.04.02: the best-lap TIME — the measured duration of the fastest
+                # (max-speed) lap. Was `lapstime[-1] - lapstime[-2]` (the LAST lap, and 0 on a
+                # single-lap heat, so a 1-lap time trial showed no time at all).
+                res[pid]['laptime'] = bestlaptime
         else:
             res[pid]['points'] = points
         res[pid]['place'] = place

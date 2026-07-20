@@ -4202,7 +4202,7 @@
           0, 
           2
         ], 
-        "laptime": 0, 
+        "laptime": 20.0, 
         "maxlapspeed": 180.0, 
         "notes": {}, 
         "place": -1, 

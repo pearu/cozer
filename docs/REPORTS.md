@@ -83,11 +83,13 @@ per kind). All 209 common content applies per heat and in the summary.
 
 ### 5.1 Time trial
 
-- **[BUG] Lap Time is blank (`-`) on the common 1-lap heat.** The istt column reads
-  analyze `laptime`, which is **0** on a single-lap heat, so the report prints `-` — even
-  though `maxlapspeed` is a valid best-lap figure (verified: 1-lap TT → `laptime=0`,
-  `maxlapspeed=180.0`, cell renders `-`). The one report meant to be a "best-time list"
-  cannot show a time on practice/solo runs. → **P1**, see §6.
+- **[FIXED 2026-07-20] Lap Time on a time trial.** `analyze` now reports `laptime` as the
+  **best (max-speed) lap's measured time** (was `lapstime[-1] - lapstime[-2]` — the *last* lap,
+  and `0` on a single-lap heat, so a 1-lap TT showed `-`). Per **D2** this is the best-lap
+  *time*, and it is picked automatically. NB legacy was **not** buggy here: the TT operator
+  manually disabled every lap except the single fastest one so one lap remained; the new cozer
+  makes that manual curation unnecessary (a deliberate divergence from legacy — the synthetic
+  analyze golden's 1-lap TT was re-anchored `0 → 20.0`).
 
 ### 5.2 Qualification
 
@@ -119,7 +121,7 @@ per kind). All 209 common content applies per heat and in the summary.
 
 | # | Fix | Priority | Notes |
 |---|-----|----------|-------|
-| 1 | Time-trial best-lap **time** | **P1** (bug) | Use the measured lap time (best lap's recorded crossing interval) directly — not speed-derived, not analyze `laptime` (0 on 1-lap). See D2. |
+| 1 | ~~Time-trial best-lap **time**~~ | ✅ **DONE** | `analyze` reports the best (max-speed) lap's measured time; fixes the 1-lap `-`. See §5.1. |
 | 2 | **Qualification report** (new kind) | **P1** (gap) | 209 result content per qheat + **Q/DNQ** advancement; hooks `qualification.classify`; slots into the per-phase report model. |
 | 3 | Restart `R` / `R2` display | P2 | Map heat-id `1r`→`1R`, last-heat `1R`→`1R2` in heat headers (context-aware). Presentation-only. |
 | 4 | Nationality column | P2 | Depends on **D1**. |
@@ -155,3 +157,6 @@ per kind). All 209 common content applies per heat and in the summary.
 - **2026-07-20** — Owner parked reports for now (still testing 3c-2); committing this plan
   for later. Owner decided **D2 = best-lap time**, taken from the recorded lap-time values
   (not speed-derived). D1 / D3 remain open.
+- **2026-07-20** — Plan item **1 done**: `analyze` reports the best (max-speed) lap's measured
+  time as `laptime`, fixing the 1-lap TT `-` (§5.1). Synthetic analyze golden re-anchored
+  `0 → 20.0` (deliberate divergence — legacy relied on manual lap-disabling). D1/D3 still open.
