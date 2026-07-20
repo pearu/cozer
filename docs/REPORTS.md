@@ -218,23 +218,33 @@ protest clock.
   him/her."*
 
 **Plan — owner-decided design (2026-07-21):**
-- **Auto "Printed at &lt;date · time&gt;"** stamp in a corner (render-time; each printout stamps its
-  own — informational, not the legal posting time).
-- **Blank "Posted on: __________" field** for the person posting to hand-write the actual notice-board
-  time **in pen** — this is the §209 "actual time of posting".
+- **New stored event field `uim_commissioner`** (a name string, exactly like `officer`/`secretary`):
+  - default `""` in the event dicts — `app/main.py` (~L58) and `app/ruleset.py` (~L151);
+  - a field in the event-settings form list — `app/main.py` (~L65), e.g. `("uim_commissioner",
+    "UIM Commissioner")`;
+  - added to `reports/common.meta_of` so it flows into `meta` for every report.
+- **Auto "Printed at &lt;date · time&gt;"** stamp in a corner (render-time via `datetime.now`; each
+  printout stamps its own — informational, *not* the legal posting time).
+- **"Posted on: &lt;date&gt; __:__"** — the **date is auto-filled** from the event date (owner:
+  "included immediately"); only the **time is left blank** for the person posting to hand-write in pen
+  (the §209 "actual time of posting").
 - **Signature block** (blank ruled lines + role labels) for the required signers:
   - **OOD / Race Director** — always (§209, p37); a **delegate** may sign (§209).
   - **UIM Sports Commissioner** — co-signs/approves provisional + official results before posting
-    (p30 item 14; present at UIM-sanctioned events where one is assigned).
+    (p30 item 14; present at UIM-sanctioned events where one is assigned). Name from the new
+    `uim_commissioner` field.
   - Secretary of the Race is **not** a required results-signer per §209 (keep the existing footer name
     if useful, but the ruled signature lines are OOD/RD + UIM Sports Commissioner).
 
 **Owner's question answered:** yes — the UIM Sports Commissioner must co-sign the provisional and
 official results (p30 item 14).
 
-**Applies to** all results reports (finals, intermediate, qualification, endurance); the frozen
-`*_legacy` reports stay byte-identical (add the block to the native builders / shared document
-chrome only).
+**Applies to** all results reports (finals, intermediate, qualification, endurance). **Byte-identity:**
+`document_html` is shared with the frozen `*_legacy` reports, so gate the new block the D1 way — an
+explicit param the **native** builders pass and the legacy builders omit (param absent → no block →
+legacy output byte-identical, goldens stay green). **Implementation is b76f2173's** (touches the
+settings form + `meta_of` + `document_html` + each native builder + labels: `UIMCommissioner`,
+`PostedOn`, `PrintedAt`); 7948e787 spec'd it + can verify after.
 
 ## Change log
 
@@ -279,3 +289,7 @@ chrome only).
   time-of-posting → yes, and cozer had none. Also §209/p30 require signing (OOD/RD + UIM Sports
   Commissioner). Owner design: auto "Printed at …" stamp + a pen-filled "Posted on: __" field +
   a signature block (OOD/RD, UIM Sports Commissioner). §3.1 updated. To be coordinated with b76f2173.
+- **2026-07-21** — §10 refined + handed to b76f2173: owner wants a stored **`uim_commissioner`**
+  event field (default + settings-form entry + `meta_of`), and the "Posted on" **date auto-filled**
+  from the event date with only the **time left blank** for pen. Spec'd with wiring points
+  (`main.py`/`ruleset.py` defaults, form list, `meta_of`, `document_html` gated the D1 way).
