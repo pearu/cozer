@@ -23,6 +23,15 @@ _PHASE_LABEL = {"timetrial": "Time trial", "qualification": "Qualification",
 _PHASE_TAG = {"timetrial": "TT", "qualification": "Q"}   # circuit/endurance: no tag
 
 
+def confirm_delete(parent, what):
+    """Yes/No 'are you sure?' guard before deleting REAL (operator-entered) data; returns True
+    to proceed. The default button is No, so a stray Enter/click never deletes. Callers skip this
+    (delete straight away) when the target is blank — there is nothing to lose."""
+    return QMessageBox.question(
+        parent, "Delete?", "Delete %s? This can't be undone." % what,
+        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+
+
 def _entry_label(e):
     """Compact suffix-free label for one race entry, or None if unfilled. Native entry
     ``{name, kind, number, occurrence}`` → ``"GT15 1"`` / ``"GT15 TT1"`` / ``"GT15 1·R1"``;
@@ -278,6 +287,8 @@ class StringListEditor(QWidget):
             QMessageBox.information(self, "Cannot delete",
                                     "Cannot delete %r: %s." % (value, reason))
             return
+        if str(value).strip() and not confirm_delete(self, "%r" % value):
+            return
         del self._data[row]
         self.set_data(self._data)
 
@@ -306,8 +317,12 @@ class GridTab(QWidget):
 
     def _delete_selected(self):
         idx = self.view.currentIndex()
-        if idx.isValid():
-            self.model.delete_row(idx.row())
+        if not idx.isValid():
+            return
+        row = self.model._data[idx.row()] if idx.row() < len(self.model._data) else []
+        if any(str(x).strip() for x in row[1:]) and not confirm_delete(self, "this row"):
+            return                                       # row[0] is the internal sort field
+        self.model.delete_row(idx.row())
 
 
 # --- Races tab: native, suffix-free heat scheduling ------------------------
@@ -524,8 +539,12 @@ class RacesTab(QWidget):
 
     def _delete_row(self):
         idx = self.view.currentIndex()
-        if idx.isValid():
-            self.model.delete_row(idx.row())
+        if not idx.isValid():
+            return
+        e = self.model._race[idx.row()] if idx.row() < len(self.model._race) else {}
+        if e.get("name") and not confirm_delete(self, "heat %s" % (_entry_label(e) or e.get("name"))):
+            return
+        self.model.delete_row(idx.row())
 
     def set_data(self, races):
         self._races = races
@@ -557,6 +576,11 @@ class RacesTab(QWidget):
 
     def _delete_race(self):
         row = self.race_list.currentRow()
-        if 0 <= row < len(self._races):
-            del self._races[row]
-            self._refill()
+        if not (0 <= row < len(self._races)):
+            return
+        race = self._races[row]
+        if any(isinstance(e, dict) and e.get("name") for e in race) \
+                and not confirm_delete(self, "Race %d and its scheduled heats" % (row + 1)):
+            return
+        del self._races[row]
+        self._refill()

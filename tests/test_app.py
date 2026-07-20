@@ -549,6 +549,47 @@ def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     assert heats_of("GT") == ["1", "2"]
 
 
+def test_delete_confirmation_guards_real_data(monkeypatch):
+    # Deleting REAL data asks "are you sure?" (No keeps, Yes deletes); a blank target is deleted
+    # straight away (nothing to lose).
+    _app()
+    from cozer.app.grids import RacesTab
+    from cozer.native import to_native
+    from PySide6.QtWidgets import QMessageBox
+
+    calls = []
+    ans = [QMessageBox.No]
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: (calls.append(1), ans[0])[1]))
+
+    class FakeWin:
+        def __init__(self, ed):
+            self.eventdata = ed
+
+        def log(self, m):
+            pass
+
+    ed = to_native({"classes": [["", "GT", "3*(1000):1"]], "record": {}, "races": []})
+    ed["races"] = [[{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 0}],   # real
+                   [{"name": "", "kind": "", "number": 0, "occurrence": 0}]]            # blank
+    rt = RacesTab(FakeWin(ed))
+    rt.set_data(ed["races"])
+
+    rt.race_list.setCurrentRow(0)                       # real race, answer No -> kept
+    rt._delete_race()
+    assert len(ed["races"]) == 2 and len(calls) == 1
+
+    ans[0] = QMessageBox.Yes                            # real race, answer Yes -> deleted
+    rt.race_list.setCurrentRow(0)
+    rt._delete_race()
+    assert len(ed["races"]) == 1 and len(calls) == 2
+
+    calls.clear()                                       # remaining race is blank -> no prompt
+    rt.race_list.setCurrentRow(0)
+    rt._delete_race()
+    assert ed["races"] == [] and calls == []
+
+
 def test_race_label_unit():
     from cozer.app.grids import race_label
     assert race_label(0, [["", "", ""]]) == "Race 1"           # empty -> bare label

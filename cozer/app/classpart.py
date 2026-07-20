@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import ruleset as rulesetmod
+from cozer.app.grids import confirm_delete
 from cozer.classes import getclass
 from cozer.qualification import qualification_counts
 from cozer.racepattern import (
@@ -395,8 +396,15 @@ class ClassParticipantsWidget(QWidget):
 
     def _delete(self):
         idx = self.view.currentIndex()
-        if idx.isValid():
-            self.model.delete_row(idx.row())
+        if not idx.isValid():
+            return
+        r = idx.row()
+        p = self.model._all[self.model._idx[r]] if r < len(self.model._idx) else []
+        # real data = a name / surname / from / boat was entered (col 4 is the auto class name)
+        if any(len(p) > i and str(p[i]).strip() for i in (1, 2, 3, 5)) \
+                and not confirm_delete(self, "this participant"):
+            return
+        self.model.delete_row(r)
 
 
 # --- add-class dialog -------------------------------------------------------
@@ -799,6 +807,11 @@ class ClassesParticipantsPanel(QWidget):
             QMessageBox.information(
                 self, "Cannot delete",
                 "Cannot delete class %r while %s." % (base, reason))
+            return
+        ed = self.window.eventdata
+        has_data = bool((ed.get("record") or {}).get(base)) or \
+            any(phase_pattern(ed, base, k) for k in _phase_kinds(ed, base))
+        if has_data and not confirm_delete(self, "class %r and its setup" % base):
             return
         remove_base(self.window.eventdata, base)
         self.reload()
