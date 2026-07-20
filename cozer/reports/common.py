@@ -157,15 +157,15 @@ def _posting_block(labels, meta):
 def document_html(orientation, labels, meta, heading, body_parts, subtitle="", posting=False):
     """Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``
     (optional) is shown under the heading -- used for the phase-kind line (§10-E). ``posting`` adds
-    the §209 posting metadata (a render-time "Printed at" stamp + the "Posted on"/signature block);
+    the §209 posting metadata (a render-time "Printed on" stamp + the "Posted on"/signature block);
     it is passed only by the native results builders, so the frozen legacy reports (posting off) are
     byte-identical."""
     now = datetime.now()
     if posting:
         # The OOD is a signer in the posting block, so it is redundant in the footer — put the
-        # informational render-time "Printed at" stamp in its place (footer-left); keep the
+        # informational render-time "Printed on" stamp in its place (footer-left); keep the
         # Secretary only when named. (posting reports only, so the legacy footer is untouched.)
-        footer_left = "%s %s" % (labels["PrintedAt"], now.strftime("%Y-%m-%d %H:%M"))
+        footer_left = "%s %s" % (labels["PrintedOn"], now.strftime("%Y-%m-%d %H:%M"))
         footer_right = (("%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"]))
                         if (meta.get("secretary") or "").strip() else "")
     else:

@@ -343,7 +343,7 @@ def test_endurance_conditional_from_nationality_and_labels():
 
 
 def test_posting_metadata_native_only():
-    # §10/§209: native results reports carry a render-time "Printed at" stamp, a "Posted on:
+    # §10/§209: native results reports carry a render-time "Printed on" stamp, a "Posted on:
     # <date> __:__" line (date auto-filled, time blank for pen), and a signature block (OOD/Race
     # Director + UIM Sports Commissioner). The frozen legacy reports carry none of it.
     from cozer.native import to_native
@@ -363,7 +363,7 @@ def test_posting_metadata_native_only():
     from datetime import datetime
     today = datetime.now().strftime("%Y-%m-%d")
     h = full_final_html(build_full_final(ed))
-    for token in ("Printed at", "__:__", "UIM Sports Commissioner", "Comm Name", "OOD Name",
+    for token in ("Printed on", "__:__", "UIM Sports Commissioner", "Comm Name", "OOD Name",
                   "Posted on: %s" % today):                     # Posted-on carries the generation date
         assert token in h, token
     assert h.count("OOD Name") == 1                             # officer only in the signature block, not the footer
@@ -371,7 +371,7 @@ def test_posting_metadata_native_only():
     h_no_comm = full_final_html(build_full_final(dict(ed, uim_commissioner="")))
     assert "UIM Sports Commissioner" not in h_no_comm and "OOD Name" in h_no_comm
     hl = full_final_legacy_html(build_full_final_legacy(ed))
-    for token in ("Printed at", "Posted on", "__:__", "UIM Sports Commissioner", "Comm Name"):
+    for token in ("Printed on", "Posted on", "__:__", "UIM Sports Commissioner", "Comm Name"):
         assert token not in hl, token                          # legacy: no posting block
 
 

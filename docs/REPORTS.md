@@ -203,7 +203,7 @@ footnotes stay relevant. Owner chose a **full content pass** (this section) with
 ## 10. Posting metadata — time of posting + signatures (§209)
 
 > ✅ **IMPLEMENTED** (`d4c52bc`, b76f2173) — see the change log for the as-built refinements the
-> owner made during implementation ("Printed at" in the footer-left, "Posted on" carries the
+> owner made during implementation ("Printed on" in the footer-left, "Posted on" carries the
 > *generation* date, empty signers/fields hidden). Gated the D1 way; legacy goldens green.
 
 A §209 gap surfaced by the owner (2026-07-21): a posted result sheet must carry the **actual time of
@@ -227,7 +227,7 @@ protest clock.
   - a field in the event-settings form list — `app/main.py` (~L65), e.g. `("uim_commissioner",
     "UIM Commissioner")`;
   - added to `reports/common.meta_of` so it flows into `meta` for every report.
-- **Auto "Printed at &lt;date · time&gt;"** stamp in a corner (render-time via `datetime.now`; each
+- **Auto "Printed on &lt;date · time&gt;"** stamp in a corner (render-time via `datetime.now`; each
   printout stamps its own — informational, *not* the legal posting time).
 - **"Posted on: &lt;date&gt; __:__"** — the **date is auto-filled** from the event date (owner:
   "included immediately"); only the **time is left blank** for the person posting to hand-write in pen
@@ -248,7 +248,7 @@ official results (p30 item 14).
 explicit param the **native** builders pass and the legacy builders omit (param absent → no block →
 legacy output byte-identical, goldens stay green). **Implementation is b76f2173's** (touches the
 settings form + `meta_of` + `document_html` + each native builder + labels: `UIMCommissioner`,
-`PostedOn`, `PrintedAt`); 7948e787 spec'd it + can verify after.
+`PostedOn`, `PrintedOn`); 7948e787 spec'd it + can verify after.
 
 ## 11. Direction — fold Endurance into Full Final (retire the separate report)
 
@@ -307,7 +307,7 @@ phase kind is endurance, and the separate `endurance.py` report is then removed 
   The two §9 **minors** (Q/DNQ legend note; endurance subtitle) deferred pending owner.
 - **2026-07-21** — **§10 added: posting metadata** (§209). Owner asked whether results need a
   time-of-posting → yes, and cozer had none. Also §209/p30 require signing (OOD/RD + UIM Sports
-  Commissioner). Owner design: auto "Printed at …" stamp + a pen-filled "Posted on: __" field +
+  Commissioner). Owner design: auto "Printed on …" stamp + a pen-filled "Posted on: __" field +
   a signature block (OOD/RD, UIM Sports Commissioner). §3.1 updated. To be coordinated with b76f2173.
 - **2026-07-21** — §10 refined + handed to b76f2173: owner wants a stored **`uim_commissioner`**
   event field (default + settings-form entry + `meta_of`), and the "Posted on" **date auto-filled**
@@ -321,9 +321,13 @@ phase kind is endurance, and the separate `endurance.py` report is then removed 
 - **2026-07-21** — **§10 posting metadata implemented** (`d4c52bc`, b76f2173). New
   `uim_commissioner` event field (default + settings-form row + `meta_of`); `document_html` gains a
   `posting` gate (native results builders pass it, legacy omits → byte-identical). Owner refinements
-  during build: **"Printed at"** sits in the **footer-left** (where the now-redundant OOD was, not a
+  during build: **"Printed on"** sits in the **footer-left** (where the now-redundant OOD was, not a
   top-corner stamp); **"Posted on"** carries the **document-generation date** (not the event date),
   time blank for pen; a **signer/field is shown only when named**; extra room above the signatures;
-  new labels `UIMCommissioner`/`PostedOn`/`PrintedAt` (ET owner-to-verify). Regression **#19**
+  new labels `UIMCommissioner`/`PostedOn`/`PrintedOn` (ET owner-to-verify). Regression **#19**
   (a `%`-format bug in the signature template, `width:100%%`) surfaced via the new bug-report flow
   and fixed in the same commit. 597 green.
+- **2026-07-21** — Follow-up polish (owner): the top-right **"Posted on"** time placeholder enlarged
+  to `____:____` (16pt, hand-filled); the footer stamp label renamed **"Printed at" → "Printed on"**
+  (English: "on" agrees with the leading date; also matches "Posted on") — label key `PrintedAt` →
+  `PrintedOn`.

@@ -8,7 +8,7 @@ legacy File>Language menu), defaulting to English.
 LABELS = {
     "English": {
         "OfficeroftheDay": "Officer of the Day", "SecretaryoftheRace": "Secretary of the Race",
-        "UIMCommissioner": "UIM Sports Commissioner", "PostedOn": "Posted on", "PrintedAt": "Printed at",
+        "UIMCommissioner": "UIM Sports Commissioner", "PostedOn": "Posted on", "PrintedOn": "Printed on",
         "Page": "Page", "Registeredcompetitors": "Registered competitors",
         "IntermediateResults": "Intermediate Results", "FinalResults": "Final Results",
         "DriversMeetingChecklist": "Drivers Meeting Checklist",
@@ -40,7 +40,7 @@ LABELS = {
     },
     "Estonian": {
         "OfficeroftheDay": "Peakohtunik", "SecretaryoftheRace": "Võistluste sekretär",
-        "UIMCommissioner": "UIM spordikomissar", "PostedOn": "Postitatud", "PrintedAt": "Prinditud",   # NOTE: owner to verify
+        "UIMCommissioner": "UIM spordikomissar", "PostedOn": "Postitatud", "PrintedOn": "Prinditud",   # NOTE: owner to verify
         "Page": "Leht", "Registeredcompetitors": "Registreeritud võistlejad",
         "IntermediateResults": "Vahetulemused", "FinalResults": "Tulemused",
         "DriversMeetingChecklist": "Võistlejate koosoleku kontrolltabel",
