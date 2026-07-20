@@ -387,6 +387,16 @@ class EditRecordsPanel(QWidget):
         self.heat_combo.blockSignals(False)
         self.refresh()
 
+    def refresh_heats(self):
+        """Re-sync the heat combo with the recorded heats — e.g. after recording in the Timer —
+        preserving the selected heat. Called on entering the Edit Records tab; the tab-change
+        handler has already flushed any draft, so there is nothing unsaved to lose."""
+        i = self.heat_combo.currentIndex()
+        key = self._heatkeys[i] if 0 <= i < len(self._heatkeys) else None
+        self.reload()
+        if key in self._heatkeys:
+            self.heat_combo.setCurrentIndex(self._heatkeys.index(key))
+
     def _cur(self):
         i = self.heat_combo.currentIndex()
         return self._heatkeys[i] if 0 <= i < len(self._heatkeys) else (None, None)

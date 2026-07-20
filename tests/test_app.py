@@ -461,6 +461,24 @@ def test_timer_picks_up_races_added_on_races_tab():
     assert "GT 1" in w.timer_panel.race_combo.itemText(0)
 
 
+def test_editor_picks_up_heats_recorded_after_load():
+    # Regression: a heat recorded in the Timer must appear in Edit Records when you switch to it
+    # (the heat combo was only built at event-load, so freshly-recorded heats were invisible).
+    _app()
+    from cozer.native import to_native
+    from cozer.store import apply_op
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT", "1*(1000):1"]], "record": {}, "races": []})
+    w = MainWindow(ed)
+    assert w.editor_panel.heat_combo.count() == 0         # no records at load
+    apply_op(w.eventdata, {"op": "heat", "cl": "GT", "h": "1",
+                           "info": {"course": [1000]}, "ids": ["1"]})
+    apply_op(w.eventdata, {"op": "lap", "cl": "GT", "h": "1", "id": "1", "mark": [1, 20.0]})
+    w.tabs.setCurrentWidget(w.editor_panel)               # simulate switching to Edit Records
+    assert w.editor_panel.heat_combo.count() == 1
+    assert "GT / 1" in w.editor_panel.heat_combo.itemText(0)
+
+
 def test_race_label_unit():
     from cozer.app.grids import race_label
     assert race_label(0, [["", "", ""]]) == "Race 1"           # empty -> bare label
