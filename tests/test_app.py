@@ -257,7 +257,7 @@ def test_participant_class_model_filter_add_delete_unique():
              ["", "B", "Two", "FIN", "GT", "2"],
              ["", "C", "Cee", "LAT", "OT", "1"]]
     m = ParticipantClassModel(parts, "GT")
-    assert m.rowCount() == 2 and m.columnCount() == 4          # filtered to class GT
+    assert m.rowCount() == 2 and m.columnCount() == 5          # filtered to class GT (5 base cols)
     assert m.data(m.index(0, 0)) == "1" and m.data(m.index(1, 1)) == "B"
     warned = []
     m2 = ParticipantClassModel(parts, "GT", warn=warned.append)
@@ -413,6 +413,32 @@ def test_delete_classname_blocked_when_instantiated(monkeypatch):
     w.eventdata["participants"] = []
     w.eventdata["races"] = []
     assert w._classname_in_use("GT") is None
+
+
+def test_nationality_field_and_show_helper():
+    # D1: nationality is a distinct participant field (index 6). The Participants GUI has a
+    # Nationality column; reports show a Nationality column only for multi-nationality events.
+    _app()
+    from cozer.reports.common import show_from, show_nationality, nationalities_index
+    from cozer.app.classpart import ParticipantClassModel
+    ed = {"participants": [["", "A", "One", "Tallinn HC", "GT", "1", "EST"],
+                           ["", "B", "Two", "Helsinki", "GT", "2", "FIN"]]}
+    assert show_nationality(ed) and show_from(ed)             # both vary -> show both columns
+    assert nationalities_index(ed)[("GT", "1")] == "EST"
+    # a national event with one shared club -> both columns hidden (uniform, nothing to distinguish)
+    national = {"participants": [["", "A", "One", "HC", "GT", "1", "EST"],
+                                 ["", "B", "Two", "HC", "GT", "2", "EST"]]}
+    assert not show_nationality(national) and not show_from(national)
+    # no club specified at all -> From hidden; nationalities still vary -> Nationality shown
+    noclub = {"participants": [["", "A", "One", "", "GT", "1", "EST"],
+                               ["", "B", "Two", "", "GT", "2", "FIN"]]}
+    assert not show_from(noclub) and show_nationality(noclub)
+    # the Participants GUI model exposes an editable Nationality column at participant index 6
+    m = ParticipantClassModel(ed["participants"], "GT")
+    assert "Nationality" in [c[1] for c in m.COLS]
+    natcol = next(i for i, (ci, _) in enumerate(m.COLS) if ci == 6)
+    assert m.data(m.index(0, natcol)) == "EST"
+    assert m.setData(m.index(1, natcol), "SWE") and ed["participants"][1][6] == "SWE"
 
 
 def test_classname_guard_and_races_dropdown_on_native_model():
@@ -1728,10 +1754,11 @@ def test_qheat1_checkbox_column_toggles_membership():
     parts = [["", "A", "One", "EST", "C", "10"], ["", "B", "Two", "FIN", "C", "20"]]
     qh = {}
     m = ParticipantClassModel(parts, "C", qheat1=qh, show_qheat1=True)
-    assert m.columnCount() == 5                         # 4 base columns + qheat1
-    assert m.headerData(4, Qt.Horizontal, Qt.DisplayRole) == "qheat1"
-    assert m.headerData(4, Qt.Horizontal, Qt.ToolTipRole)  # tooltip present
-    idx = m.index(0, 4)
+    assert m.columnCount() == 6                         # 5 base columns + qheat1
+    qcol = m.columnCount() - 1                           # qheat1 is the trailing column
+    assert m.headerData(qcol, Qt.Horizontal, Qt.DisplayRole) == "qheat1"
+    assert m.headerData(qcol, Qt.Horizontal, Qt.ToolTipRole)  # tooltip present
+    idx = m.index(0, m.columnCount() - 1)               # the trailing qheat1 checkbox column
     assert m.data(idx, Qt.CheckStateRole) == Qt.Unchecked
     assert m.flags(idx) & Qt.ItemIsUserCheckable
     assert m.setData(idx, Qt.Checked, Qt.CheckStateRole) is True
@@ -1745,7 +1772,7 @@ def test_qheat1_column_absent_without_qualification():
     from cozer.app.classpart import ParticipantClassModel
     _app()
     m = ParticipantClassModel([["", "A", "One", "EST", "C", "10"]], "C")  # show_qheat1=False
-    assert m.columnCount() == 4                         # no qheat1 column
+    assert m.columnCount() == 5                         # no qheat1 column (5 base cols)
 
 
 def test_qheat1_checkbox_column_sized_to_content_not_stretched():
@@ -1789,7 +1816,7 @@ def test_qualification_base_tab_shows_qheat1_column():
     cp = MainWindow(_phase_event()).classpart_panel
     i = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "F 500")
     cw = cp.tabs.widget(i).findChild(ClassParticipantsWidget)
-    assert cw.model.columnCount() == 5                  # 4 base cols + qheat1 (F 500 has a /Q phase)
+    assert cw.model.columnCount() == 6                  # 5 base cols + qheat1 (F 500 has a /Q phase)
 
 
 def test_sync_phase_writes_and_removes_phases():

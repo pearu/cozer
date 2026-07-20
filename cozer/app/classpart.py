@@ -226,7 +226,7 @@ class ParticipantClassModel(QAbstractTableModel):
     inserts and deletes operate on the master list in place; boat numbers are
     kept unique within the class."""
 
-    COLS = [(5, "Boat #"), (1, "Name"), (2, "Surname"), (3, "From")]
+    COLS = [(5, "Boat #"), (1, "Name"), (2, "Surname"), (3, "From"), (6, "Nationality")]
 
     def __init__(self, participants, classname, warn=None, qheat1=None, show_qheat1=False):
         super().__init__()
@@ -322,7 +322,7 @@ class ParticipantClassModel(QAbstractTableModel):
     def add_row(self):
         n = len(self._idx)
         self.beginInsertRows(QModelIndex(), n, n)
-        self._all.append(["", "", "", "", self._class, ""])
+        self._all.append(["", "", "", "", self._class, "", ""])   # index 6 = nationality
         self._reindex()
         self.endInsertRows()
 

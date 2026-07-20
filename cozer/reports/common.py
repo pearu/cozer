@@ -50,6 +50,39 @@ def participants_index(eventdata):
     return parts
 
 
+def nationalities_index(eventdata):
+    """(class, str(id)) -> nationality (participant index 6), incl. /Q and /T variants; ``""``
+    if unset. Kept separate from :func:`participants_index` so existing report callers are
+    untouched — a report reads this only when it renders the Nationality column."""
+    out = {}
+    for p in eventdata.get("participants", []):
+        if len(p) < 6:
+            continue
+        nat = (p[6] if len(p) > 6 else "") or ""
+        for c in (p[4], p[4] + "/Q", p[4] + "/T"):
+            out[(c, str(p[5]))] = nat
+    return out
+
+
+def _has_distinct(values):
+    """True if ``values`` hold more than one distinct non-empty entry — the general condition for
+    showing an optional report column. An all-empty or uniform (single-valued) column is hidden:
+    it distinguishes nothing and would only waste space (owner's rule for From/club + Nationality)."""
+    return len({(v or "").strip() for v in values} - {""}) > 1
+
+
+def show_from(eventdata):
+    """Whether reports show the From/club column — only when clubs vary across the event (an event
+    with no club, or one shared club, hides it)."""
+    return _has_distinct(p[3] for p in eventdata.get("participants", []) if len(p) > 3)
+
+
+def show_nationality(eventdata):
+    """Whether reports show the Nationality column — only when nationalities vary across the event
+    (a single-nationality *national* event, or none set, hides it — no wasted all-``EST`` column)."""
+    return _has_distinct((p[6] if len(p) > 6 else "") for p in eventdata.get("participants", []) if len(p) >= 6)
+
+
 def participants_by_class(eventdata):
     """class -> list of (sortkey, first, last, club, id) sorted by race number."""
     by_cls = {}
