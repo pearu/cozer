@@ -411,8 +411,10 @@ for new files:
 **No open *design* questions remain (19 Jul 2026).** Findings **A**/**B** (grid order, per-kind
 restarts) were folded into §5.1/§5.2/§9; **C**/**D**/**E** are closed, each **reusing existing
 machinery**. **F** (make-up / substitution) is **design-complete** too, but stays flagged below
-because — unlike C/D/E — it introduces **new work items**: the outcome-override action and its two
-warnings. So the distinction is *new machinery to build*, not an unresolved design choice. The
+because — unlike C/D/E — it introduces **new work items**. *(Update 2026-07-21, 7948e787: the
+outcome-override **action already exists** — a `Q` outcome mark promotes (`DNQ→Q`) and a `DNS` mark
+withdraws, both verified — so only the **two warnings** + rank/capacity guards remain.)* So the
+distinction is *new machinery to build*, not an unresolved design choice. The
 re-review also **confirmed** N and M are an **organizer choice**, not rules-determined (§9).
 
 - **C. *(closed, 19 Jul 2026)* — a single combined repechage matches the rulebook.** The 305.04.03
@@ -430,8 +432,8 @@ re-review also **confirmed** N and M are an **organizer choice**, not rules-dete
   (`analyze`/`sumanalyze`, §9); the one content requirement is the qualification→finals **DNQ
   tail** — {entered ∧ accepted} − {finalists}, marked `DNQ`, no final points (UIM 209; §5.1 step
   4). Exact column layouts / display names are an implementation/testing detail. (§4)
-- **F. *(design-complete 19 Jul 2026; implementation-pending — new work items; reviewed by
-  7948e787)* — make-up / substitution rule** (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may
+- **F. *(design-complete; **mechanism IMPLEMENTED + verified 2026-07-21 (7948e787)** — reuses the
+  existing `Q`/`DNS` outcome marks; only the two warnings + guards remain)* — make-up / substitution rule** (305.04.03 cont., p.56). When a qualified finalist withdraws, organizers may
   promote a boat from the second-chance heat to fill the slot — *"not after the penultimate **final**
   heat."* The Q/DNQ outcome is **static**, so a make-up reuses the existing Edit-Records
   **outcome-override** action, applied as **two independent edits — never a coupled action**:
@@ -456,6 +458,15 @@ re-review also **confirmed** N and M are an **organizer choice**, not rules-dete
   **after the penultimate final heat** (the 305.04.03 time bound). Organizer-driven and rare; the
   exact widgetry is an implementation detail. (Reuses the Q/DNQ outcome of §4.1; mid-series seeding
   §5; DNQ tail §5.1 step 4.)
+- **G. *(BUG — found 2026-07-21 by 7948e787; present in `v3.0.0rc1`)* — a manual `DNQ`/`NQ` qheat
+  mark *promotes* a boat instead of *excluding* it.** The qualification `analyze` sorts by
+  `(code, qualification, …)` ascending, with `Q → qualification 1`, `DNQ`/`NQ → 2`, unmarked `→ 3`.
+  Since `2 < 3`, a `DNQ`-marked boat sorts **ahead of** unmarked boats → into the top-`count` →
+  `classify` returns `primary`. **Verified:** marking a *last-place* boat `DNQ` flips it to `primary`
+  (qualifies it) — so the intended qheat-exclusion (operator marks `DNQ`, [[qheat-exclusion-is-a-DNQ-mark]])
+  is **inverted**. `Q`(=1, promote) is correct; only `DNQ`/`NQ` is wrong. **Fix:** make `DNQ`/`NQ`
+  sort **after** unmarked boats (e.g. `qualification = 4`, or renumber default→2 / DNQ→3), and add a
+  `classify`-honors-a-DNQ-mark test. (b76f2173's `analyzer`/`qualification` code; flagged in coord.)
 
 *Confirmed faithful by the review (no change): timetrial = best lap (305.04.02); circuit = UIM
 points (317); split-into-groups + mandatory time trials (305.04.03); repechage-to-the-back intent
