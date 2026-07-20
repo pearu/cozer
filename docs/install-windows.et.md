@@ -80,10 +80,11 @@ Nüüd on sul GitHubi konto olemas. Hoia kasutajanimi ja parool käepärast.
 3. Esmakäivitus võib võtta paar sekundit. COZERi aken avaneb **General
    Information** (Üldinfo) sakil.
 
-**Logi GitHubi sisse (soovituslik — konto ongi selleks).** Ava COZERis menüü
-**Help** → **Sign in to GitHub…** ja järgi lühikest koodiviipa, kasutades 1. sammu
-kontot. Kui oled sisse logitud ja COZER peaks kunagi tõrkuma, saab ta ühe klõpsuga
-saata veateate — see aitab tõrke kiiresti parandada. Palun hoia COZER sisse logituna.
+**Logi GitHubi sisse (soovituslik — konto ongi selleks).** Klõpsa COZERi akna **paremas
+ülanurgas** nupul **Sign in to GitHub…** ja järgi lühikest koodiviipa, kasutades 1. sammu
+kontot. Kui oled sisse logitud (nupp näitab siis su nime) ja COZER peaks kunagi tõrkuma,
+saab ta ühe klõpsuga saata veateate — see aitab tõrke kiiresti parandada. Palun hoia COZER
+sisse logituna.
 
 ---
 
@@ -132,7 +133,7 @@ alla sama otselingi kaudu nagu sammus 2 ja käivita see.)*
 | Sinine aken "Windows protected your PC" | Klõpsa **More info → Run anyway** (vt samm 3). |
 | Viirusetõrje blokeerib/eemaldab faili | **Luba / taasta** see ja käivita uuesti. |
 | Start-menüüs pole **COZER**i kirjet | Käivita paigaldaja uuesti; või ava paigalduskaust ja tee topeltklõps failil **`cozer-launch.pyw`**. |
-| Aken avaneb, aga raport ei õnnestu | Pane **Log** sakil olev teade kirja ja saada see Pearule (või Help → Report a bug kaudu). |
+| Aken avaneb, aga raport ei õnnestu | Pane **Log** sakil olev teade kirja ja saada see Pearule (või **Report a bug…** nupu kaudu paremas ülanurgas). |
 | **Check for updates** ütleb, et ei saa kontrollida | Võib-olla oled võrguühenduseta (vaja on internetti) — proovi hiljem uuesti või laadi uusim paigaldusfail alla sammu 2 lingilt. |
 
 ---

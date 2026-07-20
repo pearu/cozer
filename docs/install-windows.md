@@ -73,11 +73,11 @@ You now have a GitHub account. Keep the username and password handy.
 3. The first start can take a few seconds. The COZER window opens on the
    **General Information** tab.
 
-**Sign in to GitHub (recommended — this is what the account is for).** In COZER,
-open the **Help** menu → **Sign in to GitHub…** and follow the short code prompt,
-using the account from step 1. Once signed in, if COZER ever hits a problem it can
-send an error report with a single click — which helps get it fixed quickly.
-Please keep COZER signed in.
+**Sign in to GitHub (recommended — this is what the account is for).** In the
+**top-right corner** of the COZER window, click the **Sign in to GitHub…** button and
+follow the short code prompt, using the account from step 1. Once signed in (the button
+then shows your name), if COZER ever hits a problem it can send an error report with a
+single click — which helps get it fixed quickly. Please keep COZER signed in.
 
 ---
 
@@ -126,7 +126,7 @@ the same direct link as in step 2 and run it.)*
 | "Windows protected your PC" blue box | Click **More info → Run anyway** (see step 3). |
 | Antivirus blocks/removes the file | **Allow / restore** it, then run again. |
 | No **COZER** entry in Start menu | Re-run the installer; or open the install folder and double-click **`cozer-launch.pyw`**. |
-| Window opens but a report fails | Note the message in the **Log** tab and send it to Pearu (or via Help → Report a bug). |
+| Window opens but a report fails | Note the message in the **Log** tab and send it to Pearu (or via the **Report a bug…** button in the top-right corner). |
 | **Check for updates** says it can't check | You may be offline (it needs the internet) — try again later, or download the newest installer from the step 2 link. |
 
 ---
