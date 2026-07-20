@@ -23,7 +23,7 @@ the round-trip stays byte-identical; it moves into ``info`` in step 2.
 """
 import re
 
-from cozer.classes import getclass
+from cozer.classes import getclass, note_legacy_read
 from cozer.racepattern import class_pattern, race_kind
 
 # Phase order within a class (PHASES.md §1: time-trial → qualification → finals).
@@ -173,6 +173,7 @@ def to_phases(eventdata):
     ``legacy_class``/``heatids`` so every phases-based consumer sees an unchanged interface."""
     if eventdata.get("schema", 1) >= 2:
         return _to_phases_native(eventdata)
+    note_legacy_read("to_phases")     # legacy shape -> import path / equivalence tests only
     record = eventdata.get("record", {}) or {}
     bases = []                        # base-class order = first appearance in record
     by_base = {}                      # base → [legacy_class, ...]

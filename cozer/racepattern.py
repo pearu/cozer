@@ -11,7 +11,7 @@ pattern is enforced by ``tests/test_model_equivalence.py``.
 """
 import ast
 
-from cozer.classes import getclass, isqclass, istclass
+from cozer.classes import getclass, isqclass, istclass, note_legacy_read
 
 
 def _synth_name(base, kind):
@@ -189,6 +189,7 @@ def class_pattern(eventdata, cl):
                         pat = "%s!qualification[%s]" % (pat, ",".join(str(c) for c in ph["qualifiers"]))
                     return pat or None
         return None
+    note_legacy_read("class_pattern")               # legacy shape -> import path only
     for l in eventdata.get("classes", []):
         if len(l) > 2 and l[1] == cl and l[2]:
             return l[2]
@@ -291,6 +292,7 @@ def get_classes(eventdata):
         return [_synth_name(entry.get("name"), ph["kind"])
                 for entry in eventdata.get("classes", []) or []
                 for ph in entry.get("phases", []) or []]
+    note_legacy_read("get_classes")                 # legacy shape -> import path only
     try:
         classes = [x[1] for x in eventdata['classes']]
     except KeyError:

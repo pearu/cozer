@@ -423,13 +423,55 @@ def test_classname_guard_and_races_dropdown_on_native_model():
     ed = to_native({"scoringsystem": [10], "rules": [], "record": {}, "participants": [],
                     "classes": [["", "GT15/T", "1*(1000):1"], ["", "GT15", "4*(1400):3"],
                                 ["", "OSY-400", "4*(1400):3"]], "races": []})
-    ed["races"] = [[["", "OSY-400", "1"]]]              # legacy race rows (the in-memory shape)
+    ed["races"] = [[{"name": "OSY-400", "kind": "circuit", "number": 1, "occurrence": 0}]]
     w = MainWindow(ed)
     assert w._classname_in_use("GT15")                  # set up as an event class (native shape)
     assert w._classname_in_use("OSY-400")               # and a race uses it
     assert w._classname_in_use("NOPE") is None
     got = w.races_tab._defined_classes()                # dropdown enumerates base classes (suffix-free)
     assert set(got) == {"GT15", "OSY-400"} and "GT15/T" not in got
+
+
+def test_legacy_decoders_are_import_only():
+    # Close-out guard for the suffix refactor: the in-memory model is fully native (through 3d),
+    # so the legacy-shape decoders (class_pattern / get_classes / to_phases legacy branches) must
+    # run ONLY while importing a legacy `.coz` (via to_native) -- never in native operation. If
+    # this fails, some code routes native operation through the legacy path (or a newly-added
+    # legacy branch needs a classes.note_legacy_read tag). See cozer/classes.py.
+    _app()
+    import cozer.classes as classesmod
+    import cozer.reports as R
+    from cozer.store import dump_event, load_event
+    from cozer.racepattern import get_classes, class_pattern, get_heats, race_kind
+    from cozer.phases import to_phases
+    from cozer.validate import check_results
+
+    ed = load_event(dump_event(read_legacy_coz(EVENT)))     # wc2000 -> fully native in-memory
+    from cozer.native import is_native
+    assert is_native(ed)
+
+    classesmod.legacy_reads.clear()                         # ignore the import that built `ed`
+    w = MainWindow(ed)                                      # builds every panel on the native model
+    w._reload_forms()
+    w.timer_panel.reload()
+    w.editor_panel.refresh_heats()
+    for c in get_classes(ed):                              # core suffix-decoders, native shape
+        class_pattern(ed, c)
+        race_kind(ed, c)
+    for i in range(len(ed.get("races", [])) + 1):
+        get_heats(ed, i)
+    to_phases(ed)
+    for build in (R.build_full_final, R.build_short_final, R.build_participants, R.build_checklist,
+                  R.build_intermediate, R.build_laps_protocol, R.build_endurance_final,
+                  R.build_info_letter, R.build_registration_letter):
+        build(ed)
+    check_results(ed)
+    load_event(dump_event(ed))                             # native save round-trip
+    assert classesmod.legacy_reads == [], classesmod.legacy_reads   # native op never decodes legacy
+
+    classesmod.legacy_reads.clear()                        # positive control: import DOES decode
+    dump_event(read_legacy_coz(EVENT))                     # to_native reads the legacy shape
+    assert classesmod.legacy_reads                         # ... so the legacy path is exercised
 
 
 def test_races_tab():
