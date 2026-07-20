@@ -48,13 +48,13 @@ LABELS = {
         "Meeting": "Koosolek", "Class": "Klass", "Name": "Nimi", "Country": "Linn",
         "RaceNo": "Võistlus nr.", "Heat": "Sõit", "Heats": "Sõidud", "Place": "Koht",
         "From": "Klubi", "No": "Nr.", "Res": "Tul.", "LapTime": "Ringi aeg", "Qualify": "Q/DNQ",
-        "Repechage": "Rep.", "Nationality": "Rahvus",   # NOTE: owner to verify Estonian
+        "Repechage": "Rep.", "Nationality": "Rahvus",   # ET verified by owner
         "Results": "Tulemus", "Pts": "Pnkt.", "Points": "Punktid", "Starttime": "Stardi aeg",
         "Summary": "Kokkuvõte", "Lp": "R", "Lap": "Ring", "Start": "Start", "None": "-",
         "ResNote": "Tulemus = (Keskmine kiirus) / (Parim ringi kiirus) [km/h]",
-        "LapTimeNote": "Ringi aeg = parim täisring [s]",   # NOTE: owner to verify Estonian
-        "QualifyNote": "Q = kvalifitseerus, DNQ = ei kvalifitseerunud",   # NOTE: owner to verify
-        "TotalLapsTime": "Koguaeg", "TotalLaps": "Ringe kokku",   # NOTE: owner to verify Estonian
+        "LapTimeNote": "Ringi aeg = kiireim täisring [s]",   # ET verified by owner
+        "QualifyNote": "Q = kvalifitseerus, DNQ = ei kvalifitseerunud",   # ET verified by owner
+        "TotalLapsTime": "Koguaeg", "TotalLaps": "Ringe kokku",   # ET verified by owner
         "Lostalap": "Kaotas ringi", "LostTwoLaps": "Kaotas kaks ringi",
         "Penaltylap": "Trahviring", "FivePenaltylaps": "5 trahviringi",
         "EightPenaltylaps": "8 trahviringi", "TenPenaltylaps": "10 trahviringi",
