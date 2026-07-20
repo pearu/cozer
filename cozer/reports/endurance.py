@@ -9,8 +9,8 @@ from cozer.classes import getclass
 from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
-    esc, display, get_fullname, participants_index, sheats_for as _sheats,
-    meta_of, document_html,
+    esc, display, get_fullname, participants_index, nationalities_index,
+    show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
 )
 from cozer.reports.labels import get_labels
 from cozer.reports.render import render_pdf
@@ -38,6 +38,7 @@ def build_endurance_final(eventdata, classes=None, heat_map=None):
     if classes is None:
         classes = get_classes(eventdata)
     parts = participants_index(eventdata)
+    nats = nationalities_index(eventdata)
     tables = []
     for cl in classes:
         ph = phase_of.get(cl)
@@ -66,37 +67,57 @@ def build_endurance_final(eventdata, classes=None, heat_map=None):
             rows.append({
                 "place": str(sr["place"]) if scored else "",
                 "name": names[0].strip(), "extra": [n.strip() for n in names[1:]],
-                "from": club, "id": str(pid),
+                "from": club, "nat": nats.get((cl, str(pid)), ""), "id": str(pid),
                 "totaltime": sec2time(tl[0]),
                 "totallaps": str(tl[1] or "-"),
                 "points": str(sr["points"]) if scored else "-",
             })
         tables.append({"class": getclass(cl), "rows": rows})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "landscape",
-            "heading": labels["FinalResults"], "tables": tables}
+            "heading": labels["FinalResults"], "tables": tables,
+            "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
 def endurance_final_html(model):
     L = model["labels"]
-    colg = ('<colgroup><col style="width:6%"><col style="width:34%"><col style="width:18%">'
-            '<col style="width:8%"><col style="width:16%"><col style="width:9%">'
-            '<col style="width:9%"></colgroup>')
-    head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-            '<th class="num">Total Laps Time</th><th class="num">Total Laps</th>'
-            '<th class="num">%s</th></tr>'
-            % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]), esc(L["Points"])))
+    # Leading columns Place, Name, [From], [Nationality], No -- From/Nationality shown only when
+    # they vary across the event (D1); Name absorbs the width a dropped/added column frees or takes.
+    show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
+    name_w = 34 + (0 if show_f else 18) - (8 if show_n else 0)
+    cols = ['<col style="width:6%">', '<col style="width:%d%%">' % name_w]
+    if show_f:
+        cols.append('<col style="width:18%">')
+    if show_n:
+        cols.append('<col style="width:8%">')
+    cols += ['<col style="width:8%">', '<col style="width:16%">',
+             '<col style="width:9%">', '<col style="width:9%">']
+    colg = "<colgroup>%s</colgroup>" % "".join(cols)
+    lead_head = '<th class="num">%s</th><th>%s</th>' % (esc(L["Place"]), esc(L["Name"]))
+    if show_f:
+        lead_head += '<th>%s</th>' % esc(L["From"])
+    if show_n:
+        lead_head += '<th class="num">%s</th>' % esc(L["Nationality"])
+    lead_head += '<th class="num">%s</th>' % esc(L["No"])
+    head = ('<tr>' + lead_head
+            + '<th class="num">%s</th><th class="num">%s</th><th class="num">%s</th></tr>'
+            % (esc(L["TotalLapsTime"]), esc(L["TotalLaps"]), esc(L["Points"])))
+    subcol = 4 + int(show_f) + int(show_n)         # co-driver sub-row: colspan over the trailing cells
     body = []
     for t in model["tables"]:
         rows = []
         for r in t["rows"]:
-            rows.append('<tr><td class="num">%s</td><td class="name">%s</td><td>%s</td>'
-                        '<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td>'
-                        '<td class="num summary">%s</td></tr>'
-                        % (esc(r["place"]), display(r["name"]), display(r["from"]), esc(r["id"]),
-                           esc(r["totaltime"]), esc(r["totallaps"]), esc(r["points"])))
+            cells = '<td class="num">%s</td><td class="name">%s</td>' % (esc(r["place"]), display(r["name"]))
+            if show_f:
+                cells += '<td>%s</td>' % display(r["from"])
+            if show_n:
+                cells += '<td class="num">%s</td>' % esc(r["nat"])
+            cells += ('<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td>'
+                      '<td class="num summary">%s</td>'
+                      % (esc(r["id"]), esc(r["totaltime"]), esc(r["totallaps"]), esc(r["points"])))
+            rows.append("<tr>%s</tr>" % cells)
             for x in r["extra"]:
                 rows.append('<tr class="sub"><td></td><td class="name">%s</td>'
-                            '<td colspan="5"></td></tr>' % display(x))
+                            '<td colspan="%d"></td></tr>' % (display(x), subcol))
         body.append('<h3 class="class-heading">%s %s</h3>' % (esc(L["Class"]), display(t["class"])))
         body.append('<table class="results">%s<thead>%s</thead><tbody>%s</tbody></table>'
                     % (colg, head, "".join(rows)))

@@ -19,6 +19,8 @@ LABELS = {
         "Results": "Results", "Pts": "Pts.", "Points": "Points", "Starttime": "Start time",
         "Summary": "Summary", "Lp": "L", "Lap": "Lap", "Start": "Start", "None": "None",
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",
+        "LapTimeNote": "Lap Time = best full lap [s]",   # time-trial footer (305.04.02)
+        "TotalLapsTime": "Total Laps Time", "TotalLaps": "Total Laps",   # endurance
         "Lostalap": "Lost a lap", "LostTwoLaps": "Lost two laps", "Penaltylap": "Penalty lap",
         "FivePenaltylaps": "5 penalty laps", "EightPenaltylaps": "8 penalty laps",
         "TenPenaltylaps": "10 penalty laps", "ThreePenaltylaps": "3 penalty laps",
@@ -47,6 +49,8 @@ LABELS = {
         "Results": "Tulemus", "Pts": "Pnkt.", "Points": "Punktid", "Starttime": "Stardi aeg",
         "Summary": "Kokkuvõte", "Lp": "R", "Lap": "Ring", "Start": "Start", "None": "-",
         "ResNote": "Tulemus = (Keskmine kiirus) / (Parim ringi kiirus) [km/h]",
+        "LapTimeNote": "Ringi aeg = parim täisring [s]",   # NOTE: owner to verify Estonian
+        "TotalLapsTime": "Koguaeg", "TotalLaps": "Ringe kokku",   # NOTE: owner to verify Estonian
         "Lostalap": "Kaotas ringi", "LostTwoLaps": "Kaotas kaks ringi",
         "Penaltylap": "Trahviring", "FivePenaltylaps": "5 trahviringi",
         "EightPenaltylaps": "8 trahviringi", "TenPenaltylaps": "10 trahviringi",

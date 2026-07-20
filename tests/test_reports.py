@@ -324,6 +324,24 @@ def test_endurance_final_report():
     assert "Total Laps" in "".join(pg.get_text() for pg in doc)
 
 
+def test_endurance_conditional_from_nationality_and_labels():
+    # D1 reaches the endurance report too: From/Nationality show only when they vary; the
+    # Total Laps Time / Total Laps headers come from labels (were hardcoded English).
+    from cozer.reports.endurance import endurance_final_html
+    from cozer.reports.labels import get_labels
+    from cozer.reports.common import meta_of
+    L = get_labels({"configure": {"language": "English"}})
+    row = {"place": "1", "name": "A", "extra": [], "from": "Tallinn", "nat": "EST",
+           "id": "1", "totaltime": "01:00:00", "totallaps": "50", "points": "400"}
+    model = {"meta": meta_of({}), "labels": L, "orientation": "landscape",
+             "heading": "Results", "tables": [{"class": "GT", "rows": [row]}]}
+    h = endurance_final_html(dict(model, show_from=True, show_nat=True))
+    assert "Total Laps Time" in h and "Total Laps" in h            # headers from labels now
+    assert "From" in h and "Nat." in h and "EST" in h and "Tallinn" in h   # both shown
+    h2 = endurance_final_html(dict(model, show_from=False, show_nat=False))
+    assert "From" not in h2 and "Nat." not in h2 and "EST" not in h2       # both hidden
+
+
 # --- coverage sweep -------------------------------------------------------
 
 @pytest.mark.parametrize("render_name,event", [
@@ -408,6 +426,9 @@ def test_intermediate_timetrial_and_multidriver():
     # boat 2 ran a single lap (22s) -> it now shows a time (used to render "-", laptime=0).
     assert "20.000" in html and "22.000" in html
     assert "21.000" not in html                    # the slower lap is not the reported time
+    # the footer explains the Lap Time column (305.04.02), not the speed ResNote (there is no
+    # speed column in a time-trial table)
+    assert "Lap Time = best full lap [s]" in html and "AverSpeed" not in html
 
 
 def test_intermediate_qualification_shows_qdnq():

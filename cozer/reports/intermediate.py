@@ -74,9 +74,12 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
             rows.append(row)
         st = heat_recs[curheat][0].get("starttime")
         starttime = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(st)) if st else labels["None"]
+        # a time-trial table shows Lap Time, not speed, so its footer explains Lap Time instead
+        # of the default speed ResNote.
+        resnote = labels["LapTimeNote"] if istt else None
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
                        "isqual": isqual, "qcount": qcount, "starttime": starttime,
-                       "rows": rows, "legend": _legend_html(legend, labels)})
+                       "rows": rows, "legend": _legend_html(legend, labels, resnote)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
