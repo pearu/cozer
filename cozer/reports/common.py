@@ -121,13 +121,12 @@ def meta_of(eventdata):
             for k in ("title", "venue", "date", "officer", "secretary", "uim_commissioner")}
 
 
-def _posted_on(labels, posted_date):
-    """The top-right "Posted on: <date> __:__" line: ``date`` is the day the document is generated;
-    the time is left blank (larger, for hand-writing in pen) — the §209 *actual time of posting*,
-    which starts the protest clock (§403)."""
-    return ('<div style="text-align:right;font-size:10pt;margin-bottom:.15em">%s: %s &nbsp;'
-            '<span style="font-size:16pt">____:____</span></div>'
-            % (esc(labels["PostedOn"]), esc(posted_date)))
+def _posted_at(labels):
+    """The top-right "Posted at ____:____" line: the time is left blank (large, for hand-writing in
+    pen) — the §209 *actual time of posting*, which starts the protest clock (§403). No date: the
+    posting day is the generation day, already shown by the "Printed on <date>" footer stamp."""
+    return ('<div style="text-align:right;font-size:10pt;margin-bottom:.15em">%s &nbsp;'
+            '<span style="font-size:16pt">____:____</span></div>' % esc(labels["PostedAt"]))
 
 
 def _posting_block(labels, meta):
@@ -157,7 +156,8 @@ def _posting_block(labels, meta):
 def document_html(orientation, labels, meta, heading, body_parts, subtitle="", posting=False):
     """Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``
     (optional) is shown under the heading -- used for the phase-kind line (§10-E). ``posting`` adds
-    the §209 posting metadata (a render-time "Printed on" stamp + the "Posted on"/signature block);
+    the §209 posting metadata (a render-time "Printed on" footer stamp + the top-right "Posted at"
+    line + the signature block);
     it is passed only by the native results builders, so the frozen legacy reports (posting off) are
     byte-identical."""
     now = datetime.now()
@@ -174,8 +174,8 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle="", p
     css = page_css(orientation, footer_left=footer_left, footer_center=labels["Page"],
                    footer_right=footer_right)
     parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
-    if posting:      # top-right: "Posted on: <generation date> __:__" to hand-complete (owner)
-        parts.append(_posted_on(labels, now.strftime("%Y-%m-%d")))
+    if posting:      # top-right: "Posted at ____:____" — the time is hand-written at posting (owner)
+        parts.append(_posted_at(labels))
     parts.append('<h1 class="event-title">%s</h1>' % display(meta["title"]))
     parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
                  % (display(meta["venue"]), display(meta["date"])))

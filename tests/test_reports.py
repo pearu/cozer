@@ -343,9 +343,10 @@ def test_endurance_conditional_from_nationality_and_labels():
 
 
 def test_posting_metadata_native_only():
-    # §10/§209: native results reports carry a render-time "Printed on" stamp, a "Posted on:
-    # <date> __:__" line (date auto-filled, time blank for pen), and a signature block (OOD/Race
-    # Director + UIM Sports Commissioner). The frozen legacy reports carry none of it.
+    # §10/§209: native results reports carry a "Printed on <date time>" footer stamp, a top-right
+    # "Posted at ____:____" line (time hand-written at posting; the date is only in the footer, not
+    # duplicated), and a signature block (OOD/Race Director + UIM Sports Commissioner). The frozen
+    # legacy reports carry none of it.
     from cozer.native import to_native
     from cozer.reports.final import (build_full_final, full_final_html,
                                      build_full_final_legacy, full_final_legacy_html)
@@ -363,15 +364,17 @@ def test_posting_metadata_native_only():
     from datetime import datetime
     today = datetime.now().strftime("%Y-%m-%d")
     h = full_final_html(build_full_final(ed))
-    for token in ("Printed on", "__:__", "UIM Sports Commissioner", "Comm Name", "OOD Name",
-                  "Posted on: %s" % today):                     # Posted-on carries the generation date
+    for token in ("Posted at", "____:____", "UIM Sports Commissioner", "Comm Name", "OOD Name",
+                  "Printed on %s" % today):                     # the date shows once, in the footer stamp
         assert token in h, token
-    assert h.count("OOD Name") == 1                             # officer only in the signature block, not the footer
+    assert h.count("OOD Name") == 1                            # officer only in the signature block, not the footer
+    assert "Posted on" not in h                                # renamed "Posted on" -> "Posted at"
+    assert "Posted at &nbsp;<span" in h                        # label directly followed by the blank -- no date
     # a signer with no name is omitted from the signature block
     h_no_comm = full_final_html(build_full_final(dict(ed, uim_commissioner="")))
     assert "UIM Sports Commissioner" not in h_no_comm and "OOD Name" in h_no_comm
     hl = full_final_legacy_html(build_full_final_legacy(ed))
-    for token in ("Printed on", "Posted on", "__:__", "UIM Sports Commissioner", "Comm Name"):
+    for token in ("Printed on", "Posted at", "____:____", "UIM Sports Commissioner", "Comm Name"):
         assert token not in hl, token                          # legacy: no posting block
 
 

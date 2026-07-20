@@ -248,7 +248,7 @@ official results (p30 item 14).
 explicit param the **native** builders pass and the legacy builders omit (param absent → no block →
 legacy output byte-identical, goldens stay green). **Implementation is b76f2173's** (touches the
 settings form + `meta_of` + `document_html` + each native builder + labels: `UIMCommissioner`,
-`PostedOn`, `PrintedOn`); 7948e787 spec'd it + can verify after.
+`PostedAt`, `PrintedOn`); 7948e787 spec'd it + can verify after.
 
 ## 11. Direction — fold Endurance into Full Final (retire the separate report)
 
@@ -324,10 +324,14 @@ phase kind is endurance, and the separate `endurance.py` report is then removed 
   during build: **"Printed on"** sits in the **footer-left** (where the now-redundant OOD was, not a
   top-corner stamp); **"Posted on"** carries the **document-generation date** (not the event date),
   time blank for pen; a **signer/field is shown only when named**; extra room above the signatures;
-  new labels `UIMCommissioner`/`PostedOn`/`PrintedOn` (ET owner-to-verify). Regression **#19**
+  new labels `UIMCommissioner`/`PostedAt`/`PrintedOn` (ET owner-to-verify). Regression **#19**
   (a `%`-format bug in the signature template, `width:100%%`) surfaced via the new bug-report flow
   and fixed in the same commit. 597 green.
 - **2026-07-21** — Follow-up polish (owner): the top-right **"Posted on"** time placeholder enlarged
   to `____:____` (16pt, hand-filled); the footer stamp label renamed **"Printed at" → "Printed on"**
   (English: "on" agrees with the leading date; also matches "Posted on") — label key `PrintedAt` →
   `PrintedOn`.
+- **2026-07-21** — Follow-up (owner): the top-right line **"Posted on: <date>" -> "Posted at"** —
+  the date was redundant with the "Printed on <date>" footer stamp, so it is dropped, leaving just
+  the enlarged hand-filled time (`Posted at  ____:____`). "at" also agrees with a time. Label key
+  `PostedOn` -> `PostedAt`.
