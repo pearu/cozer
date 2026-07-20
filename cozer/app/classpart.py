@@ -11,19 +11,51 @@ Adding a class offers the rule set's class-name vocabulary; a class can only be
 removed once it has no participants. Race patterns are edited in a structured
 dialog (common circuit fields + a live preview + an editable raw string).
 """
+import re
+
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QCompleter, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
+    QCheckBox, QComboBox, QCompleter, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox,
     QStyledItemDelegate, QTableView, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from cozer.app import ruleset as rulesetmod
-from cozer.classes import getclass
+from cozer.classes import getclass, isqclass, istclass
+from cozer.qualification import qualification_counts
 from cozer.racepattern import (
     crack_race_pattern, describe_pattern, format_circuit_pattern, parse_simple_pattern,
     race_kind,
 )
+
+# The ``!qualification[N,N,M]`` hint token on a qualification phase's pattern.
+_QUAL_TOKEN = re.compile(r"\s*!qualification\[[\d,\s]*\]", re.I)
+
+
+def _strip_qual(pattern):
+    """A pattern with any ``!qualification[...]`` token removed."""
+    return _QUAL_TOKEN.sub("", pattern or "").strip()
+
+
+def _with_qual(pattern, counts_str):
+    """Append ``!qualification[<counts>]`` (from a ``'4,4,4'`` string) to a stripped
+    pattern; returns the bare pattern when no counts are given."""
+    base = _strip_qual(pattern)
+    nums = [s.strip() for s in (counts_str or "").split(",") if s.strip()]
+    return "%s!qualification[%s]" % (base, ",".join(nums)) if nums else base
+
+
+def base_classes(eventdata):
+    """Distinct BASE class names (``getclass``) in class-list order — a phase event's
+    ``/T`` / ``/Q`` rows collapse onto their base, so each base is one tab."""
+    out, seen = [], set()
+    for row in eventdata.get("classes", []) or []:
+        if len(row) > 1 and row[1]:
+            b = getclass(row[1])
+            if b not in seen:
+                seen.add(b)
+                out.append(b)
+    return out
 
 
 # Shown as the qheat1 column's header tooltip — tells the operator when it applies.
@@ -343,6 +375,91 @@ class PatternDialog(QDialog):
         return self._result
 
 
+# --- phases dialog ----------------------------------------------------------
+
+class PhasesDialog(QDialog):
+    """Add / edit / remove a base class's **time-trial** and **qualification** phases. The
+    finals (the plain class pattern) is edited separately; this manages the optional
+    preceding phases so the operator never types a ``/T`` or ``/Q`` suffix — cozer writes
+    those internal class rows. Qualifier counts are entered as a plain ``N,N,M`` list."""
+
+    def __init__(self, parent, base, tt_pattern, qual_pattern):
+        super().__init__(parent)
+        self.setWindowTitle("Phases — %s" % base)
+        v = QVBoxLayout(self)
+        v.addWidget(QLabel("Phases run <b>before</b> the final. Leave a box unchecked to omit "
+                           "that phase; the final is the class's own race pattern."))
+
+        self.tt_enable = QCheckBox("Time-trial phase")
+        self.tt_enable.setChecked(bool(tt_pattern))
+        self.tt_pat = QLineEdit(_strip_qual(tt_pattern) if tt_pattern else "")
+        self.tt_preview = QLabel("")
+        self.tt_preview.setWordWrap(True)
+        v.addWidget(self.tt_enable)
+        ttf = QFormLayout()
+        ttf.addRow("Pattern:", self.tt_pat)
+        v.addLayout(ttf)
+        v.addWidget(self.tt_preview)
+
+        counts = qualification_counts(qual_pattern) if qual_pattern else None
+        self.q_enable = QCheckBox("Qualification phase")
+        self.q_enable.setChecked(bool(qual_pattern))
+        self.q_pat = QLineEdit(_strip_qual(qual_pattern) if qual_pattern else "")
+        self.q_counts = QLineEdit(",".join(str(c) for c in counts) if counts else "")
+        self.q_counts.setPlaceholderText("qualifiers per qheat, e.g. 4,4,4 (last = repechage)")
+        self.q_preview = QLabel("")
+        self.q_preview.setWordWrap(True)
+        v.addWidget(self.q_enable)
+        qf = QFormLayout()
+        qf.addRow("Pattern:", self.q_pat)
+        qf.addRow("Qualifiers per qheat:", self.q_counts)
+        v.addLayout(qf)
+        v.addWidget(self.q_preview)
+
+        box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        box.accepted.connect(self._accept)
+        box.rejected.connect(self.reject)
+        v.addWidget(box)
+        for w in (self.tt_pat, self.q_pat, self.q_counts):
+            w.textChanged.connect(self._update_previews)
+        self._update_previews()
+
+    def _update_previews(self, *_):
+        self.tt_preview.setText(describe_pattern(self.tt_pat.text().strip()))
+        self.q_preview.setText(describe_pattern(_with_qual(self.q_pat.text().strip(),
+                                                           self.q_counts.text())))
+
+    @staticmethod
+    def _valid_pattern(pat):
+        if not pat:
+            return False
+        try:
+            crack_race_pattern(pat)
+            return True
+        except Exception:
+            return False
+
+    def _accept(self):
+        for enabled, pat, label in ((self.tt_enable, self.tt_pat, "time-trial"),
+                                    (self.q_enable, self.q_pat, "qualification")):
+            if enabled.isChecked() and not self._valid_pattern(_strip_qual(pat.text().strip())):
+                QMessageBox.information(
+                    self, "Invalid pattern",
+                    "The %s phase is enabled but its race pattern is empty or unparseable." % label)
+                return
+        self.accept()
+
+    def timetrial_pattern(self):
+        """The time-trial phase's pattern, or ``""`` when the phase is omitted."""
+        return self.tt_pat.text().strip() if self.tt_enable.isChecked() else ""
+
+    def qualification_pattern(self):
+        """The qualification phase's pattern incl. ``!qualification[...]``, or ``""``."""
+        if not self.q_enable.isChecked():
+            return ""
+        return _with_qual(self.q_pat.text().strip(), self.q_counts.text())
+
+
 # --- the tab ----------------------------------------------------------------
 
 class ClassesParticipantsPanel(QWidget):
@@ -370,32 +487,60 @@ class ClassesParticipantsPanel(QWidget):
 
     def reload(self):
         self.tabs.clear()
-        for classrow in self._classes():
-            if len(classrow) > 1 and classrow[1]:
-                self.tabs.addTab(self._class_tab(classrow), classrow[1])
+        for base in base_classes(self.window.eventdata):     # one tab per BASE class
+            self.tabs.addTab(self._class_tab(base), base)
         self._update_counts()
 
-    def _class_tab(self, classrow):
-        cl = classrow[1]
+    def _named_row(self, name):
+        for r in self._classes():
+            if len(r) > 1 and r[1] == name:
+                return r
+        return None
+
+    def _plain_row(self, base):
+        """The base's plain (finals / main-race) class row — no ``/T``,``/Q`` suffix."""
+        return self._named_row(base)
+
+    def _phase_row(self, base, role):
+        """The base's ``/T`` (timetrial) or ``/Q`` (qualification) phase row, or None."""
+        return self._named_row(base + ("/T" if role == "timetrial" else "/Q"))
+
+    def _class_tab(self, base):
         w = QWidget()
-        w._cozer_class = cl                          # authoritative name (label carries a count)
+        w._cozer_class = base                        # authoritative base name (label carries a count)
         lv = QVBoxLayout(w)
         prow = QHBoxLayout()
-        summary = QLabel(self._pattern_summary(classrow))
+        summary = QLabel(self._pattern_summary(self._plain_row(base)))
         summary.setWordWrap(True)
         prow.addWidget(summary, 1)
         editp = QPushButton("Edit pattern…")
-        editp.clicked.connect(lambda _=False, r=classrow, s=summary: self._edit_pattern(r, s))
+        editp.clicked.connect(lambda _=False, b=base, s=summary: self._edit_main_pattern(b, s))
         prow.addWidget(editp)
+        phasesb = QPushButton("Phases…")
+        phasesb.clicked.connect(lambda _=False, b=base: self._open_phases(b))
+        prow.addWidget(phasesb)
         lv.addLayout(prow)
+        phases = QLabel(self._phases_summary(base))
+        phases.setWordWrap(True)
+        phases.setStyleSheet("color:#333;")
+        lv.addWidget(phases)
         grid = ClassParticipantsWidget(
-            self._participants(), cl, warn=self.window.log,
+            self._participants(), base, warn=self.window.log,
             qheat1=self.window.eventdata.setdefault("qheat1", {}),
-            show_qheat1=has_qualification(self.window.eventdata, cl))
+            show_qheat1=has_qualification(self.window.eventdata, base))
         grid.model.rowsInserted.connect(self._update_counts)
         grid.model.rowsRemoved.connect(self._update_counts)
         lv.addWidget(grid, 1)
         return w
+
+    def _phases_summary(self, base):
+        bits = []
+        for role, label in (("timetrial", "Time trial"), ("qualification", "Qualification")):
+            row = self._phase_row(base, role)
+            if row is not None:
+                bits.append("%s: %s" % (label, (row[2] if len(row) > 2 else "") or "(no pattern)"))
+        return ("Qualifying phases —  " + "      ·      ".join(bits) if bits else
+                "Qualifying phases —  none (click Phases… to add a time trial or qualification)")
 
     def _tab_class(self, i):
         return getattr(self.tabs.widget(i), "_cozer_class", self.tabs.tabText(i))
@@ -408,22 +553,60 @@ class ClassesParticipantsPanel(QWidget):
             self.tabs.setTabText(i, "%s (%d)" % (cl, n))
 
     def _pattern_summary(self, classrow):
-        pat = classrow[2] if len(classrow) > 2 else ""
-        return ("Race pattern:  %s     —     %s" % (pat, describe_pattern(pat))
-                if pat else "Race pattern:  (not set — click Edit pattern…)")
+        pat = classrow[2] if classrow and len(classrow) > 2 else ""
+        return ("Race pattern (final):  %s     —     %s" % (pat, describe_pattern(pat))
+                if pat else "Race pattern (final):  (not set — click Edit pattern…)")
 
-    def _edit_pattern(self, classrow, summary_label):
-        pat = classrow[2] if len(classrow) > 2 else ""
-        dlg = PatternDialog(self, classrow[1], pat)
+    def _edit_main_pattern(self, base, summary_label):
+        """Edit the base's plain (finals / main-race) pattern; create the row if new."""
+        row = self._plain_row(base)
+        if row is None:
+            row = ["", base, ""]
+            self._classes().append(row)
+        pat = row[2] if len(row) > 2 else ""
+        dlg = PatternDialog(self, base, pat)
         if dlg.exec():
-            while len(classrow) <= 2:
-                classrow.append("")
-            classrow[2] = dlg.pattern()
-            summary_label.setText(self._pattern_summary(classrow))
+            while len(row) <= 2:
+                row.append("")
+            row[2] = dlg.pattern()
+            summary_label.setText(self._pattern_summary(row))
             self.window._reload_classes()
 
+    def _open_phases(self, base):
+        """Add / edit / remove the base's time-trial and qualification phases (writes the
+        internal ``/T`` / ``/Q`` class rows — the operator never types a suffix)."""
+        tt = self._phase_row(base, "timetrial")
+        qq = self._phase_row(base, "qualification")
+        dlg = PhasesDialog(self, base,
+                           tt[2] if tt and len(tt) > 2 else None,
+                           qq[2] if qq and len(qq) > 2 else None)
+        if not dlg.exec():
+            return
+        self._sync_phase(base, "/T", dlg.timetrial_pattern())
+        self._sync_phase(base, "/Q", dlg.qualification_pattern())
+        self.reload()
+        self.window._reload_classes()
+
+    def _sync_phase(self, base, suffix, pattern):
+        """Create / update / remove the base's ``suffix`` phase row to match ``pattern``
+        (empty removes it, unless a race still uses that phase)."""
+        name = base + suffix
+        row = self._named_row(name)
+        if pattern:
+            if row is None:
+                self._classes().append(["", name, pattern])
+            else:
+                while len(row) <= 2:
+                    row.append("")
+                row[2] = pattern
+        elif row is not None:
+            if self._class_in_use(name):
+                self.window.log("Kept phase %s — a race still uses it" % name)
+            else:
+                self._classes().remove(row)
+
     def _add_class(self):
-        existing = {r[1] for r in self._classes() if len(r) > 1 and r[1]}
+        existing = set(base_classes(self.window.eventdata))
         available = [c for c in rulesetmod.classnames_of(self.window.eventdata)
                      if c not in existing]
         if not available:
@@ -457,17 +640,19 @@ class ClassesParticipantsPanel(QWidget):
         i = self.tabs.currentIndex()
         if i < 0:
             return
-        name = self._tab_class(i)
-        reason = self._class_in_use(name)
-        if reason:
-            QMessageBox.information(
-                self, "Cannot delete",
-                "Cannot delete class %r while %s." % (name, reason))
-            return
+        base = self._tab_class(i)
+        rows = [r for r in self._classes()
+                if len(r) > 1 and r[1] and getclass(r[1]) == base]     # base + its /T,/Q phases
+        for r in rows:
+            reason = self._class_in_use(r[1])
+            if reason:
+                where = "" if r[1] == base else " (phase %s)" % r[1]
+                QMessageBox.information(
+                    self, "Cannot delete",
+                    "Cannot delete class %r while %s%s." % (base, reason, where))
+                return
         classes = self._classes()
-        for j, r in enumerate(classes):
-            if len(r) > 1 and r[1] == name:
-                del classes[j]
-                break
+        for r in rows:
+            classes.remove(r)
         self.reload()
         self.window._reload_classes()

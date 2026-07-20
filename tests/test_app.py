@@ -1519,3 +1519,66 @@ def test_qheat1_checkbox_column_sized_to_content_not_stretched():
     assert not hdr.stretchLastSection()                 # the checkbox column must not stretch
     qcol = w.model.columnCount() - 1                    # the trailing qheat1 checkbox column
     assert hdr.sectionResizeMode(qcol) == QHeaderView.ResizeToContents
+
+
+# --- GUI phase authoring: one tab per base, Phases dialog writes /T,/Q rows ---------
+
+def _phase_event():
+    return {"kind": "event", "title": "P", "scoringsystem": [400, 300, 225], "rules": [],
+            "classes": [["", "F 500/T", "1*(1000):1"],
+                        ["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"],
+                        ["", "F 500", "4*(1400):3"], ["", "GT15", "2*(3*1000):1"]],
+            "participants": [["", "A", "One", "EST", "F 500", "10"]], "races": []}
+
+
+def test_base_classes_collapses_phase_rows():
+    from cozer.app.classpart import base_classes
+    ed = {"classes": [["", "F 500/T", "x"], ["", "F 500/Q", "y"], ["", "F 500", "z"],
+                      ["", "GT15", "w"]]}
+    assert base_classes(ed) == ["F 500", "GT15"]        # /T,/Q collapse onto the base, order kept
+
+
+def test_classes_panel_one_tab_per_base():
+    _app()
+    cp = MainWindow(_phase_event()).classpart_panel
+    assert [cp._tab_class(i) for i in range(cp.tabs.count())] == ["F 500", "GT15"]   # 2 tabs, not 4
+
+
+def test_qualification_base_tab_shows_qheat1_column():
+    _app()
+    from cozer.app.classpart import ClassParticipantsWidget
+    cp = MainWindow(_phase_event()).classpart_panel
+    i = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "F 500")
+    cw = cp.tabs.widget(i).findChild(ClassParticipantsWidget)
+    assert cw.model.columnCount() == 5                  # 4 base cols + qheat1 (F 500 has a /Q phase)
+
+
+def test_sync_phase_writes_and_removes_suffixed_rows():
+    _app()
+    ed = {"kind": "event", "title": "P", "scoringsystem": [400, 300, 225], "rules": [],
+          "classes": [["", "F 500", "4*(1400):3"]], "participants": [], "races": []}
+    cp = MainWindow(ed).classpart_panel
+    cp._sync_phase("F 500", "/T", "1*(1000):1")
+    cp._sync_phase("F 500", "/Q", "3*(1000):1!qualification[4,4,4]")
+    names = [r[1] for r in ed["classes"]]
+    assert "F 500/T" in names and "F 500/Q" in names    # internal phase rows written by cozer
+    cp._sync_phase("F 500", "/T", "")                   # disabling removes it (no race uses it)
+    assert "F 500/T" not in [r[1] for r in ed["classes"]]
+
+
+def test_phases_dialog_round_trips_patterns_and_counts():
+    _app()
+    from cozer.app.classpart import PhasesDialog
+    dlg = PhasesDialog(None, "F 500", "1*(1000):1", "3*(1000):1!qualification[4,4,4]")
+    assert dlg.tt_enable.isChecked() and dlg.q_enable.isChecked()
+    assert dlg.q_pat.text() == "3*(1000):1" and dlg.q_counts.text() == "4,4,4"   # counts split out
+    assert dlg.timetrial_pattern() == "1*(1000):1"
+    assert dlg.qualification_pattern() == "3*(1000):1!qualification[4,4,4]"       # recombined
+
+
+def test_phases_dialog_omitted_phase_returns_empty():
+    _app()
+    from cozer.app.classpart import PhasesDialog
+    dlg = PhasesDialog(None, "F 500", None, None)
+    assert not dlg.tt_enable.isChecked() and not dlg.q_enable.isChecked()
+    assert dlg.timetrial_pattern() == "" and dlg.qualification_pattern() == ""
