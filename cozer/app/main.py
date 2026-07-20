@@ -723,7 +723,7 @@ class MainWindow(QMainWindow):
         opts = QGroupBox("Report options")
         ol = QVBoxLayout(opts)
         typerow = QHBoxLayout()
-        typerow.addWidget(QLabel("Report:"))
+        typerow.addWidget(QLabel("Report type:"))
         self.report_combo = QComboBox()
         for r in _REPORTS:
             self.report_combo.addItem(r[0])
@@ -737,19 +737,19 @@ class MainWindow(QMainWindow):
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
         v.addWidget(opts)
-        btnrow = QHBoxLayout()                            # actions (not options): View / Export
+        v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
+        self.report_tree = QTreeWidget()
+        self.report_tree.setHeaderHidden(True)
+        v.addWidget(self.report_tree)
+        btnrow = QHBoxLayout()                            # actions (not options): bottom-right
+        btnrow.addStretch()
         view = QPushButton("View")
         view.clicked.connect(self.on_view)
         btnrow.addWidget(view)
         export = QPushButton("Export…")
         export.clicked.connect(self.on_export)
         btnrow.addWidget(export)
-        btnrow.addStretch()
         v.addLayout(btnrow)
-        v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
-        self.report_tree = QTreeWidget()
-        self.report_tree.setHeaderHidden(True)
-        v.addWidget(self.report_tree)
         return w
 
     def _reload_classes(self):
