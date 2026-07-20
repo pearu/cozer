@@ -77,6 +77,33 @@ def classify(eventdata, cl):
     return out
 
 
+def qheat_qualify_count(eventdata, cl, number):
+    """How many boats qualify from qheat ``number`` (its ``!qualification[…]`` count), or 0."""
+    counts = qualification_counts(class_pattern(eventdata, cl))
+    return counts[number - 1] if counts and 1 <= number <= len(counts) else 0
+
+
+def classify_qheat(eventdata, cl, number):
+    """Per-qheat Q / DNQ for a SINGLE qualification qheat ``number``: its top-``count`` finishers
+    are ``"Q"``, the rest ``"DNQ"`` (§4.1). ``{boat_id: "Q"|"DNQ"}`` in no particular order;
+    ``{}`` if ``cl`` has no such qheat / counts / record. This is the per-qheat view for the
+    report printed after each qheat; :func:`classify` aggregates across all qheats for the
+    finals feed (a repechage Q there can override an earlier DNQ)."""
+    ph = class_phase_map(eventdata).get(cl)
+    counts = qualification_counts(class_pattern(eventdata, cl))
+    if ph is None or not counts or not (1 <= number <= len(counts)):
+        return {}
+    canon = canonical_record(ph, number)
+    if canon is None:
+        return {}
+    hid, rec = canon
+    ss = eventdata.get("scoringsystem", [])
+    rc = rule_action_codes(eventdata)
+    order = [str(b) for b in getresorder(analyze(hid, [dict(rec[0]), rec[1]], ss, rc))]
+    top = counts[number - 1]
+    return {b: ("Q" if i < top else "DNQ") for i, b in enumerate(order)}
+
+
 def finalists(eventdata, cl):
     """The qualified boat ids (``"primary"`` or ``"repechage"``) — the finals field."""
     return [b for b, s in classify(eventdata, cl).items() if s != "dnq"]

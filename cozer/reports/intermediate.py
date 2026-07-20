@@ -4,7 +4,8 @@ import time as _time
 
 from cozer.analyzer import analyze, sumanalyze, getresorder, rule_action_codes
 from cozer.classes import getclass
-from cozer.phases import class_phase_map, phase_heat_map
+from cozer.phases import class_phase_map, heat_number, phase_heat_map
+from cozer.qualification import classify_qheat, qheat_qualify_count
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
@@ -37,9 +38,13 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
         rulecodes = rule_action_codes(eventdata)
         res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         curheat = heats[-1]
-        multi = len(heats) > 1
         istt = ph.kind == "timetrial"                   # dispatch on the phase (was: curheat.endswith("t"))
+        isqual = ph.kind == "qualification"
+        multi = len(heats) > 1 and not isqual           # qual qheats are separate: no cross-heat summary
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats))) if multi else {}
+        # per-qheat Q/DNQ (top-N of THIS qheat qualify) — the "printed after each qheat" view
+        qmarks = classify_qheat(eventdata, cl, heat_number(curheat)) if isqual else {}
+        qcount = qheat_qualify_count(eventdata, cl, heat_number(curheat)) if isqual else 0
         legend = {}
         rows = []
         for pid in getresorder(res[curheat]):
@@ -52,6 +57,9 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
             if istt:
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
+            elif isqual:
+                row["result"] = _result_text(r, legend)
+                row["status"] = qmarks.get(str(pid), "")           # "Q" / "DNQ"
             else:
                 row["result"] = _result_text(r, legend)
                 row["points"] = str(r["points"]) if scored else "-"
@@ -64,12 +72,13 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
         st = heat_recs[curheat][0].get("starttime")
         starttime = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(st)) if st else labels["None"]
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
-                       "starttime": starttime, "rows": rows, "legend": _legend_html(legend, labels)})
+                       "isqual": isqual, "qcount": qcount, "starttime": starttime,
+                       "rows": rows, "legend": _legend_html(legend, labels)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables}
 
 
-def _header_and_cols(L, multi, istt):
+def _header_and_cols(L, multi, istt, isqual=False):
     if istt:
         cols = ['<col style="width:8%">', '<col style="width:44%">', '<col style="width:22%">',
                 '<col style="width:10%">', '<col style="width:16%">']
@@ -77,6 +86,14 @@ def _header_and_cols(L, multi, istt):
                 '<th class="num">%s</th></tr>'
                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]), esc(L["LapTime"])))
         return head, cols, 5
+    if isqual:                                          # Place, Name, From, No, Result, Q/DNQ
+        cols = ['<col style="width:7%">', '<col style="width:37%">', '<col style="width:14%">',
+                '<col style="width:8%">', '<col style="width:20%">', '<col style="width:14%">']
+        head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
+                '<th class="num">%s</th><th class="num">%s</th></tr>'
+                % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
+                   esc(L["Res"]), esc(L["Qualify"])))
+        return head, cols, 6
     if multi:
         # Place, Name, From, No, cur-Res, cur-Pts, total-Res, total-Pts — the summary
         # (total) Res/Pts need the same room as the current-heat ones to avoid wrapping.
@@ -102,14 +119,16 @@ def intermediate_html(model):
     L = model["labels"]
     body = []
     for t in model["tables"]:
-        multi, istt = t["multi"], t["istt"]
-        head, cols, ncols = _header_and_cols(L, multi, istt)
+        multi, istt, isqual = t["multi"], t["istt"], t.get("isqual", False)
+        head, cols, ncols = _header_and_cols(L, multi, istt, isqual)
         rows = []
         for r in t["rows"]:
             cells = ('<td class="num">%s</td><td class="name">%s</td><td>%s</td><td class="num">%s</td>'
                      % (esc(r["place"]), display(r["name"]), display(r["from"]), esc(r["id"])))
             if istt:
                 cells += '<td class="num">%s</td>' % esc(r["result"])
+            elif isqual:
+                cells += '<td class="num">%s</td><td class="num">%s</td>' % (r["result"], esc(r["status"]))
             else:
                 cells += '<td class="num">%s</td><td class="num">%s</td>' % (r["result"], esc(r["points"]))
                 if multi:

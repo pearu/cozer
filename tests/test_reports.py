@@ -408,3 +408,25 @@ def test_intermediate_timetrial_and_multidriver():
     # boat 2 ran a single lap (22s) -> it now shows a time (used to render "-", laptime=0).
     assert "20.000" in html and "22.000" in html
     assert "21.000" not in html                    # the slower lap is not the reported time
+
+
+def test_intermediate_qualification_shows_qdnq():
+    # A qualification qheat: the Intermediate report (printed after each qheat) marks the top-N
+    # finishers Q and the rest DNQ (the per-qheat advancement, UIM §4.1 / 209).
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    from cozer.native import to_native
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [400, 300, 225], "rules": [], "races": [],
+        "participants": [["", "A", "x", "EST", "F 500", "1"], ["", "B", "y", "FIN", "F 500", "2"],
+                         ["", "C", "z", "SWE", "F 500", "3"]],
+        "classes": [["", "F 500/Q", "1*(3*1000):1!qualification[2]"], ["", "F 500", "4*(1400):3"]],
+        "record": {"F 500/Q": {"1q": [{"course": [1000, 1000, 1000], "racetime": 1000.0}, {
+            "1": [(1, 20.0), (1, 20.0), (1, 20.0)], "2": [(1, 21.0), (1, 21.0), (1, 21.0)],
+            "3": [(1, 22.0), (1, 22.0), (1, 22.0)]}]}},
+    })
+    m = build_intermediate(ed)
+    t = next(x for x in m["tables"] if x.get("isqual"))
+    assert t["qcount"] == 2                                 # top 2 of the qheat qualify
+    assert {r["id"]: r["status"] for r in t["rows"]} == {"1": "Q", "2": "Q", "3": "DNQ"}
+    html = intermediate_html(m)
+    assert "Q/DNQ" in html and "DNQ" in html               # the status column renders

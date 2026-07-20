@@ -93,9 +93,12 @@ per kind). All 209 common content applies per heat and in the summary.
 
 ### 5.2 Qualification
 
-- **No qualification report exists.** Nothing renders a qual ranking with per-qheat
-  **Q/DNQ** advancement; a qualification phase falls through to intermediate/finals as
-  circuit-style tables. Biggest gap. → **P1**, see §6.
+- **[FIXED 2026-07-20, per-qheat] Intermediate report is now qualification-aware.** For a
+  qualification qheat it shows an `isqual` table — finishing order + a **Q/DNQ** Status column
+  (the qheat's top-`count` qualify, `qualification.classify_qheat`). This is the *Intermediate-like*
+  view, printed after each qheat (owner). Hooks the per-phase model (`ph.kind == "qualification"`).
+- **[TODO, combined] A *Final-like* qualification summary** — one combined Q/DNQ advancement table
+  per class (who reached the finals across all qheats, incl. the repechage). Follow-up (item 2b).
 
 ### 5.3 Finals / circuit (and shared across kinds)
 
@@ -122,7 +125,8 @@ per kind). All 209 common content applies per heat and in the summary.
 | # | Fix | Priority | Notes |
 |---|-----|----------|-------|
 | 1 | ~~Time-trial best-lap **time**~~ | ✅ **DONE** | `analyze` reports the best (max-speed) lap's measured time; fixes the 1-lap `-`. See §5.1. |
-| 2 | **Qualification report** (new kind) | **P1** (gap) | 209 result content per qheat + **Q/DNQ** advancement; hooks `qualification.classify`; slots into the per-phase report model. |
+| 2 | Qualification per-qheat (Intermediate-like) | ✅ **DONE** | Intermediate report `isqual` mode: per-qheat results + Q/DNQ Status (top-N qualify). See §5.2. |
+| 2b | Qualification summary (Final-like) | **P1** (gap) | Combined Q/DNQ advancement per class across all qheats (incl. repechage). Follow-up. |
 | 3 | Restart `R` / `R2` display | P2 | Map heat-id `1r`→`1R`, last-heat `1R`→`1R2` in heat headers (context-aware). Presentation-only. |
 | 4 | Nationality column | P2 | Depends on **D1**. |
 | 5 | Laps for all finishers | P3 | Depends on **D3**. |
@@ -160,3 +164,7 @@ per kind). All 209 common content applies per heat and in the summary.
 - **2026-07-20** — Plan item **1 done**: `analyze` reports the best (max-speed) lap's measured
   time as `laptime`, fixing the 1-lap TT `-` (§5.1). Synthetic analyze golden re-anchored
   `0 → 20.0` (deliberate divergence — legacy relied on manual lap-disabling). D1/D3 still open.
+- **2026-07-20** — Plan item **2 (per-qheat) done**: the Intermediate report is qualification-aware
+  (`isqual` mode) — per-qheat Q/DNQ Status (top-N qualify), the "printed after each qheat" view
+  (owner). `qualification.classify_qheat` added. Item **2b** (combined Final-like qual summary)
+  remains.
