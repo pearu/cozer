@@ -1,4 +1,6 @@
 """Shared helpers for building and rendering cozer reports."""
+from datetime import datetime
+
 from cozer.phases import _parse_heat_id
 from cozer.racepattern import crack_race_pattern
 from cozer.reports.latexish import latex_to_html
@@ -115,18 +117,58 @@ def sheats_for(eventdata, cl, default):
 
 
 def meta_of(eventdata):
-    return {k: eventdata.get(k, "") for k in ("title", "venue", "date", "officer", "secretary")}
+    return {k: eventdata.get(k, "")
+            for k in ("title", "venue", "date", "officer", "secretary", "uim_commissioner")}
 
 
-def document_html(orientation, labels, meta, heading, body_parts, subtitle=""):
+def _posting_block(labels, meta, posted_date):
+    """The §209 posting footer for a results sheet: a "Posted on: <date> __:__" line (``date`` is
+    the day the document is generated; the time is left blank for the poster to hand-write in pen —
+    the §209 *actual time of posting*, which starts the protest clock) plus ruled signature lines
+    for each *assigned* signer — the OOD/Race Director (or delegate, §209/p37) and the UIM Sports
+    Commissioner (co-signs before posting, p30 item 14). A signer with no name is omitted. Inline-
+    styled so it never touches the shared TABLE_CSS (byte-identical for the frozen legacy reports)."""
+    posted = ('<div style="margin-top:3.2em;font-size:9.5pt">%s: %s &nbsp;&nbsp;__:__</div>'
+              % (esc(labels["PostedOn"]), esc(posted_date)))
+    cells = []
+    for role, name in ((labels["OfficeroftheDay"], meta.get("officer", "")),
+                       (labels["UIMCommissioner"], meta.get("uim_commissioner", ""))):
+        if not (name or "").strip():
+            continue                                       # only show a signer that has a name
+        cells.append('<td style="width:44%%;border:0;padding:5.5em 0 0 0;text-align:center;'
+                     'vertical-align:bottom">'
+                     '<div style="border-top:1px solid #000;padding-top:2px;font-size:9pt">%s</div>'
+                     '<div style="font-size:8pt;color:#444">%s</div></td>'
+                     % (display(name), esc(role)))
+    sigs = ""
+    if cells:
+        filler = ('<td style="width:12%;border:0"></td>' if len(cells) == 2
+                  else '<td style="width:56%;border:0"></td>')
+        inner = cells[0] + filler + (cells[1] if len(cells) == 2 else "")
+        sigs = ('<table style="width:100%%;border:0;border-collapse:collapse">'
+                '<tr>%s</tr></table>' % inner)
+    return '<div class="posting" style="break-inside:avoid">%s%s</div>' % (posted, sigs)
+
+
+def document_html(orientation, labels, meta, heading, body_parts, subtitle="", posting=False):
     """Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``
-    (optional) is shown under the heading -- used for the phase-kind line (§10-E)."""
-    css = page_css(
-        orientation,
-        footer_left="%s  /%s/" % (meta["officer"], labels["OfficeroftheDay"]),
-        footer_center=labels["Page"],
-        footer_right="%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"]),
-    )
+    (optional) is shown under the heading -- used for the phase-kind line (§10-E). ``posting`` adds
+    the §209 posting metadata (a render-time "Printed at" stamp + the "Posted on"/signature block);
+    it is passed only by the native results builders, so the frozen legacy reports (posting off) are
+    byte-identical."""
+    now = datetime.now()
+    if posting:
+        # The OOD is a signer in the posting block, so it is redundant in the footer — put the
+        # informational render-time "Printed at" stamp in its place (footer-left); keep the
+        # Secretary only when named. (posting reports only, so the legacy footer is untouched.)
+        footer_left = "%s %s" % (labels["PrintedAt"], now.strftime("%Y-%m-%d %H:%M"))
+        footer_right = (("%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"]))
+                        if (meta.get("secretary") or "").strip() else "")
+    else:
+        footer_left = "%s  /%s/" % (meta["officer"], labels["OfficeroftheDay"])
+        footer_right = "%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"])
+    css = page_css(orientation, footer_left=footer_left, footer_center=labels["Page"],
+                   footer_right=footer_right)
     parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
     parts.append('<h1 class="event-title">%s</h1>' % display(meta["title"]))
     parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
@@ -135,4 +177,6 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle=""):
     if subtitle:
         parts.append('<div class="report-subtitle">%s</div>' % display(subtitle))
     parts.extend(body_parts)
+    if posting:      # "Posted on" carries the generation date (owner); time left blank for pen
+        parts.append(_posting_block(labels, meta, now.strftime("%Y-%m-%d")))
     return "\n".join(parts)

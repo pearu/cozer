@@ -56,13 +56,15 @@ APP_QSS = (
 
 DEFAULT_EVENT = {
     "title": "", "venue": "", "date": "", "officer": "", "secretary": "",
+    "uim_commissioner": "",
     "kind": "event", "scoringsystem": [], "classnames": [], "classes": [],
     "participants": [], "races": [], "rules": [], "record": {},
     "configure": {"language": "English"}, "schema": 2,   # new events are suffix-free native
 }
 
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
-                 ("officer", "Officer of the Day"), ("secretary", "Secretary General")]
+                 ("officer", "Officer of the Day"), ("secretary", "Secretary General"),
+                 ("uim_commissioner", "UIM Commissioner")]
 
 # External links surfaced from the Help menu / About box.
 RULEBOOK_URL = "https://www.uim.sport/RuleBookReleaseList.aspx"   # all U.I.M. rule books

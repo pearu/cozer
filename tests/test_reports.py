@@ -342,6 +342,39 @@ def test_endurance_conditional_from_nationality_and_labels():
     assert "From" not in h2 and "Nat." not in h2 and "EST" not in h2       # both hidden
 
 
+def test_posting_metadata_native_only():
+    # §10/§209: native results reports carry a render-time "Printed at" stamp, a "Posted on:
+    # <date> __:__" line (date auto-filled, time blank for pen), and a signature block (OOD/Race
+    # Director + UIM Sports Commissioner). The frozen legacy reports carry none of it.
+    from cozer.native import to_native
+    from cozer.reports.final import (build_full_final, full_final_html,
+                                     build_full_final_legacy, full_final_legacy_html)
+    from cozer.reports.common import meta_of
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [10, 8], "rules": [], "races": [],
+        "title": "GP", "venue": "V", "date": "2026-08-01", "officer": "OOD Name",
+        "secretary": "Sec", "uim_commissioner": "Comm Name",
+        "participants": [["", "A", "", "EST", "GT", "1"]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {h: [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                              {"1": [(1, 20.0)] * 3}] for h in ("1", "2")}},
+    })
+    assert meta_of(ed)["uim_commissioner"] == "Comm Name"      # the new field reaches reports
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    h = full_final_html(build_full_final(ed))
+    for token in ("Printed at", "__:__", "UIM Sports Commissioner", "Comm Name", "OOD Name",
+                  "Posted on: %s" % today):                     # Posted-on carries the generation date
+        assert token in h, token
+    assert h.count("OOD Name") == 1                             # officer only in the signature block, not the footer
+    # a signer with no name is omitted from the signature block
+    h_no_comm = full_final_html(build_full_final(dict(ed, uim_commissioner="")))
+    assert "UIM Sports Commissioner" not in h_no_comm and "OOD Name" in h_no_comm
+    hl = full_final_legacy_html(build_full_final_legacy(ed))
+    for token in ("Printed at", "Posted on", "__:__", "UIM Sports Commissioner", "Comm Name"):
+        assert token not in hl, token                          # legacy: no posting block
+
+
 # --- coverage sweep -------------------------------------------------------
 
 @pytest.mark.parametrize("render_name,event", [

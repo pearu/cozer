@@ -165,10 +165,11 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
             "full": full, "heading": labels["FinalResults"], "tables": tables,
             "subtitle": subtitle,
-            # From/Nationality columns are native-only (legacy stays byte-faithful: From always,
-            # no Nationality); each native column shows only when it varies across the event.
+            # From/Nationality columns + the §209 posting block are native-only (legacy stays
+            # byte-faithful: From always, no Nationality, no posting block).
             "show_from": show_from(eventdata) if phase_native else True,
-            "show_nat": show_nationality(eventdata) if phase_native else False}
+            "show_nat": show_nationality(eventdata) if phase_native else False,
+            "posting": phase_native}
 
 
 # New phase-native reports (PHASES §5.1 step 4 / §10-E): the DNQ tail + phase-kind subtitle.
@@ -271,7 +272,8 @@ def _results_html(model):
     show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     body = [_table_html(t, model["labels"], model["full"], show_f, show_n) for t in model["tables"]]
     return document_html(model["orientation"], model["labels"], model["meta"], model["heading"],
-                         body, subtitle=model.get("subtitle", ""))
+                         body, subtitle=model.get("subtitle", ""),
+                         posting=model.get("posting", False))
 
 
 def full_final_html(model):

@@ -70,7 +70,7 @@ def build_qualification(eventdata, classes=None, heat_map=None):
         tables.append({"class": getclass(cl), "rows": rows,
                        "legend": _legend_html(legend, labels, extra=labels["QualifyNote"])})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
-            "heading": labels["PhaseQualification"], "tables": tables,
+            "heading": labels["PhaseQualification"], "tables": tables, "posting": True,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -105,7 +105,8 @@ def qualification_html(model):
                     '<tbody>%s</tbody></table>' % (cols, head, "".join(rows)))
         if t["legend"]:
             body.append('<div class="legend">%s</div>' % t["legend"])
-    return document_html(model["orientation"], L, model["meta"], model["heading"], body)
+    return document_html(model["orientation"], L, model["meta"], model["heading"], body,
+                         posting=model.get("posting", False))
 
 
 def render_qualification(eventdata, out_path, classes=None, heat_map=None):

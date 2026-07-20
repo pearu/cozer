@@ -74,7 +74,7 @@ def build_endurance_final(eventdata, classes=None, heat_map=None):
             })
         tables.append({"class": getclass(cl), "rows": rows})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "landscape",
-            "heading": labels["FinalResults"], "tables": tables,
+            "heading": labels["FinalResults"], "tables": tables, "posting": True,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -121,7 +121,8 @@ def endurance_final_html(model):
         body.append('<h3 class="class-heading">%s %s</h3>' % (esc(L["Class"]), display(t["class"])))
         body.append('<table class="results">%s<thead>%s</thead><tbody>%s</tbody></table>'
                     % (colg, head, "".join(rows)))
-    return document_html(model["orientation"], L, model["meta"], model["heading"], body)
+    return document_html(model["orientation"], L, model["meta"], model["heading"], body,
+                         posting=model.get("posting", False))
 
 
 def render_endurance_final(eventdata, out_path, classes=None, heat_map=None):

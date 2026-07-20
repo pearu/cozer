@@ -41,6 +41,21 @@ def test_event_field_edits_update_eventdata():
     assert w.eventdata["venue"] == "Lake Harku"
 
 
+def test_uim_commissioner_settings_field():
+    # §10 posting metadata: the UIM Sports Commissioner is a stored event field, editable in the
+    # settings form (loads on open, writes back on edit) and defaulted blank on a new event.
+    from cozer.app.main import DEFAULT_EVENT
+    from cozer.app.ruleset import new_ruleset
+    assert DEFAULT_EVENT["uim_commissioner"] == "" and new_ruleset()["uim_commissioner"] == ""
+    _app()
+    ev = _timer_event()
+    ev["uim_commissioner"] = "Carlo"
+    w = MainWindow(ev)
+    assert w._fields["uim_commissioner"].text() == "Carlo"     # loads the stored value
+    w._fields["uim_commissioner"].setText("Dana")
+    assert w.eventdata["uim_commissioner"] == "Dana"           # edits write back
+
+
 def test_new_and_save_and_reopen(tmp_path, monkeypatch):
     _app()
     ed = read_legacy_coz(EVENT)

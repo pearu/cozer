@@ -149,6 +149,7 @@ def new_ruleset(name=""):
     """A blank ruleset eventdata (kind == 'ruleset', no races/records)."""
     return {
         "title": name, "venue": "", "date": "", "officer": "", "secretary": "",
+        "uim_commissioner": "",
         "kind": RULESET_KIND,
         "scoringsystem": [], "classnames": [], "rules": [],
         "classes": [], "participants": [], "races": [], "record": {},

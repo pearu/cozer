@@ -82,7 +82,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                        "isqual": isqual, "qcount": qcount, "starttime": starttime,
                        "rows": rows, "legend": _legend_html(legend, labels, resnote, qnote)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
-            "heading": labels["IntermediateResults"], "tables": tables,
+            "heading": labels["IntermediateResults"], "tables": tables, "posting": True,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -149,7 +149,8 @@ def intermediate_html(model):
                     '<tbody>%s</tbody></table>' % ("".join(cols), head, "".join(rows)))
         if t["legend"]:
             body.append('<div class="legend">%s</div>' % t["legend"])
-    return document_html(model["orientation"], L, model["meta"], model["heading"], body)
+    return document_html(model["orientation"], L, model["meta"], model["heading"], body,
+                         posting=model.get("posting", False))
 
 
 def render_intermediate(eventdata, out_path, classes=None, heat_map=None, options=None):
