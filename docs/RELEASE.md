@@ -73,8 +73,9 @@ dialog's **"Update now"** button dispatches `_apply_update`:
 `releases/latest/download/COZER-Setup-Windows.exe` — a **stable, version-independent** URL. So the
 release workflow uploads the installer under that stable name (`cp` before `gh release upload`),
 and the docs need **no per-release edit**. (The wheel keeps its versioned name; `update.py` finds
-either asset by suffix.) NB: `v3.0.0rc1` was published with the *versioned* asset name before this
-fix, so that direct link 404s until rc1 is re-released (re-tag) or the next release lands.
+either asset by suffix.) Live from **`v3.0.0rc2`**: the direct link `releases/latest/download/
+COZER-Setup-Windows.exe` resolves (302 → the rc2 asset). `v3.0.0rc1` (versioned asset) is
+superseded.
 
 ### Phase 3 — optional polish
 - **Throttled startup check** (once/day, background, reusing the offline-tolerant Reporter
@@ -102,3 +103,7 @@ fix, so that direct link 404s until rc1 is re-released (re-tag) or the next rele
   (pip installs), open the installer download (Windows), or informational (source). Also fixed the
   release to upload the installer under the **stable** name `COZER-Setup-Windows.exe` so the install
   guides' `releases/latest/download/…` direct link works with no per-release doc edits. 607 green.
+- **2026-07-21** — **`v3.0.0rc2` cut**: pushed the §10-G qualification fix + Phase 2 + the
+  stable-asset workflow fix, bumped to `3.0.0rc2`, tagged → Release live with the **stable**
+  `COZER-Setup-Windows.exe` (+ wheel). Verified: `releases/latest` = rc2, the install-guide direct
+  link resolves (302), `update.check()`/`recommend()` see rc2 end-to-end. CI green on main.
