@@ -39,6 +39,27 @@ def test_classify_primary_repechage_dnq():
                                    "20": "repechage", "40": "dnq"}
 
 
+def test_classify_honors_manual_dnq_mark():
+    # §10-G regression: a manual DNQ/NQ qheat mark must EXCLUDE the boat (sort it AFTER the unmarked
+    # boats), not promote it. Before the fix a DNQ mark sorted the boat *ahead* of unmarked boats, so
+    # marking a boat DNQ paradoxically qualified it (and demoted a genuine qualifier).
+    from cozer.records import DNQ
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    pat = "1*(3*1000):1!qualification[1]"                 # one qheat, top-1 qualifies
+
+    def qh(dnq_boat):                                     # boats 10<20<30 by speed; dnq_boat marked
+        rec = {b: [(1, 20.0 + i)] * 3 for i, b in enumerate(("10", "20", "30"))}
+        rec[dnq_boat] = [(DNQ, 5.0, "DNQ")] + rec[dnq_boat]
+        return {"1q": [info, rec]}
+
+    # mark the FASTEST boat (10) DNQ -> excluded; the next unmarked boat (20) qualifies instead
+    r = classify(_ev(qh("10"), pattern=pat), "C/Q")
+    assert r["10"] == "dnq" and r["20"] == "primary"
+    # mark the SLOWEST boat (30) DNQ -> it stays dnq; it is NOT promoted over the unmarked leader
+    r2 = classify(_ev(qh("30"), pattern=pat), "C/Q")
+    assert r2["10"] == "primary" and r2["30"] == "dnq"
+
+
 def test_finalists_excludes_dnq():
     ed = _ev({"1q": _q("10", "20"), "2q": _q("30", "40"), "3q": _q("20", "40")})
     assert set(finalists(ed, "C/Q")) == {"10", "30", "20"}       # DNQ boat 40 excluded

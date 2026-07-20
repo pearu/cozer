@@ -540,7 +540,12 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                 if n and n not in notes[k]:
                     notes[k].append(n)
             elif m[0] in (NQ, DNQ):  # not qualified
-                qualification = 2
+                # In a qualification heat a DNQ/NQ mark *excludes* the boat, so it must sort AFTER
+                # unmarked boats (rank 5 > unmarked's 3) -- otherwise (rank 2 < 3) it sorts ahead and
+                # is promoted into the top-`count`, the inverse of the operator's intent (PHASES.md
+                # §10-G; qheat-exclusion-is-a-DNQ-mark). Outside a qualification heat the mark has no
+                # top-count meaning, so keep the legacy rank (2) -- byte-identity, no divergence.
+                qualification = 5 if isqualification else 2
                 n = m[2].strip()
                 k = invreccodemap[m[0]]
                 if k not in notes:
