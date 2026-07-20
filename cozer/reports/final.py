@@ -46,10 +46,11 @@ def _result_text(r, legend, show_laps=False):
     return " ".join(parts).strip() or "-"
 
 
-def _legend_html(legend, labels, note=None):
+def _legend_html(legend, labels, note=None, extra=None):
     """Footnotes (¹ rule-text) + code glossary (DQ = Disqualif.) + a leading result note. The note
     defaults to the speed ``ResNote``; a caller whose result column is not speed (e.g. a time-trial
-    Lap Time table) passes its own, so the footer describes the column that is actually shown."""
+    Lap Time table) passes its own, so the footer describes the column that is actually shown.
+    ``extra`` appends one more note at the end (e.g. the Q/DNQ key for a qualification report)."""
     foot, codes = [], []
     for (code, rules), idx in sorted(legend.items(), key=lambda kv: kv[1]):
         foot.append("<sup>%s</sup> %s" % (idx, display(rules)))
@@ -60,6 +61,8 @@ def _legend_html(legend, labels, note=None):
         lab = labels.get(RECCODE_LABEL.get(code, ""))
         if lab:
             bits.append("%s = %s" % (esc(code), esc(lab)))
+    if extra:
+        bits.append(esc(extra))
     return "; ".join(bits)
 
 

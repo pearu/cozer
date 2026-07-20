@@ -67,7 +67,8 @@ def build_qualification(eventdata, classes=None, heat_map=None):
         rows.sort(key=lambda r: r["_sort"])
         for r in rows:
             del r["_sort"]
-        tables.append({"class": getclass(cl), "rows": rows, "legend": _legend_html(legend, labels)})
+        tables.append({"class": getclass(cl), "rows": rows,
+                       "legend": _legend_html(legend, labels, extra=labels["QualifyNote"])})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["PhaseQualification"], "tables": tables,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}

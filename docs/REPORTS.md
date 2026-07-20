@@ -186,8 +186,8 @@ inline.
 |---|---|---|
 | **Intermediate — time trial** (`istt`) | Footer prints `ResNote` = "Result = AverSpeed / MaxLapSpeed [km/h]", but the `istt` table has **no Res column** — it shows **Lap Time** (s). The note describes a column that isn't there. | ✅ **DONE** (`6629b19`): `_legend_html(…, note=)` is mode-aware; `istt` now shows **"Lap Time = best full lap [s]"** (new `LapTimeNote` label), footnotes kept. Verified: footer correct, no speed leak. |
 | **Endurance final** | Renders `From` **unconditionally** and has **no Nationality column** — the D1 conditional From/Nationality pass skipped this report. Its `Total Laps Time` / `Total Laps` headers are also **hardcoded English** (no label → no ET). | ✅ **DONE** (`6629b19`): D1 treatment applied (`show_from`/`show_nationality`/`nationalities_index`); headers moved to `labels` (`TotalLapsTime`/`TotalLaps`, ET owner-to-verify). Verified: Nationality shows when it varies. |
-| **Intermediate `isqual` + Qualification summary** | The `Qualify` = Q/DNQ column has no legend explaining Q vs DNQ. | Minor: add a short "Q = qualified, DNQ = did not qualify" note. |
-| **Endurance final** | `heading` reuses `FinalResults` — no endurance/phase-kind subtitle (the finals report has one). | Minor: give it its own heading/subtitle. |
+| **Intermediate `isqual` + Qualification summary** | The `Qualify` = Q/DNQ column has no legend explaining Q vs DNQ. | ✅ **DONE** (owner agreed 2026-07-21): `_legend_html(…, extra=)` appends the key "Q = qualified, DNQ = did not qualify" (new `QualifyNote` label) to both reports' legends. |
+| **Endurance final** | `heading` reuses `FinalResults` — no endurance/phase-kind subtitle (the finals report has one). | ⏸ **DEFERRED** — see §11: the owner wants the endurance report **folded into Full Final**, which would retire it; no point giving a soon-redundant report its own subtitle. |
 
 **Clean** (content fits purpose, no change): Participants, Full/Short Final, Qualification summary
 (the speed `ResNote` is correct — its Res column *is* speed), Laps protocol (boat-number crossing
@@ -246,6 +246,22 @@ legacy output byte-identical, goldens stay green). **Implementation is b76f2173'
 settings form + `meta_of` + `document_html` + each native builder + labels: `UIMCommissioner`,
 `PostedOn`, `PrintedAt`); 7948e787 spec'd it + can verify after.
 
+## 11. Direction — fold Endurance into Full Final (retire the separate report)
+
+**Owner direction (2026-07-21):** the standalone **Endurance Full Final** report *"should become
+redundant if Full Final for endurance races is adjusted accordingly."* I.e. rather than a parallel
+endurance builder, the one **Full Final** report should render endurance results itself (the
+endurance columns — **Total Laps Time / Total Laps** in place of, or beside, per-heat speed) when the
+phase kind is endurance, and the separate `endurance.py` report is then removed from the menu.
+
+- **Why:** one results report per finals phase, kind-aware, instead of two near-parallel builders to
+  keep in sync (the D1 / posting-metadata / any future change otherwise has to be applied twice).
+- **Not yet scoped/started** — a design + owner sign-off task. The recent endurance work (D1
+  conditional columns, `TotalLapsTime`/`TotalLaps` labels) **carries over**: those columns/labels are
+  what Full Final would reuse for the endurance case.
+- **Interaction:** do the §10 posting-metadata pass in a way that doesn't entrench the endurance
+  report (its block flows from `document_html` regardless), so this consolidation stays cheap later.
+
 ## Change log
 
 - **2026-07-20** — Initial draft: audit of the four native report builders vs UIM 209 /
@@ -293,3 +309,8 @@ settings form + `meta_of` + `document_html` + each native builder + labels: `UIM
   event field (default + settings-form entry + `meta_of`), and the "Posted on" **date auto-filled**
   from the event date with only the **time left blank** for pen. Spec'd with wiring points
   (`main.py`/`ruleset.py` defaults, form list, `meta_of`, `document_html` gated the D1 way).
+- **2026-07-21** — **§9 minor "Q/DNQ legend" done** (b76f2173; owner agreed): `_legend_html(…,
+  extra=)` appends "Q = qualified, DNQ = did not qualify" (new `QualifyNote` label) to the isqual
+  intermediate + qualification-summary legends. The endurance-subtitle minor is **deferred** in
+  favour of **§11**. **§11 added:** owner direction to **fold the endurance report into Full
+  Final** (kind-aware) and retire the separate builder — not yet scoped.

@@ -451,6 +451,7 @@ def test_intermediate_qualification_shows_qdnq():
     assert {r["id"]: r["status"] for r in t["rows"]} == {"1": "Q", "2": "Q", "3": "DNQ"}
     html = intermediate_html(m)
     assert "Q/DNQ" in html and "DNQ" in html               # the status column renders
+    assert "Q = qualified, DNQ = did not qualify" in html  # the Q/DNQ key in the legend
 
 
 def test_qualification_summary_final_like():
@@ -479,6 +480,7 @@ def test_qualification_summary_final_like():
         [("1", "1", "Q"), ("2", "1", "Q"), ("3", "Rep.", "Q"), ("4", "Rep.", "DNQ")]
     html = qualification_html(m)
     assert "Q/DNQ" in html and "Rep." in html
+    assert "Q = qualified, DNQ = did not qualify" in html         # the Q/DNQ key in the legend
     assert "Nat." in html and "EST" in html and "From" in html   # varied -> both columns shown
 
 

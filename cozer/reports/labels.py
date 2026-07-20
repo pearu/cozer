@@ -20,6 +20,7 @@ LABELS = {
         "Summary": "Summary", "Lp": "L", "Lap": "Lap", "Start": "Start", "None": "None",
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",
         "LapTimeNote": "Lap Time = best full lap [s]",   # time-trial footer (305.04.02)
+        "QualifyNote": "Q = qualified, DNQ = did not qualify",   # qualification Q/DNQ key
         "TotalLapsTime": "Total Laps Time", "TotalLaps": "Total Laps",   # endurance
         "Lostalap": "Lost a lap", "LostTwoLaps": "Lost two laps", "Penaltylap": "Penalty lap",
         "FivePenaltylaps": "5 penalty laps", "EightPenaltylaps": "8 penalty laps",
@@ -50,6 +51,7 @@ LABELS = {
         "Summary": "Kokkuvõte", "Lp": "R", "Lap": "Ring", "Start": "Start", "None": "-",
         "ResNote": "Tulemus = (Keskmine kiirus) / (Parim ringi kiirus) [km/h]",
         "LapTimeNote": "Ringi aeg = parim täisring [s]",   # NOTE: owner to verify Estonian
+        "QualifyNote": "Q = kvalifitseerus, DNQ = ei kvalifitseerunud",   # NOTE: owner to verify
         "TotalLapsTime": "Koguaeg", "TotalLaps": "Ringe kokku",   # NOTE: owner to verify Estonian
         "Lostalap": "Kaotas ringi", "LostTwoLaps": "Kaotas kaks ringi",
         "Penaltylap": "Trahviring", "FivePenaltylaps": "5 trahviringi",
