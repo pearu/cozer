@@ -57,10 +57,14 @@ def test_roundtrip_preserves_analysis_and_reports(name, path):
     assert store.dump_event(rt) == store.dump_event(store.load_event(store.dump_event(rt)))  # idempotent
 
     ss1, ss2 = ed.get("scoringsystem", []), rt.get("scoringsystem", [])
-    for cl in ed.get("record", {}):
-        for h in ed["record"][cl]:
-            a1 = _canon(analyzer.analyze(h, copy.deepcopy(ed["record"][cl][h]), ss1))
-            a2 = _canon(analyzer.analyze(h, copy.deepcopy(rt["record"][cl][h]), ss2))
+    # rt is the native shape (store saves/loads native); enumerate + access heats via the
+    # dual-shape phase view so the same heat is analyzed on the legacy `ed` and the native `rt`.
+    from cozer.phases import class_phase_map, phase_heat_ids
+    from cozer.native import record_heat
+    for cl, phase in class_phase_map(ed).items():
+        for h in phase_heat_ids(phase):
+            a1 = _canon(analyzer.analyze(h, copy.deepcopy(record_heat(ed, cl, h)), ss1))
+            a2 = _canon(analyzer.analyze(h, copy.deepcopy(record_heat(rt, cl, h)), ss2))
             assert a1 == a2, (name, cl, h, "analyze changed under round-trip")
 
     for build in _BUILDS:

@@ -35,9 +35,10 @@ def classnames_of(eventdata):
     names = list(eventdata.get("classnames") or [])
     seen = set(names)
     for row in eventdata.get("classes") or []:
-        if len(row) > 1 and row[1] and row[1] not in seen:
-            seen.add(row[1])
-            names.append(row[1])
+        name = row.get("name") if isinstance(row, dict) else (row[1] if len(row) > 1 else "")
+        if name and name not in seen:                    # native rows are {name, phases}; legacy are lists
+            seen.add(name)
+            names.append(name)
     return names
 
 

@@ -59,13 +59,13 @@ def participants_by_class(eventdata):
 
 
 def sheats_for(eventdata, cl, default):
-    for l in eventdata.get("classes", []):
-        if len(l) > 2 and l[1] == cl and l[2]:
-            try:
-                return crack_race_pattern(l[2], cl)[1]
-            except Exception:
-                return default
-    return default
+    # scored-heats count (":B") from the class pattern; class_pattern reads either the native
+    # base/phase model or the legacy suffixed rows, so this is shape-agnostic. No pattern ->
+    # score all heats (default). A malformed pattern is a real data fault and is left to raise
+    # (any class reaching a report was already analyzed, which cracks the same pattern).
+    from cozer.racepattern import class_pattern
+    pat = class_pattern(eventdata, cl)
+    return crack_race_pattern(pat, cl)[1] if pat else default
 
 
 def meta_of(eventdata):

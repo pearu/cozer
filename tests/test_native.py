@@ -145,8 +145,8 @@ def test_dump_event_writes_suffix_free_and_round_trips():
     assert '"schema"' in text                              # tagged native (self-describing)
     assert "/Q" not in text and "/T" not in text           # no class-name suffixes on disk
     assert '"1q"' not in text                               # no heat-id suffixes on disk
-    rt = load_event(text)
-    assert rt["record"] == ed["record"]                    # record byte-identical through the store
+    rt = load_event(text)                                  # store loads the native shape back
+    assert rt["record"] == to_native(ed)["record"]         # native record byte-identical through the store
 
 
 def test_to_native_and_from_native_are_idempotent():

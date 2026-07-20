@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
+from cozer.native import record_heat
 from cozer.phases import heat_number
 from cozer.qualification import qheat_boats
 from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed, race_kind
@@ -334,7 +335,7 @@ class TimerPanel(QWidget):
             heat_identity(self.eventdata, cl, h) for cl, h in self._heats)
 
     def _rec(self, cl, h):
-        return self.eventdata.get("record", {}).get(cl, {}).get(h)
+        return record_heat(self.eventdata, cl, h)      # dual-shape (native or legacy record)
 
     def _heat_ids(self, cl, h):
         rec = self._rec(cl, h)
@@ -579,7 +580,7 @@ class TimerPanel(QWidget):
         if not self._started:
             self.status.setText("Press Start (or Resume) to begin timing")
             return
-        rec = self.eventdata["record"][cl][h]
+        rec = record_heat(self.eventdata, cl, h)
         prev = sum(gettimes(rec[1].get(pid, [])))
         laptime = round2(self._clock.read_ns() / 1e9 - prev)
         if laptime < _MIN_LAP:             # hardware/double-click bounce, not a lap -> drop

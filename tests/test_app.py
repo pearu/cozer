@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from PySide6.QtCore import Qt  # noqa: E402
 
 from cozer.store import read_legacy_coz  # noqa: E402
+from cozer.native import record_heat  # noqa: E402
 from cozer.racepattern import get_classes  # noqa: E402
 from cozer.raceclock import RaceClock  # noqa: E402
 import cozer.app.main as appmain  # noqa: E402
@@ -185,7 +186,7 @@ def test_open_coz_edits_buffer_then_save_without_prompt(tmp_path, monkeypatch):
     w2 = MainWindow()
     w2.load(coz)
     assert w2.store is not None
-    assert w2.eventdata["record"][cl][h][0]["racetime"] == 123.0
+    assert record_heat(w2.eventdata, cl, h)[0]["racetime"] == 123.0
 
 
 def test_open_in_viewer_linux(monkeypatch):
@@ -642,7 +643,8 @@ def test_open_legacy_coz_seeds_classnames(tmp_path):
     w.load(coz)
     names = w.eventdata["classnames"]
     assert "O-500" in names and "S-250" in names
-    assert set(names) == {c[1] for c in w.eventdata["classes"] if len(c) > 1 and c[1]}
+    # loaded as the suffix-free native shape: class entries are base/phase dicts
+    assert set(names) == {c["name"] for c in w.eventdata["classes"] if c.get("name")}
     assert w.classnames_editor.list.count() == len(names)   # shown in the editor
 
 
@@ -693,13 +695,13 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     for t in (1020.0, 1041.0, 1063.0):
         clock[0] = t
         tp.record_lap("GT", "1", "1")
-    marks = w.eventdata["record"]["GT"]["1"][1]["1"]
+    marks = record_heat(w.eventdata, "GT", "1")[1]["1"]
     assert [m[0] for m in marks] == [1, 1, 1]
     assert [m[1] for m in marks] == [20.0, 21.0, 22.0]
     assert os.path.getsize(str(tmp_path / "e.cozj.journal")) > 0     # journaled + fsync'd
     import copy
     from cozer.analyzer import analyze
-    res = analyze("1", copy.deepcopy(w.eventdata["record"]["GT"]["1"]), [10, 5, 3])
+    res = analyze("1", copy.deepcopy(record_heat(w.eventdata, "GT", "1")), [10, 5, 3])
     assert "1" in res and "2" in res
 
 
@@ -759,10 +761,10 @@ def test_timer_running_order_and_both_views_record(tmp_path, monkeypatch):
     assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "1") in tp._ladder_boats
     clock[0] = 1020.0
     tp._ladder_boats[("GT", "1", "1")].click()        # clicking the LADDER records a lap
-    assert len(w.eventdata["record"]["GT"]["1"][1]["1"]) == 1
+    assert len(record_heat(w.eventdata, "GT", "1")[1]["1"]) == 1
     clock[0] = 1041.0
     tp._buttons[("GT", "1", "2")].click()             # clicking the GRID records a lap
-    assert len(w.eventdata["record"]["GT"]["1"][1]["2"]) == 1
+    assert len(record_heat(w.eventdata, "GT", "1")[1]["2"]) == 1
 
 
 def test_grid_buttons_autofit():
@@ -806,7 +808,7 @@ def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
     assert not tp._started
     tp.on_resume()
     assert tp._started                        # a start time exists -> resumes
-    assert len(w.eventdata["record"]["GT"]["1"][1]["1"]) == 1   # prior data kept
+    assert len(record_heat(w.eventdata, "GT", "1")[1]["1"]) == 1   # prior data kept
 
 
 def _record_then_reboot(tmp_path, monkeypatch, path):
@@ -838,7 +840,7 @@ def test_timer_survives_reboot_and_resume(tmp_path, monkeypatch):
     the machine was down."""
     _app()
     w2, tp2 = _record_then_reboot(tmp_path, monkeypatch, str(tmp_path / "e.cozj"))
-    rec = w2.eventdata["record"]["GT"]["1"]
+    rec = record_heat(w2.eventdata, "GT", "1")
     assert rec[1]["1"] == [[1, 20.0], [1, 21.0]] and rec[0]["starttime"] == 1000.0  # replayed
     clock = [1200.0]                          # correct clock: 200 s after start (incl. downtime)
     tp2._wall = lambda: clock[0]
@@ -846,7 +848,7 @@ def test_timer_survives_reboot_and_resume(tmp_path, monkeypatch):
     tp2.on_resume()
     clock[0] = 1205.0
     tp2.record_lap("GT", "1", "1")
-    laps = w2.eventdata["record"]["GT"]["1"][1]["1"]
+    laps = record_heat(w2.eventdata, "GT", "1")[1]["1"]
     assert laps == [[1, 20.0], [1, 21.0], [1, 164.0]]   # 1205-1041: downtime included
     assert sum(m[1] for m in laps) == 205.0             # = wall 1205 - start 1000
 
@@ -863,7 +865,7 @@ def test_timer_reboot_resume_floors_at_recorded_when_wall_clock_is_wrong(tmp_pat
     tp2.on_resume()                           # floors at 41 s, not the bogus 5 s
     clock[0] = 1010.0                          # a crossing 5 s after resume
     tp2.record_lap("GT", "1", "1")
-    laps = w2.eventdata["record"]["GT"]["1"][1]["1"]
+    laps = record_heat(w2.eventdata, "GT", "1")[1]["1"]
     assert len(laps) == 3                     # new lap kept, not dropped as negative
     assert laps[2] == [1, 5.0]                # 5 s since resume, off the floored point
 
@@ -1097,7 +1099,7 @@ def test_editor_panel_buffers_edits_until_save(tmp_path, monkeypatch):
     ep.reload()
     assert ep.heat_combo.count() == 1
     assert ep.timeline._rows and ep.timeline._rows[0][1]        # result shown in the row header
-    rec = w.eventdata["record"]["GT"]["1"]                     # the stored (committed) record
+    rec = record_heat(w.eventdata, "GT", "1")                     # the stored (committed) record
     jpath = str(tmp_path / "e.cozj.journal")
     before = os.path.getsize(jpath) if os.path.exists(jpath) else 0
 
@@ -1124,7 +1126,7 @@ def test_editor_panel_buffers_edits_until_save(tmp_path, monkeypatch):
     assert any(m[0] == 2 for m in rec[1]["1"])
     from cozer import store as _store                          # load via the real path (native on disk)
     saved = _store.load_event(open(str(tmp_path / "e.cozj"), encoding="utf-8").read())
-    assert saved["record"]["GT"]["1"][0]["racetime"] == 88.0    # durably snapshotted
+    assert record_heat(saved, "GT", "1")[0]["racetime"] == 88.0    # durably snapshotted
 
 
 def test_timeline_widget_coords():
@@ -1269,7 +1271,7 @@ def test_edit_records_flush_discard_reverts(tmp_path, monkeypatch):
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
     ep = w.editor_panel
     ep.reload()
-    orig = w.eventdata["record"]["GT"]["1"][0]["racetime"]
+    orig = record_heat(w.eventdata, "GT", "1")[0]["racetime"]
     ep.commit_racetime(555.0)
     assert ep._dirty is True
     ep._ask_unsaved = lambda: "discard"                        # user chooses Discard
@@ -1277,7 +1279,7 @@ def test_edit_records_flush_discard_reverts(tmp_path, monkeypatch):
     assert ep._dirty is False
     ep.refresh()                                               # reloads a fresh draft
     assert ep._draft[0]["racetime"] == orig                    # edit reverted
-    assert w.eventdata["record"]["GT"]["1"][0]["racetime"] == orig
+    assert record_heat(w.eventdata, "GT", "1")[0]["racetime"] == orig
 
 
 def test_edit_records_flush_cancel_keeps_draft(tmp_path, monkeypatch):
@@ -1302,7 +1304,7 @@ def test_edit_records_flush_save_persists(tmp_path, monkeypatch):
     ep._ask_unsaved = lambda: "save"                           # user chooses Save
     assert ep.maybe_flush() is True
     assert ep._dirty is False
-    assert w.eventdata["record"]["GT"]["1"][0]["racetime"] == 777.0
+    assert record_heat(w.eventdata, "GT", "1")[0]["racetime"] == 777.0
 
 
 def test_tab_switch_bounces_back_on_cancel(tmp_path, monkeypatch):
@@ -1587,17 +1589,20 @@ def test_qualification_base_tab_shows_qheat1_column():
     assert cw.model.columnCount() == 5                  # 4 base cols + qheat1 (F 500 has a /Q phase)
 
 
-def test_sync_phase_writes_and_removes_suffixed_rows():
+def test_sync_phase_writes_and_removes_phases():
     _app()
-    ed = {"kind": "event", "title": "P", "scoringsystem": [400, 300, 225], "rules": [],
-          "classes": [["", "F 500", "4*(1400):3"]], "participants": [], "races": []}
+    from cozer.native import to_native
+    from cozer.app.classpart import phase_pattern
+    ed = to_native({"kind": "event", "title": "P", "scoringsystem": [400, 300, 225], "rules": [],
+                    "classes": [["", "F 500", "4*(1400):3"]], "participants": [], "races": []})
     cp = MainWindow(ed).classpart_panel
-    cp._sync_phase("F 500", "/T", "1*(1000):1")
-    cp._sync_phase("F 500", "/Q", "3*(1000):1!qualification[4,4,4]")
-    names = [r[1] for r in ed["classes"]]
-    assert "F 500/T" in names and "F 500/Q" in names    # internal phase rows written by cozer
-    cp._sync_phase("F 500", "/T", "")                   # disabling removes it (no race uses it)
-    assert "F 500/T" not in [r[1] for r in ed["classes"]]
+    cp._sync_phase("F 500", "timetrial", "1*(1000):1")
+    cp._sync_phase("F 500", "qualification", "3*(1000):1!qualification[4,4,4]")
+    assert phase_pattern(ed, "F 500", "timetrial") == "1*(1000):1"        # phases authored natively
+    assert phase_pattern(ed, "F 500", "qualification") == "3*(1000):1!qualification[4,4,4]"
+    assert all(c["name"] == "F 500" for c in ed["classes"])              # no /T,/Q suffixes stored
+    cp._sync_phase("F 500", "timetrial", "")                             # disabling removes it (no race uses it)
+    assert phase_pattern(ed, "F 500", "timetrial") is None
 
 
 def test_phases_dialog_round_trips_patterns_and_counts():

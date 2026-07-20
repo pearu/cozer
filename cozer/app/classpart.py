@@ -24,8 +24,8 @@ from cozer.app import ruleset as rulesetmod
 from cozer.classes import getclass, isqclass, istclass
 from cozer.qualification import qualification_counts
 from cozer.racepattern import (
-    crack_race_pattern, describe_pattern, format_circuit_pattern, parse_simple_pattern,
-    race_kind,
+    class_pattern, crack_race_pattern, describe_pattern, format_circuit_pattern,
+    parse_simple_pattern, race_kind,
 )
 
 # The ``!qualification[N,N,M]`` hint token on a qualification phase's pattern.
@@ -73,17 +73,135 @@ def _set_heats(pattern, n):
                                   max(1, min(parsed["scored"], n)))
 
 
+_FINALS_KINDS = ("circuit", "endurance")
+
+
+def _is_native(eventdata):
+    return eventdata.get("schema", 1) >= 2
+
+
+def _class_name(row):
+    """The class/base name of a class-list row on either shape (native {name,…} or legacy list)."""
+    return row.get("name") if isinstance(row, dict) else (row[1] if len(row) > 1 else "")
+
+
 def base_classes(eventdata):
-    """Distinct BASE class names (``getclass``) in class-list order — a phase event's
-    ``/T`` / ``/Q`` rows collapse onto their base, so each base is one tab."""
+    """Distinct BASE class names in class-list order — a phase event's phases collapse onto
+    their base, so each base is one tab. Both shapes (native entries / legacy suffixed rows)."""
     out, seen = [], set()
     for row in eventdata.get("classes", []) or []:
-        if len(row) > 1 and row[1]:
-            b = getclass(row[1])
-            if b not in seen:
-                seen.add(b)
-                out.append(b)
+        b = getclass(_class_name(row))
+        if b and b not in seen:
+            seen.add(b)
+            out.append(b)
     return out
+
+
+def _phase_kinds(eventdata, base):
+    """The set of phase kinds present for ``base`` (both shapes)."""
+    if _is_native(eventdata):
+        for e in eventdata.get("classes", []) or []:
+            if e.get("name") == base:
+                return {ph["kind"] for ph in e.get("phases", []) or []}
+        return set()
+    return {race_kind(eventdata, row[1]) for row in eventdata.get("classes", []) or []
+            if len(row) > 1 and row[1] and getclass(row[1]) == base}
+
+
+def _finals_kind(eventdata, base):
+    """The base's finals phase kind (circuit / endurance) if present, else 'circuit'."""
+    for k in _phase_kinds(eventdata, base):
+        if k in _FINALS_KINDS:
+            return k
+    return "circuit"
+
+
+def phase_pattern(eventdata, base, kind):
+    """The full pattern (incl. the ``!qualification[…]`` token) for ``base``'s ``kind`` phase,
+    or ``None``. Both shapes."""
+    if _is_native(eventdata):
+        for e in eventdata.get("classes", []) or []:
+            if e.get("name") == base:
+                for ph in e.get("phases", []) or []:
+                    if ph["kind"] == kind:
+                        pat = ph.get("pattern", "") or ""
+                        if ph.get("qualifiers"):
+                            pat = "%s!qualification[%s]" % (pat, ",".join(str(c) for c in ph["qualifiers"]))
+                        return pat or None
+        return None
+    suffix = "/T" if kind == "timetrial" else "/Q" if kind == "qualification" else ""
+    return class_pattern(eventdata, base + suffix)
+
+
+def _native_entry(eventdata, base, create=False):
+    for e in eventdata.get("classes", []) or []:
+        if e.get("name") == base:
+            return e
+    if create:
+        e = {"name": base, "phases": []}
+        eventdata.setdefault("classes", []).append(e)
+        return e
+    return None
+
+
+def _legacy_name(base, kind):
+    return base + "/T" if kind == "timetrial" else base + "/Q" if kind == "qualification" else base
+
+
+def set_phase(eventdata, base, kind, pattern):
+    """Create or update ``base``'s ``kind`` phase to ``pattern`` (native: qualifiers split off
+    the pattern into a list; legacy: a suffixed class row)."""
+    if _is_native(eventdata):
+        entry = _native_entry(eventdata, base, create=True)
+        bare, quals = _strip_qual(pattern), qualification_counts(pattern)
+        ph = next((p for p in entry["phases"] if p["kind"] == kind), None)
+        if ph is None:
+            ph = {"kind": kind}
+            entry["phases"].append(ph)
+        ph["pattern"] = bare
+        if quals:
+            ph["qualifiers"] = list(quals)
+        else:
+            ph.pop("qualifiers", None)
+        return
+    name = _legacy_name(base, kind)
+    for row in eventdata.setdefault("classes", []):
+        if len(row) > 1 and row[1] == name:
+            while len(row) <= 2:
+                row.append("")
+            row[2] = pattern
+            return
+    eventdata.setdefault("classes", []).append(["", name, pattern])
+
+
+def remove_phase(eventdata, base, kind):
+    """Remove ``base``'s ``kind`` phase (both shapes)."""
+    if _is_native(eventdata):
+        e = _native_entry(eventdata, base)
+        if e is not None:
+            e["phases"] = [ph for ph in e.get("phases", []) if ph["kind"] != kind]
+        return
+    name = _legacy_name(base, kind)
+    eventdata["classes"] = [r for r in eventdata.get("classes", [])
+                            if not (len(r) > 1 and r[1] == name)]
+
+
+def add_base(eventdata, name):
+    """Add a new base class (with an empty finals phase)."""
+    if _is_native(eventdata):
+        eventdata.setdefault("classes", []).append(
+            {"name": name, "phases": [{"kind": "circuit", "pattern": ""}]})
+    else:
+        eventdata.setdefault("classes", []).append(["", name, ""])
+
+
+def remove_base(eventdata, base):
+    """Remove a base class and all its phases (both shapes)."""
+    if _is_native(eventdata):
+        eventdata["classes"] = [e for e in eventdata.get("classes", []) if e.get("name") != base]
+    else:
+        eventdata["classes"] = [r for r in eventdata.get("classes", [])
+                                if not (len(r) > 1 and r[1] and getclass(r[1]) == base)]
 
 
 # Shown as the qheat1 column's header tooltip — tells the operator when it applies.
@@ -95,14 +213,9 @@ _QHEAT1_TOOLTIP = (
 
 
 def has_qualification(eventdata, cl):
-    """True if class ``cl``'s base has a qualification-kind phase in the catalog — the
-    condition under which the qheat1 membership checkbox is shown (§5.1)."""
-    base = getclass(cl)
-    for row in eventdata.get("classes", []):
-        c = row[1] if len(row) > 1 else ""
-        if c and getclass(c) == base and race_kind(eventdata, c) == "qualification":
-            return True
-    return False
+    """True if class ``cl``'s base has a qualification-kind phase — the condition under which
+    the qheat1 membership checkbox is shown (§5.1). Both shapes."""
+    return "qualification" in _phase_kinds(eventdata, getclass(cl))
 
 
 # --- per-class participant table --------------------------------------------
@@ -544,26 +657,15 @@ class ClassesParticipantsPanel(QWidget):
             self.tabs.addTab(self._class_tab(base), base)
         self._update_counts()
 
-    def _named_row(self, name):
-        for r in self._classes():
-            if len(r) > 1 and r[1] == name:
-                return r
-        return None
-
-    def _plain_row(self, base):
-        """The base's plain (finals / main-race) class row — no ``/T``,``/Q`` suffix."""
-        return self._named_row(base)
-
-    def _phase_row(self, base, role):
-        """The base's ``/T`` (timetrial) or ``/Q`` (qualification) phase row, or None."""
-        return self._named_row(base + ("/T" if role == "timetrial" else "/Q"))
+    def _finals_pattern(self, base):
+        return phase_pattern(self.window.eventdata, base, _finals_kind(self.window.eventdata, base))
 
     def _class_tab(self, base):
         w = QWidget()
         w._cozer_class = base                        # authoritative base name (label carries a count)
         lv = QVBoxLayout(w)
         prow = QHBoxLayout()
-        summary = QLabel(self._pattern_summary(self._plain_row(base)))
+        summary = QLabel(self._pattern_summary(self._finals_pattern(base)))
         summary.setWordWrap(True)
         prow.addWidget(summary, 1)
         editp = QPushButton("Edit pattern…")
@@ -588,10 +690,10 @@ class ClassesParticipantsPanel(QWidget):
 
     def _phases_summary(self, base):
         bits = []
-        for role, label in (("timetrial", "Time trial"), ("qualification", "Qualification")):
-            row = self._phase_row(base, role)
-            if row is not None:
-                bits.append("%s: %s" % (label, (row[2] if len(row) > 2 else "") or "(no pattern)"))
+        for kind, label in (("timetrial", "Time trial"), ("qualification", "Qualification")):
+            pat = phase_pattern(self.window.eventdata, base, kind)
+            if pat is not None:
+                bits.append("%s: %s" % (label, pat or "(no pattern)"))
         return ("Qualifying phases —  " + "      ·      ".join(bits) if bits else
                 "Qualifying phases —  none (click Phases… to add a time trial or qualification)")
 
@@ -605,60 +707,45 @@ class ClassesParticipantsPanel(QWidget):
             n = sum(1 for p in parts if len(p) > 4 and p[4] == cl)
             self.tabs.setTabText(i, "%s (%d)" % (cl, n))
 
-    def _pattern_summary(self, classrow):
-        pat = classrow[2] if classrow and len(classrow) > 2 else ""
+    def _pattern_summary(self, pat):
+        pat = pat or ""
         return ("Race pattern (final):  %s     —     %s" % (pat, describe_pattern(pat))
                 if pat else "Race pattern (final):  (not set — click Edit pattern…)")
 
     def _edit_main_pattern(self, base, summary_label):
-        """Edit the base's plain (finals / main-race) pattern; create the row if new."""
-        row = self._plain_row(base)
-        if row is None:
-            row = ["", base, ""]
-            self._classes().append(row)
-        pat = row[2] if len(row) > 2 else ""
-        dlg = PatternDialog(self, base, pat)
+        """Edit the base's finals (main-race) pattern."""
+        kind = _finals_kind(self.window.eventdata, base)
+        dlg = PatternDialog(self, base, self._finals_pattern(base) or "")
         if dlg.exec():
-            while len(row) <= 2:
-                row.append("")
-            row[2] = dlg.pattern()
-            summary_label.setText(self._pattern_summary(row))
+            set_phase(self.window.eventdata, base, kind, dlg.pattern())
+            summary_label.setText(self._pattern_summary(dlg.pattern()))
             self.window._reload_classes()
 
     def _open_phases(self, base):
-        """Add / edit / remove the base's time-trial and qualification phases (writes the
-        internal ``/T`` / ``/Q`` class rows — the operator never types a suffix)."""
-        tt = self._phase_row(base, "timetrial")
-        qq = self._phase_row(base, "qualification")
-        finals = self._plain_row(base)
+        """Add / edit / remove the base's time-trial and qualification phases — cozer writes
+        the internal phase (a native phase entry, or a ``/T``/``/Q`` row); no suffix typed."""
+        ed = self.window.eventdata
         dlg = PhasesDialog(self, base,
-                           tt[2] if tt and len(tt) > 2 else None,
-                           qq[2] if qq and len(qq) > 2 else None,
-                           finals_pattern=finals[2] if finals and len(finals) > 2 else "")
+                           phase_pattern(ed, base, "timetrial"),
+                           phase_pattern(ed, base, "qualification"),
+                           finals_pattern=self._finals_pattern(base) or "")
         if not dlg.exec():
             return
-        self._sync_phase(base, "/T", dlg.timetrial_pattern())
-        self._sync_phase(base, "/Q", dlg.qualification_pattern())
+        self._sync_phase(base, "timetrial", dlg.timetrial_pattern())
+        self._sync_phase(base, "qualification", dlg.qualification_pattern())
         self.reload()
         self.window._reload_classes()
 
-    def _sync_phase(self, base, suffix, pattern):
-        """Create / update / remove the base's ``suffix`` phase row to match ``pattern``
-        (empty removes it, unless a race still uses that phase)."""
-        name = base + suffix
-        row = self._named_row(name)
+    def _sync_phase(self, base, kind, pattern):
+        """Create / update / remove the base's ``kind`` phase to match ``pattern`` (empty
+        removes it, unless a race still uses that phase)."""
         if pattern:
-            if row is None:
-                self._classes().append(["", name, pattern])
+            set_phase(self.window.eventdata, base, kind, pattern)
+        elif phase_pattern(self.window.eventdata, base, kind) is not None:
+            if self._phase_in_use(base, kind):
+                self.window.log("Kept the %s phase of %s — a race still uses it" % (kind, base))
             else:
-                while len(row) <= 2:
-                    row.append("")
-                row[2] = pattern
-        elif row is not None:
-            if self._class_in_use(name):
-                self.window.log("Kept phase %s — a race still uses it" % name)
-            else:
-                self._classes().remove(row)
+                remove_phase(self.window.eventdata, base, kind)
 
     def _add_class(self):
         existing = set(base_classes(self.window.eventdata))
@@ -675,20 +762,31 @@ class ClassesParticipantsPanel(QWidget):
             name = dlg.class_name()
             if not name:
                 return
-            self._classes().append(["", name, ""])   # name is already in the catalog
+            add_base(self.window.eventdata, name)    # name is already in the catalog
             self.reload()
             self.tabs.setCurrentIndex(self.tabs.count() - 1)
             self.window._reload_classes()
 
-    def _class_in_use(self, name):
-        """Reason class ``name`` can't be removed from the event — a participant
-        or a race uses it — else None."""
-        if any(len(p) > 4 and p[4] == name for p in self._participants()):
-            return "it has participants"
+    def _phase_in_use(self, base, kind):
+        """True if a scheduled race references the base's ``kind`` phase (either race shape)."""
         for race in self.window.eventdata.get("races", []):
-            for row in race:
-                if len(row) > 1 and row[1] == name:
-                    return "a race uses it"
+            for e in race:
+                if isinstance(e, dict):
+                    if e.get("name") == base and e.get("kind") == kind:
+                        return True
+                elif len(e) > 1 and e[1] and getclass(e[1]) == base \
+                        and race_kind(self.window.eventdata, e[1]) == kind:
+                    return True
+        return False
+
+    def _class_in_use(self, base):
+        """Reason class ``base`` can't be removed — it has participants, or a race uses one of
+        its phases — else None."""
+        if any(len(p) > 4 and p[4] == base for p in self._participants()):
+            return "it has participants"
+        if any(self._phase_in_use(base, kind)
+               for kind in _phase_kinds(self.window.eventdata, base)):
+            return "a race uses it"
         return None
 
     def _delete_class(self):
@@ -696,18 +794,12 @@ class ClassesParticipantsPanel(QWidget):
         if i < 0:
             return
         base = self._tab_class(i)
-        rows = [r for r in self._classes()
-                if len(r) > 1 and r[1] and getclass(r[1]) == base]     # base + its /T,/Q phases
-        for r in rows:
-            reason = self._class_in_use(r[1])
-            if reason:
-                where = "" if r[1] == base else " (phase %s)" % r[1]
-                QMessageBox.information(
-                    self, "Cannot delete",
-                    "Cannot delete class %r while %s%s." % (base, reason, where))
-                return
-        classes = self._classes()
-        for r in rows:
-            classes.remove(r)
+        reason = self._class_in_use(base)
+        if reason:
+            QMessageBox.information(
+                self, "Cannot delete",
+                "Cannot delete class %r while %s." % (base, reason))
+            return
+        remove_base(self.window.eventdata, base)
         self.reload()
         self.window._reload_classes()

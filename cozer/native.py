@@ -138,12 +138,52 @@ def ensure_heat(eventdata, cl, h, slot):
         rec.setdefault(cl, {})[h] = slot
 
 
+def legacy_races_to_native(eventdata, races):
+    """Race schedule → suffix-free heat refs. Accepts either shape per entry so a native model
+    that still holds legacy ``[_, class, heat]`` rows (the Races tab authors those) normalises
+    cleanly; already-native dict entries pass through. Used on save."""
+    out = []
+    for race in races or []:
+        entries = []
+        for e in race:
+            if isinstance(e, dict):
+                entries.append(e)                     # already a suffix-free ref
+            elif len(e) > 2 and e[1] and e[2]:
+                num, occ = _parse_heat(e[2])
+                entries.append({"name": getclass(e[1]), "kind": race_kind(eventdata, e[1]),
+                                "number": num, "occurrence": occ})
+            else:
+                entries.append(e)
+        out.append(entries)
+    return out
+
+
+def native_races_to_legacy(races):
+    """Suffix-free heat refs → legacy ``[_, class, heat]`` rows. The in-memory model keeps the
+    race schedule in this legacy shape (the Races tab edits it directly); the store converts to
+    the native refs only on disk. Already-legacy entries pass through."""
+    out = []
+    for race in races or []:
+        entries = []
+        for e in race:
+            if isinstance(e, dict):
+                entries.append(["", _class_name(e["name"], e["kind"]),
+                                synth_heat_id(e["kind"], e["number"], e.get("occurrence", 0))])
+            else:
+                entries.append(e)                     # already a legacy row
+        out.append(entries)
+    return out
+
+
 def to_native(eventdata):
     """Legacy suffixed ``eventdata`` → the suffix-free shape (a new dict; input untouched).
     Tags the result with ``schema = SCHEMA`` so the on-disk format is self-describing.
-    Idempotent: already-native input is returned as-is (safe once the in-memory model is native)."""
+    Idempotent for record/classes; races are always normalised (the model keeps them legacy)."""
     if eventdata.get("schema", 1) >= SCHEMA:
-        return dict(eventdata)
+        out = dict(eventdata)
+        if "races" in eventdata:                      # the model holds legacy race rows -> native refs
+            out["races"] = legacy_races_to_native(eventdata, eventdata["races"])
+        return out
     out = dict(eventdata)
     out["schema"] = SCHEMA
 
@@ -173,19 +213,8 @@ def to_native(eventdata):
     if "record" in eventdata:
         out["record"] = nrec
 
-    nraces = []                                   # races: suffix-free heat refs
-    for race in eventdata.get("races", []) or []:
-        entries = []
-        for e in race:
-            if len(e) > 2 and e[1] and e[2]:
-                num, occ = _parse_heat(e[2])
-                entries.append({"name": getclass(e[1]), "kind": race_kind(eventdata, e[1]),
-                                "number": num, "occurrence": occ})
-            else:
-                entries.append(e)
-        nraces.append(entries)
-    if "races" in eventdata:
-        out["races"] = nraces
+    if "races" in eventdata:                      # races: suffix-free heat refs
+        out["races"] = legacy_races_to_native(eventdata, eventdata["races"])
 
     for key in _CLASS_KEYED:                          # suffix-keyed caches -> base/kind nested
         if key in eventdata:
@@ -224,18 +253,8 @@ def from_native(native):
     if "record" in native:
         out["record"] = record
 
-    races = []
-    for race in native.get("races", []) or []:
-        entries = []
-        for e in race:
-            if isinstance(e, dict):
-                entries.append(["", _class_name(e["name"], e["kind"]),
-                                synth_heat_id(e["kind"], e["number"], e.get("occurrence", 0))])
-            else:
-                entries.append(e)
-        races.append(entries)
     if "races" in native:
-        out["races"] = races
+        out["races"] = native_races_to_legacy(native["races"])
 
     for key in _CLASS_KEYED:
         if key in native:

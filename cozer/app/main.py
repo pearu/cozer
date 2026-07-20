@@ -32,6 +32,7 @@ from cozer.app.grids import (
 )
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
+from cozer.native import to_native
 from cozer.store import EventStore, load_event, read_legacy_coz
 from cozer import validate
 
@@ -54,7 +55,7 @@ DEFAULT_EVENT = {
     "title": "", "venue": "", "date": "", "officer": "", "secretary": "",
     "kind": "event", "scoringsystem": [], "classnames": [], "classes": [],
     "participants": [], "races": [], "rules": [], "record": {},
-    "configure": {"language": "English"},
+    "configure": {"language": "English"}, "schema": 2,   # new events are suffix-free native
 }
 
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
@@ -393,9 +394,13 @@ class MainWindow(QMainWindow):
                 self.eventdata = self.store.eventdata
                 msg = "Opened %s — continuing working copy %s" % (path, cozj)
             else:
-                self.eventdata = read_legacy_coz(path)
-                # seed the class-name vocabulary from the classes defined in the file
-                self.eventdata["classnames"] = rulesetmod.classnames_of(self.eventdata)
+                legacy = read_legacy_coz(path)
+                # seed the class-name vocabulary, then convert record/classes to the suffix-free
+                # native shape, keeping the race schedule as legacy rows for the Races tab
+                legacy["classnames"] = rulesetmod.classnames_of(legacy)
+                self.eventdata = to_native(legacy)
+                if "races" in legacy:
+                    self.eventdata["races"] = legacy["races"]
                 self.store = EventStore(cozj, self.eventdata)
                 self.store.snapshot()
                 msg = "Opened %s — auto-saving to %s" % (path, cozj)

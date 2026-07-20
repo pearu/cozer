@@ -20,6 +20,7 @@ import cozer.app.main as appmain  # noqa: E402
 from cozer.app.main import MainWindow, _REPORTS  # noqa: E402
 from cozer.app.ruleset import bundled_dir, import_ruleset  # noqa: E402
 from cozer.store import EventStore, loads, read_legacy_coz  # noqa: E402
+from cozer.native import record_heat  # noqa: E402
 from cozer.raceclock import RaceClock  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -97,8 +98,10 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
     assert w.eventdata["scoringsystem"] and w.eventdata["rules"]
     assert "O-500" in w.eventdata["classnames"]
 
-    # 3. A class (from the catalog) with a pattern, its participants, and a race
-    w.eventdata["classes"] = [["", "O-500", "1*(3*1000):1"]]        # 1 heat, 3 laps
+    # 3. A class (from the catalog) with a pattern, its participants, and a race.
+    # eventdata is the suffix-free native shape now, so classes are base/phase entries.
+    w.eventdata["classes"] = [{"name": "O-500",
+                               "phases": [{"kind": "circuit", "pattern": "1*(3*1000):1"}]}]  # 1 heat, 3 laps
     w.eventdata["participants"] = [["", "Ann", "One", "EST", "O-500", "1"],
                                    ["", "Bo", "Two", "FIN", "O-500", "2"]]
     w.eventdata["races"] = [[["", "O-500", "1"]]]
@@ -119,7 +122,7 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
         for dt in (20.0, 21.0, 22.0):
             clock[0] += dt
             tp.record_lap("O-500", "1", boat)
-    laps = w.eventdata["record"]["O-500"]["1"][1]
+    laps = record_heat(w.eventdata, "O-500", "1")[1]
     assert [m[0] for m in laps["1"]] == [1, 1, 1] and [m[0] for m in laps["2"]] == [1, 1, 1]
     assert os.path.getsize(path + ".journal") > 0                  # journaled, not yet snapshotted
 
@@ -130,7 +133,7 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
     shutil.copy(path, rpath)
     shutil.copy(path + ".journal", rpath + ".journal")
     recovered = EventStore.open(rpath)
-    rlaps = recovered.eventdata["record"]["O-500"]["1"][1]
+    rlaps = record_heat(recovered.eventdata, "O-500", "1")[1]
     assert len(rlaps["1"]) == 3 and len(rlaps["2"]) == 3          # journaled laps survived
 
     # 6. Edit Records: set the race-stop time and save the draft
@@ -140,7 +143,7 @@ def test_end_to_end_mock_event(tmp_path, monkeypatch):
         i for i, (cl, h) in enumerate(ep._heatkeys) if (cl, h) == ("O-500", "1")))
     ep.commit_racetime(70.0)
     assert ep.save_draft() is True
-    assert w.eventdata["record"]["O-500"]["1"][0]["racetime"] == 70.0
+    assert record_heat(w.eventdata, "O-500", "1")[0]["racetime"] == 70.0
 
     # 7. Render all 9 reports offline; each must produce a non-empty PDF
     import cozer.reports as R
@@ -169,8 +172,8 @@ def test_end_to_end_wc2000_2026(tmp_path, monkeypatch):
     orig = read_legacy_coz(os.path.join(REPO, "legacy", "events", "wc2000.coz"))
     for legacy_cl, cl2026 in CLASS_MAP_2026.items():
         for h in orig["record"].get(legacy_cl, {}):
-            a = analyze(h, copy.deepcopy(orig["record"][legacy_cl][h]), scoring)
-            b = analyze(h, copy.deepcopy(ed["record"][cl2026][h]), scoring)
+            a = analyze(h, copy.deepcopy(record_heat(orig, legacy_cl, h)), scoring)
+            b = analyze(h, copy.deepcopy(record_heat(ed, cl2026, h)), scoring)
             assert {str(k): (a[k]["place"], a[k]["points"]) for k in a} == \
                    {str(k): (b[k]["place"], b[k]["points"]) for k in b}, (cl2026, h)
 
@@ -187,8 +190,9 @@ def test_end_to_end_wc2000_2026(tmp_path, monkeypatch):
     # the 2026-updated real event round-trips through a snapshot reopen.
     reopened = EventStore.open(path)
     assert reopened.eventdata["scoringsystem"] == scoring                     # 2026 scoring
-    assert {c[1] for c in reopened.eventdata["classes"]} == classnames        # remapped classes
-    assert reopened.eventdata["record"]["F 500"]["1"][1]                      # records intact
+    # reopened is the suffix-free native shape (base/phase entries)
+    assert {c["name"] for c in reopened.eventdata["classes"]} == classnames   # remapped classes
+    assert record_heat(reopened.eventdata, "F 500", "1")[1]                      # records intact
 
     # edit records: adjust a race-stop time on a real heat and save
     ep = w.editor_panel
@@ -197,7 +201,7 @@ def test_end_to_end_wc2000_2026(tmp_path, monkeypatch):
     cur_cl, cur_h = ep._heatkeys[0]
     ep.commit_racetime(400.0)
     assert ep.save_draft() is True
-    assert w.eventdata["record"][cur_cl][cur_h][0]["racetime"] == 400.0
+    assert record_heat(w.eventdata, cur_cl, cur_h)[0]["racetime"] == 400.0
 
     # render a few representative reports on the real, 2026-scored data (all 9 are
     # exercised on smaller data by test_end_to_end_mock_event)
@@ -253,7 +257,7 @@ def test_reenact_one_heat_matches_wc2000(tmp_path, monkeypatch):
     _app()
     src = build_wc2000_2026()
     cl, h = "F 250", "2"
-    source_heat = copy.deepcopy(src["record"][cl][h])
+    source_heat = copy.deepcopy(record_heat(src, cl, h))
     src["record"] = {}                             # start from empty — fill via the real paths
     w = MainWindow(src)
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
@@ -262,7 +266,7 @@ def test_reenact_one_heat_matches_wc2000(tmp_path, monkeypatch):
 
     _reenact_heat(w, cl, h, source_heat)
 
-    got = w.eventdata["record"][cl][h][1]
+    got = record_heat(w.eventdata, cl, h)[1]
     for boat, ms in source_heat[1].items():
         assert [list(m) for m in got.get(boat, [])] == [list(m) for m in ms], boat
     assert not {b for b in got if b not in source_heat[1] and got[b]}      # no spurious boats

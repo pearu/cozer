@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
+from cozer.native import record_heat
+from cozer.phases import class_phase_map, phase_heat_ids
 from cozer.records import insertmark, invreccodemap, reccodemap
 
 LAP = QColor(255, 127, 0)
@@ -376,8 +378,10 @@ class EditRecordsPanel(QWidget):
         self.heat_combo.blockSignals(True)
         self.heat_combo.clear()
         self._heatkeys = []
-        for cl in sorted(self._record()):
-            for h in sorted(self._record()[cl]):
+        # Enumerate heats via the phase view (dual-shape) so the record's native/legacy
+        # storage is transparent; each class's phase yields its (legacy) heat ids.
+        for cl, phase in sorted(class_phase_map(self.window.eventdata).items()):
+            for h in phase_heat_ids(phase):
                 self._heatkeys.append((cl, h))
                 self.heat_combo.addItem("%s / %s" % (cl, h))
         self.heat_combo.blockSignals(False)
@@ -411,7 +415,7 @@ class EditRecordsPanel(QWidget):
         if cl is None:
             self._draft, self._draft_key = None, None
         else:
-            self._draft = copy.deepcopy(self._record()[cl][h])
+            self._draft = copy.deepcopy(record_heat(self.window.eventdata, cl, h))
             self._draft_key = (cl, h)
         self._dirty = False
         self._loaded_index = self.heat_combo.currentIndex()
@@ -525,7 +529,7 @@ class EditRecordsPanel(QWidget):
         if not self._require_store():
             return False
         cl, h = self._draft_key
-        stored = self.window.eventdata["record"][cl][h]
+        stored = record_heat(self.window.eventdata, cl, h)
         for key, val in self._draft[0].items():
             if stored[0].get(key) != val:
                 self.window.store.record(

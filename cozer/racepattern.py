@@ -26,6 +26,17 @@ def _name_kind(cl):
     return "timetrial" if istclass(cl) else "qualification" if isqclass(cl) else None
 
 
+def _synth_heat(kind, number, occ):
+    """The legacy heat id for a native (kind, number, occurrence) — ``'2t'``/``'3q'`` for a
+    timetrial/qualification heat, ``'1'``/``'1r'``/``'1R'`` for a circuit/endurance
+    original/1st/2nd restart. (Kept local to avoid a phases.py import cycle.)"""
+    if kind == "timetrial":
+        return "%dt" % number
+    if kind == "qualification":
+        return "%dq" % number
+    return "%d%s" % (number, ("", "r", "R")[occ] if 0 <= occ < 3 else "")
+
+
 _ALLOWED_BINOP = (ast.Add, ast.Sub, ast.Mult)
 _ALLOWED_UNARY = (ast.UAdd, ast.USub)
 
@@ -383,42 +394,51 @@ def get_heats(eventdata, raceid, warn=None):
     restarts = {}
     quals = {}
     tims = {}
-    for l in eventdata['classes']:
-        if l[1] and l[2]:
-            n = len(crack_race_pattern(l[2])[0])
-            nofh[l[1]] = n
-            if isqclass(l[1]):
-                allowedheats[l[1]] = [str(x) + 'q' for x in range(1, 1 + n)]
-                quals[l[1]] = []
-            elif istclass(l[1]):
-                allowedheats[l[1]] = [str(x) + 't' for x in range(1, 1 + n)]
-                tims[l[1]] = []
-            else:
-                allowedheats[l[1]] = ([str(x) for x in range(1, 1 + n)] +
-                                      [str(x) + 'r' for x in range(1, 1 + n)] +
-                                      [str(x) + 'R' for x in range(1, 1 + n)])
-                restarts[l[1]] = []
-            tmp[l[1]] = 0
-    for i in range(min(raceid, len(eventdata['races']))):
+    for cl in get_classes(eventdata):                    # dual-shape via get_classes/class_pattern
+        pat = class_pattern(eventdata, cl)
+        n = len(crack_race_pattern(pat)[0]) if pat else 0   # no pattern -> 0 heats (class skipped);
+        if not n:                                           # a malformed pattern is left to raise
+            continue
+        nofh[cl] = n
+        if isqclass(cl):
+            allowedheats[cl] = [str(x) + 'q' for x in range(1, 1 + n)]
+            quals[cl] = []
+        elif istclass(cl):
+            allowedheats[cl] = [str(x) + 't' for x in range(1, 1 + n)]
+            tims[cl] = []
+        else:
+            allowedheats[cl] = ([str(x) for x in range(1, 1 + n)] +
+                                [str(x) + 'r' for x in range(1, 1 + n)] +
+                                [str(x) + 'R' for x in range(1, 1 + n)])
+            restarts[cl] = []
+        tmp[cl] = 0
+    for i in range(min(raceid, len(eventdata.get('races', [])))):
         for d in eventdata['races'][i]:
-            if not d[1]:
+            if isinstance(d, dict):                       # native race entry
+                cl = _synth_name(d.get("name"), d.get("kind"))
+                h = _synth_heat(d.get("kind"), d.get("number"), d.get("occurrence", 0))
+            elif len(d) > 2:                              # legacy [_, class, heat]
+                cl, h = d[1], d[2]
+            else:
                 continue
-            if d[1] in nofh:
-                if d[2] in allowedheats[d[1]]:
-                    if d[2][-1] not in ('r', 'q', 't', 'R'):
-                        tmp[d[1]] = tmp[d[1]] + 1
-                        if not str(tmp[d[1]]) == d[2] and warn:
-                            warn('Expected heat %s but got %s (class=%s).' % (tmp[d[1]], d[2], d[1]))
-                    elif d[2][-1] in ('r', 'R'):
-                        restarts[d[1]].append(d[2])
-                    elif d[2][-1] == 'q':
-                        tmp[d[1]] = tmp[d[1]] + 1
-                        quals[d[1]].append(d[2])
-                    elif d[2][-1] == 't':
-                        tmp[d[1]] = tmp[d[1]] + 1
-                        tims[d[1]].append(d[2])
+            if not cl:
+                continue
+            if cl in nofh:
+                if h in allowedheats[cl]:
+                    if h[-1] not in ('r', 'q', 't', 'R'):
+                        tmp[cl] = tmp[cl] + 1
+                        if not str(tmp[cl]) == h and warn:
+                            warn('Expected heat %s but got %s (class=%s).' % (tmp[cl], h, cl))
+                    elif h[-1] in ('r', 'R'):
+                        restarts[cl].append(h)
+                    elif h[-1] == 'q':
+                        tmp[cl] = tmp[cl] + 1
+                        quals[cl].append(h)
+                    elif h[-1] == 't':
+                        tmp[cl] = tmp[cl] + 1
+                        tims[cl].append(h)
                 elif warn:
-                    warn('Heat %s is not allowed for class %s.' % (d[2], d[1]))
+                    warn('Heat %s is not allowed for class %s.' % (h, cl))
     ret = {}
     for k in tmp.keys():
         if isqclass(k):

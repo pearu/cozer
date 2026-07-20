@@ -19,6 +19,7 @@ from cozer.store import (  # noqa: E402
     EventStore, apply_op, to_jsonable, from_jsonable, dumps, loads,
     atomic_write, read_legacy_coz,
 )
+from cozer.native import record_heat, to_native  # noqa: E402
 
 
 # --- JSON codec ------------------------------------------------------------
@@ -33,8 +34,8 @@ def test_codec_roundtrip_and_idempotent():
     j = to_jsonable(ed)
     back = from_jsonable(json.loads(json.dumps(j)))
     # tuple marks -> lists; int id key -> str id
-    assert back["record"]["O-125"]["1"][1]["1"] == [[1, 10.0]]
-    assert back["record"]["O-125"]["1"][1]["F2"] == [[1, 11.0], [-1, 2.0]]
+    assert record_heat(back, "O-125", "1")[1]["1"] == [[1, 10.0]]
+    assert record_heat(back, "O-125", "1")[1]["F2"] == [[1, 11.0], [-1, 2.0]]
     # tuple dict key preserved losslessly via $map
     assert back["savechecked"][("O-125", "1")] == 1
     assert back["savechecked"]["O-125"] == 1
@@ -105,8 +106,8 @@ def test_analyze_survives_store_roundtrip():
     cl = sorted(ed["record"])[0]
     h = sorted(ed["record"][cl])[0]
     import copy
-    r1 = analyzer.analyze(h, copy.deepcopy(ed["record"][cl][h]), ss)
-    r2 = analyzer.analyze(h, copy.deepcopy(ed2["record"][cl][h]), ss)
+    r1 = analyzer.analyze(h, copy.deepcopy(record_heat(ed, cl, h)), ss)
+    r2 = analyzer.analyze(h, copy.deepcopy(record_heat(ed2, cl, h)), ss)
     assert golden_io.canon(r1) == golden_io.canon(r2)
 
 
@@ -166,17 +167,17 @@ def test_apply_op_all_kinds_and_unknown():
     apply_op(ed, {"op": "field", "key": "title", "value": "T"})
     assert ed["title"] == "T"
     apply_op(ed, {"op": "heat", "cl": "C", "h": "1", "info": {"course": [1000]}, "ids": ["1"]})
-    assert ed["record"]["C"]["1"] == [{"course": [1000]}, {"1": []}]
+    assert record_heat(ed, "C", "1") == [{"course": [1000]}, {"1": []}]
     apply_op(ed, {"op": "info", "cl": "C", "h": "1", "key": "starttime", "value": 5.0})
-    assert ed["record"]["C"]["1"][0]["starttime"] == 5.0
+    assert record_heat(ed, "C", "1")[0]["starttime"] == 5.0
     apply_op(ed, {"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": [1, 10.0]})
-    assert ed["record"]["C"]["1"][1]["1"] == [[1, 10.0]]
+    assert record_heat(ed, "C", "1")[1]["1"] == [[1, 10.0]]
     apply_op(ed, {"op": "replace", "cl": "C", "h": "1", "id": "1", "marks": [[1, 9.0], [1, 8.0]]})
-    assert ed["record"]["C"]["1"][1]["1"] == [[1, 9.0], [1, 8.0]]
+    assert record_heat(ed, "C", "1")[1]["1"] == [[1, 9.0], [1, 8.0]]
     apply_op(ed, {"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 0, "mark": [-1, 9.0]})
-    assert ed["record"]["C"]["1"][1]["1"][0] == [-1, 9.0]
+    assert record_heat(ed, "C", "1")[1]["1"][0] == [-1, 9.0]
     apply_op(ed, {"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 0, "mark": None})
-    assert ed["record"]["C"]["1"][1]["1"] == [[1, 8.0]]
+    assert record_heat(ed, "C", "1")[1]["1"] == [[1, 8.0]]
     with pytest.raises(ValueError):
         apply_op(ed, {"op": "nope"})
 
@@ -197,7 +198,7 @@ def test_journal_replay_recovers_laps_after_power_loss(tmp_path):
     # OS (Windows refuses to remove a file another handle still holds open).
     s.close()
     s2 = EventStore.open(p)
-    assert s2.eventdata["record"]["O-125"]["1"][1]["1"] == [[1, 10.0], [1, 11.0]]
+    assert record_heat(s2.eventdata, "O-125", "1")[1]["1"] == [[1, 10.0], [1, 11.0]]
     assert not os.path.exists(s2.journal_path)   # folded into the snapshot on open
 
 
@@ -209,7 +210,7 @@ def test_truncated_final_journal_line_is_skipped(tmp_path):
         f.write("\n")                                              # blank line (skipped)
         f.write('{"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": [1, ')   # torn line
     s = EventStore.open(p)
-    assert s.eventdata["record"]["C"]["1"][1]["1"] == [[1, 9.0]]   # complete op only
+    assert record_heat(s.eventdata, "C", "1")[1]["1"] == [[1, 9.0]]   # complete op only
 
 
 def test_unapplyable_journal_op_is_skipped_not_crashed(tmp_path):
@@ -229,7 +230,7 @@ def test_unapplyable_journal_op_is_skipped_not_crashed(tmp_path):
             f.write(good + "\n")
             f.write(json.dumps(bad) + "\n")
         s = EventStore.open(p)                                             # must not raise
-        assert s.eventdata["record"]["C"]["1"][1]["1"] == [[1, 9.0]]       # good op kept, bad dropped
+        assert record_heat(s.eventdata, "C", "1")[1]["1"] == [[1, 9.0]]       # good op kept, bad dropped
 
 
 # --- EventStore: crash INSIDE snapshot() (staged-snapshot fence) -----------
@@ -256,10 +257,10 @@ def test_snapshot_crash_before_install_no_double_apply_editmark(tmp_path, monkey
     s = EventStore(p, {"record": {"C": {"1": [{}, {"1": [["A"], ["B"], ["C"]]}]}}})
     s.snapshot()                                           # marks in snapshot, journal cleared
     s.record({"op": "editmark", "cl": "C", "h": "1", "id": "1", "index": 1, "mark": None})
-    assert s.eventdata["record"]["C"]["1"][1]["1"] == [["A"], ["C"]]
+    assert record_heat(s.eventdata, "C", "1")[1]["1"] == [["A"], ["C"]]
     _crash_snapshot_before_install(s, p, monkeypatch)
     assert os.path.exists(p + ".new")                      # staged snapshot survived the crash
-    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["1"]
+    got = record_heat(EventStore.open(p).eventdata, "C", "1")[1]["1"]
     assert got == [["A"], ["C"]]                           # NOT [["A"]] -- delete not re-applied
     assert not os.path.exists(p + ".new") and not os.path.exists(p + ".journal")
 
@@ -270,7 +271,7 @@ def test_snapshot_crash_before_install_no_double_apply_lap(tmp_path, monkeypatch
     s.snapshot()
     s.record({"op": "lap", "cl": "C", "h": "1", "id": "7", "mark": ["M2"]})
     _crash_snapshot_before_install(s, p, monkeypatch)
-    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["7"]
+    got = record_heat(EventStore.open(p).eventdata, "C", "1")[1]["7"]
     assert got == [["M1"], ["M2"]]                         # NOT [["M1"], ["M2"], ["M2"]]
 
 
@@ -282,7 +283,7 @@ def test_torn_staged_snapshot_is_discarded(tmp_path):
     with open(p + ".new", "w", encoding="utf-8") as f:
         f.write('{"record": {"C": {"1": [{}, {"1": [["A"], ["B"')   # torn write: invalid JSON
     s2 = EventStore.open(p)
-    assert s2.eventdata["record"]["C"]["1"][1]["1"] == [["A"], ["B"]]  # snapshot + journal recover
+    assert record_heat(s2.eventdata, "C", "1")[1]["1"] == [["A"], ["B"]]  # snapshot + journal recover
     assert not os.path.exists(p + ".new")
 
 
@@ -387,7 +388,9 @@ def test_snapshot_and_recovery_crash_at_every_syscall(tmp_path):
     state -- never a lost or duplicated op. Guards the ordering fences in both
     snapshot() and _install_staged (this found a recovery-path double-apply)."""
     def build(path, baseline, ops):
-        s = EventStore(path, copy.deepcopy(baseline), sync_interval=3600)  # syncer idle
+        # the in-memory model is the suffix-free native shape (as a reopened store is), so
+        # normalize the legacy fixture up front — else built-vs-reopened differ by shape alone
+        s = EventStore(path, to_native(copy.deepcopy(baseline)), sync_interval=3600)  # syncer idle
         s.snapshot()                       # durable baseline, journal cleared
         for op in ops:
             s.record(op)                   # journaled (write+flush)
@@ -469,7 +472,7 @@ def test_deferred_op_survives_app_crash(tmp_path):
     s.record({"op": "lap", "cl": "C", "h": "1", "id": "1", "mark": ["A"]})
     # APP CRASH: no close(), no snapshot, no fsync. write()+flush() already put the
     # line in the journal file, so a fresh open() still recovers it.
-    got = EventStore.open(p).eventdata["record"]["C"]["1"][1]["1"]
+    got = record_heat(EventStore.open(p).eventdata, "C", "1")[1]["1"]
     assert got == [["A"]]
 
 
