@@ -80,6 +80,33 @@ def test_export_report_writes_and_opens(tmp_path, monkeypatch):
     assert os.path.exists(out) and opened == [out]
 
 
+def test_report_options_laps_toggle_reaches_render(tmp_path, monkeypatch):
+    # D3: the Reports-tab "show lap count for all finishers" checkbox feeds an options dict to
+    # the reports that honour it (Full Final), and NOT to those that don't (legacy / participants).
+    import cozer.reports as R
+    _app()
+    w = MainWindow(read_legacy_coz(EVENT))
+    assert hasattr(w, "opt_all_laps") and not w.opt_all_laps.isChecked()   # exists, default off
+    assert w._report_options() == {"show_laps": False}
+    w.opt_all_laps.setChecked(True)
+    assert w._report_options() == {"show_laps": True}
+
+    seen = {}
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
+    monkeypatch.setattr(appmain, "open_in_viewer", lambda *a, **k: None)
+    monkeypatch.setattr(appmain.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
+    for fn in ("render_full_final", "render_full_final_legacy"):
+        monkeypatch.setattr(R, fn, (lambda name: (lambda *a, **k: seen.__setitem__(name, k)))(fn))
+
+    w.report_combo.setCurrentIndex(3)                      # Full Final (native) -> gets options
+    w.on_export()
+    assert seen["render_full_final"].get("options") == {"show_laps": True}
+    w.report_combo.setCurrentIndex(5)                      # Full Final (legacy) -> no options kwarg
+    w.on_export()
+    assert "options" not in seen["render_full_final_legacy"]
+
+
 def test_view_report_uses_event_reports_dir(tmp_path, monkeypatch):
     _app()
     ed = read_legacy_coz(EVENT)

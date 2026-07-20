@@ -515,6 +515,35 @@ def test_intermediate_conditional_from_nationality_columns():
     assert "From" not in h2 and "Nationality" not in h2                      # uniform -> both hidden
 
 
+def _full_finisher_event():
+    # a boat that completes the full 3-lap distance -> lapsleft == 0, so no lap count by default
+    from cozer.native import to_native
+    return to_native({
+        "configure": {"language": "English"}, "scoringsystem": [10, 8], "rules": [], "races": [],
+        "participants": [["", "A", "", "EST", "GT", "1"]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {h: [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                              {"1": [(1, 20.0), (1, 20.0), (1, 20.0)]}] for h in ("1", "2")}},
+    })
+
+
+def test_show_laps_option_all_finishers():
+    # D3: the "show lap count for all finishers" option adds the /NL suffix to every scored
+    # finisher's result cell (finals + intermediate); by default it appears only for a boat that
+    # finished short. The frozen legacy path ignores the option (byte-faithful).
+    from cozer.reports.final import (build_full_final, full_final_html, _build)
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    ed = _full_finisher_event()
+    strip = lambda h: h.replace("&#8203;", "")
+    assert "3L" not in strip(full_final_html(build_full_final(ed)))                       # default: off
+    assert "3L" in strip(full_final_html(build_full_final(ed, options={"show_laps": True})))
+    assert "3L" not in strip(intermediate_html(build_intermediate(ed)))
+    assert "3L" in strip(intermediate_html(build_intermediate(ed, options={"show_laps": True})))
+    # the legacy _build gate ignores the option even if it is forced through
+    leg = _build(ed, None, None, "landscape", True, phase_native=False, options={"show_laps": True})
+    assert "3L" not in strip(full_final_html(leg))
+
+
 def test_report_restart_notation():
     # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.

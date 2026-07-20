@@ -155,8 +155,13 @@ per kind). All 209 common content applies per heat and in the summary.
   completed lap's crossing interval from the record — **directly**; do **not** compute it from
   speed (`lap_length ÷ speed`) unless the measured interval is genuinely unavailable, and do not
   use analyze `laptime` (0 on a 1-lap heat). Ships with the §5.1 P1 fix when reports resume.
-- **D3 — Laps for all finishers.** Show the completed-lap count for every result, or keep
-  the current "only when short" (`NL`) convention?
+- **D3 — Laps for all finishers. DECIDED (owner, 2026-07-20): a GUI toggle.** Default keeps the
+  current "only when short" (`/NL`) convention; a **Report options** group box on the Reports tab
+  (a home for future report toggles) carries a **"Show lap count for all finishers"** checkbox
+  that, when set, appends `/NL` to every scored finisher's result cell in the native circuit
+  finals + intermediate reports. Endurance always shows laps (own column), unaffected. **Status:
+  DONE** — the option flows as an `options` dict; the frozen `*_legacy` finals never receive it
+  (`_build` gates `show_laps` on `phase_native`).
 
 ## 8. Open questions
 
@@ -191,4 +196,10 @@ per kind). All 209 common content applies per heat and in the summary.
   through the intermediate and finals reports (participants + qsummary already done). Native
   builders only — `final.py._table_html` gates on `phase_native`, so the frozen `*_legacy`
   reports keep From-always / no-Nationality and stay byte-identical (goldens green).
+- **2026-07-20** — **D3 done**: a **Report options** group box on the Reports tab (home for
+  future report toggles) with a **"Show lap count for all finishers"** checkbox. Off by default
+  (current `/NL`-only-when-short behaviour); on → `/NL` on every scored finisher in the native
+  finals + intermediate reports. Threaded as an `options` dict; `_build` gates `show_laps` on
+  `phase_native`, so the frozen legacy finals are untouched. **Reports plan items 1/2/2b/3 +
+  D1/D2/D3 all complete.**
   Remaining: D1 (nationality) + D3 (laps) owner calls.

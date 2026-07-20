@@ -17,8 +17,8 @@ from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
-    QInputDialog, QLabel, QLineEdit, QMainWindow,
+    QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
+    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QTreeWidget,
     QTreeWidgetItem, QVBoxLayout, QWidget,
 )
@@ -64,21 +64,23 @@ DEFAULT_EVENT = {
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
                  ("officer", "Officer of the Day"), ("secretary", "Secretary General")]
 
-# (label, render function, takes classes=, takes heat_map=). Resolved lazily in
-# the report handlers so importing this module doesn't pull in weasyprint (slow).
+# (label, render function, takes classes=, takes heat_map=, takes options=). Resolved
+# lazily in the report handlers so importing this module doesn't pull in weasyprint (slow).
+# takes_options is True only for the native circuit reports whose result cells honour the
+# "show lap count for all finishers" option; the frozen legacy finals never receive it.
 _REPORTS = [
-    ("Participants", "render_participants", True, False),
-    ("Intermediate", "render_intermediate", True, True),
-    ("Qualification", "render_qualification", True, False),
-    ("Full Final", "render_full_final", True, True),
-    ("Short Final", "render_short_final", True, True),
-    ("Full Final (legacy)", "render_full_final_legacy", True, True),
-    ("Short Final (legacy)", "render_short_final_legacy", True, True),
-    ("Endurance Full Final", "render_endurance_final", True, True),
-    ("Check List", "render_checklist", True, False),
-    ("Laps Protocol", "render_laps_protocol", True, True),
-    ("Info Letter", "render_info_letter", False, False),
-    ("Registration Letter", "render_registration_letter", False, False),
+    ("Participants", "render_participants", True, False, False),
+    ("Intermediate", "render_intermediate", True, True, True),
+    ("Qualification", "render_qualification", True, False, False),
+    ("Full Final", "render_full_final", True, True, True),
+    ("Short Final", "render_short_final", True, True, True),
+    ("Full Final (legacy)", "render_full_final_legacy", True, True, False),
+    ("Short Final (legacy)", "render_short_final_legacy", True, True, False),
+    ("Endurance Full Final", "render_endurance_final", True, True, False),
+    ("Check List", "render_checklist", True, False, False),
+    ("Laps Protocol", "render_laps_protocol", True, True, False),
+    ("Info Letter", "render_info_letter", False, False, False),
+    ("Registration Letter", "render_registration_letter", False, False, False),
 ]
 
 
@@ -730,6 +732,16 @@ class MainWindow(QMainWindow):
         row.addWidget(export)
         row.addStretch()
         v.addLayout(row)
+        # Report options: a titled home for report-rendering toggles (future options slot in here).
+        opts = QGroupBox("Report options")
+        ol = QVBoxLayout(opts)
+        self.opt_all_laps = QCheckBox("Show lap count for all finishers")
+        self.opt_all_laps.setToolTip(
+            "By default the completed-lap count (e.g. 45.6/48.2/8L) is shown only for a boat that "
+            "finished short of the distance. Enable this to show it for every finisher in the "
+            "circuit finals and intermediate reports. (Endurance reports always show laps.)")
+        ol.addWidget(self.opt_all_laps)
+        v.addWidget(opts)
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
         self.report_tree = QTreeWidget()
         self.report_tree.setHeaderHidden(True)
@@ -781,7 +793,12 @@ class MainWindow(QMainWindow):
             return None, None
         return classes, (heat_map or None)
 
-    def _render_report(self, label, funcname, takes_classes, takes_heats, path):
+    def _report_options(self):
+        """The Report-options group-box state, as the ``options`` dict the render
+        functions accept (only the reports flagged ``takes_options`` receive it)."""
+        return {"show_laps": self.opt_all_laps.isChecked()}
+
+    def _render_report(self, label, funcname, takes_classes, takes_heats, takes_options, path):
         """Render report ``label`` to ``path``; return True on success. A failure
         is a cozer defect, not user error, so it is routed through the crash
         reporter (files if signed in, else queues) instead of dying silently."""
@@ -795,6 +812,8 @@ class MainWindow(QMainWindow):
                     kwargs["classes"] = classes
                 if takes_heats:
                     kwargs["heat_map"] = heat_map
+            if takes_options:
+                kwargs["options"] = self._report_options()
             func(self.eventdata, path, **kwargs)
             return True
         except Exception as e:
@@ -811,13 +830,13 @@ class MainWindow(QMainWindow):
         (a temp dir if the event is unsaved) and open it -- no Save dialog. Also
         archives a timestamped copy under ``postings/``."""
         from cozer.reports.output import report_output_paths
-        label, funcname, tc, th = _REPORTS[self.report_combo.currentIndex()]
+        label, funcname, tc, th, to = _REPORTS[self.report_combo.currentIndex()]
         stamp = datetime.now().strftime("%m%d-%H%M")
         event_path = self.store.path if self.store else None
         latest, posting = report_output_paths(event_path, label, stamp)
         os.makedirs(os.path.dirname(posting), exist_ok=True)   # makes <dir> and <dir>/postings
         self._warn_before_report()
-        if not self._render_report(label, funcname, tc, th, latest):
+        if not self._render_report(label, funcname, tc, th, to, latest):
             return
         try:
             shutil.copyfile(latest, posting)
@@ -830,7 +849,7 @@ class MainWindow(QMainWindow):
     def on_export(self):
         """Export the selected report to a location the user chooses (Save dialog)."""
         from cozer.reports.output import report_stem
-        label, funcname, tc, th = _REPORTS[self.report_combo.currentIndex()]
+        label, funcname, tc, th, to = _REPORTS[self.report_combo.currentIndex()]
         path, _ = QFileDialog.getSaveFileName(
             self, "Export report PDF", report_stem(label) + ".pdf", "PDF (*.pdf)")
         if not path:
@@ -838,7 +857,7 @@ class MainWindow(QMainWindow):
         if not path.endswith(".pdf"):
             path += ".pdf"
         self._warn_before_report()
-        if self._render_report(label, funcname, tc, th, path):
+        if self._render_report(label, funcname, tc, th, to, path):
             self.log("Exported %s" % path)
             open_in_viewer(path)
 

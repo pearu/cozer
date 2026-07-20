@@ -20,13 +20,15 @@ def _legend_index(legend, code, rules):
     return legend[key]
 
 
-def _result_text(r, legend):
+def _result_text(r, legend, show_laps=False):
     """Per-heat result cell (adapted from legacy res2latex): speeds + note codes
-    with footnote references. Numbers break only at the slash."""
+    with footnote references. Numbers break only at the slash. The completed-lap count
+    ``/NL`` is shown for a boat that finished short of the distance; with ``show_laps``
+    it is shown for every scored finisher (the Reports-tab "all finishers" option)."""
     laps, penlapsleft, lapsleft = r["lapinfo"]
     text = ""
     if r["points"] >= 0:
-        if lapsleft:
+        if lapsleft or show_laps:
             text = "%.1f/%.1f/%sL" % (r["avgspeed"], r["maxlapspeed"], laps)
         else:
             text = "%.1f/%.1f" % (r["avgspeed"], r["maxlapspeed"])
@@ -91,8 +93,11 @@ def _dnq_rows(eventdata, cl, finalist_set, parts, nats, nheats):
     return rows
 
 
-def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
+def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, options=None):
     ss = eventdata.get("scoringsystem", [])
+    # "show lap count for all finishers" (Reports-tab option) is native-only: the legacy
+    # byte-faithful reports must reproduce the frozen layout, so the flag is gated off here.
+    show_laps = phase_native and bool((options or {}).get("show_laps"))
     labels = get_labels(eventdata)
     phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     if classes is None:
@@ -133,7 +138,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
                 rh = res[h].get(pid)                # a boat need not have raced every heat
                 heatcells.append(
                     {"result": "-", "points": "-"} if rh is None else
-                    {"result": _result_text(rh, legend),
+                    {"result": _result_text(rh, legend, show_laps),
                      "points": str(rh["points"]) if rh["place"] > 0 else "-"})
             rows.append({
                 "place": str(sr["place"]) if scored else "",
@@ -162,12 +167,12 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
 
 
 # New phase-native reports (PHASES §5.1 step 4 / §10-E): the DNQ tail + phase-kind subtitle.
-def build_full_final(eventdata, classes=None, heat_map=None):
-    return _build(eventdata, classes, heat_map, "landscape", True, phase_native=True)
+def build_full_final(eventdata, classes=None, heat_map=None, options=None):
+    return _build(eventdata, classes, heat_map, "landscape", True, phase_native=True, options=options)
 
 
-def build_short_final(eventdata, classes=None, heat_map=None):
-    return _build(eventdata, classes, heat_map, "portrait", False, phase_native=True)
+def build_short_final(eventdata, classes=None, heat_map=None, options=None):
+    return _build(eventdata, classes, heat_map, "portrait", False, phase_native=True, options=options)
 
 
 # Legacy byte-faithful reports: kept as the reference for comparison against the legacy
@@ -277,15 +282,15 @@ full_final_legacy_html = full_final_html
 short_final_legacy_html = short_final_html
 
 
-def render_full_final(eventdata, out_path, classes=None, heat_map=None):
-    model = build_full_final(eventdata, classes, heat_map)
+def render_full_final(eventdata, out_path, classes=None, heat_map=None, options=None):
+    model = build_full_final(eventdata, classes, heat_map, options)
     html = full_final_html(model)
     render_pdf(html, out_path)
     return model, html
 
 
-def render_short_final(eventdata, out_path, classes=None, heat_map=None):
-    model = build_short_final(eventdata, classes, heat_map)
+def render_short_final(eventdata, out_path, classes=None, heat_map=None, options=None):
+    model = build_short_final(eventdata, classes, heat_map, options)
     html = short_final_html(model)
     render_pdf(html, out_path)
     return model, html

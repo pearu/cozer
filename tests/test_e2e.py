@@ -303,7 +303,8 @@ def test_report_generation_error_is_filed(tmp_path, monkeypatch):
     if hasattr(w, "_render_report"):                                 # Reports-tab refactor
         takes_classes = entry[2] if len(entry) > 2 else False
         takes_heats = entry[3] if len(entry) > 3 else False
-        w._render_report(label, funcname, takes_classes, takes_heats,
+        takes_options = entry[4] if len(entry) > 4 else False
+        w._render_report(label, funcname, takes_classes, takes_heats, takes_options,
                          str(tmp_path / "r.pdf"))                    # must not raise
     else:                                                            # original entry point
         w.on_generate()                                             # must not raise

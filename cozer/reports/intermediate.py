@@ -16,8 +16,9 @@ from cozer.reports.labels import get_labels
 from cozer.reports.render import render_pdf
 
 
-def build_intermediate(eventdata, classes=None, heat_map=None):
+def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
     ss = eventdata.get("scoringsystem", [])
+    show_laps = bool((options or {}).get("show_laps"))   # Reports-tab "all finishers" option
     labels = get_labels(eventdata)
     phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     if classes is None:
@@ -60,10 +61,10 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
             elif isqual:
-                row["result"] = _result_text(r, legend)
+                row["result"] = _result_text(r, legend, show_laps)
                 row["status"] = qmarks.get(str(pid), "")           # "Q" / "DNQ"
             else:
-                row["result"] = _result_text(r, legend)
+                row["result"] = _result_text(r, legend, show_laps)
                 row["points"] = str(r["points"]) if scored else "-"
             if multi:
                 sr = sumres.get(pid, {})
@@ -147,8 +148,8 @@ def intermediate_html(model):
     return document_html(model["orientation"], L, model["meta"], model["heading"], body)
 
 
-def render_intermediate(eventdata, out_path, classes=None, heat_map=None):
-    model = build_intermediate(eventdata, classes, heat_map)
+def render_intermediate(eventdata, out_path, classes=None, heat_map=None, options=None):
+    model = build_intermediate(eventdata, classes, heat_map, options)
     html = intermediate_html(model)
     render_pdf(html, out_path)
     return model, html
