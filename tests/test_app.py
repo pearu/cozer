@@ -935,6 +935,40 @@ def test_heat_membership_repechage_falls_back_before_selections_recorded():
     assert heat_membership(ed, "C/Q", "3q") == ["10", "20", "30", "40"]
 
 
+# --- Timer mis-pick guard: heat identity + the always-on identity display (§5.2) ----
+
+def test_heat_identity_decodes_class_phase_heat_and_restart():
+    from cozer.app.timer import heat_identity
+    ed = {"classes": [["", "F 500", "4*(1000):3"],
+                      ["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"],
+                      ["", "F 500/T", "1*(1000):1"]]}
+    assert heat_identity(ed, "F 500", "1") == "F 500 · heat 1"              # circuit -> no kind word
+    assert heat_identity(ed, "F 500", "2r") == "F 500 · heat 2 (restart)"   # restart marked
+    assert heat_identity(ed, "F 500/Q", "1q") == "F 500 · qualification · heat 1"
+    assert heat_identity(ed, "F 500/T", "1t") == "F 500 · time trial · heat 1"
+
+
+def test_timer_identity_label_shows_selected_race():
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+    tp.reload()
+    assert "GT · heat 1" in tp.identity_label.text()    # surfaces what the race will record
+
+
+def test_timer_identity_label_flags_qualification_phase():
+    _app()
+    ed = {"title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
+          "scoringsystem": [10, 5, 3], "configure": {"language": "English"}, "record": {},
+          "classes": [["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"], ["", "F 500", "4*(1000):3"]],
+          "participants": [["", "A", "One", "EST", "F 500", "10"]],
+          "races": [[["", "F 500/Q", "1q"], ["", "F 500", "1"]]]}
+    tp = MainWindow(ed).timer_panel
+    tp.reload()
+    txt = tp.identity_label.text()
+    assert "F 500 · qualification · heat 1" in txt       # the qheat flagged as qualification
+    assert "F 500 · heat 1" in txt                        # the final entry, unannotated
+
+
 def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
     from cozer.app.timer import C_COMING, C_LATE
     _app()

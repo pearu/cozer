@@ -31,7 +31,7 @@ from cozer.app.grids import race_label
 from cozer.classes import getclass
 from cozer.phases import heat_number
 from cozer.qualification import qheat_boats
-from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed
+from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed, race_kind
 from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
 
@@ -177,6 +177,23 @@ def class_ids(eventdata, cl):
             if len(p) > 5 and p[4] == base and p[5] != ""]
 
 
+_KIND_WORD = {"timetrial": "time trial", "qualification": "qualification",
+              "endurance": "endurance"}   # circuit (the main/final race) needs no annotation
+
+
+def heat_identity(eventdata, cl, h):
+    """A human-readable identity of the (cl, h) heat for the mis-pick guard: the base class,
+    the phase kind (time trial / qualification / endurance — a plain circuit heat is left
+    unannotated), the heat number, and a ``(restart)`` marker. Lets the operator eyeball
+    exactly what a race will record so a wrong pick (wrong class / phase / restart) stands out."""
+    word = _KIND_WORD.get(race_kind(eventdata, cl))
+    txt = "%s · %s · heat %d" % (getclass(cl), word, heat_number(h)) if word else \
+          "%s · heat %d" % (getclass(cl), heat_number(h))
+    if h and h[-1] in ("r", "R"):
+        txt += " (restart)"
+    return txt
+
+
 def heat_membership(eventdata, cl, h):
     """The boat-ids that make up class ``cl``'s heat ``h`` — who the Timer materializes and
     shows. For a qualification qheat this is the qheat's OWN group
@@ -264,6 +281,14 @@ class TimerPanel(QWidget):
         top.addStretch()
         v.addLayout(top)
 
+        # Mis-pick guard (§5.2): always show exactly what the selected race will record —
+        # class · phase · heat · restart — so a wrong pick (wrong class/phase/restart) is
+        # obvious before Start commits it.
+        self.identity_label = QLabel("")
+        self.identity_label.setWordWrap(True)
+        self.identity_label.setStyleSheet("color:#00337a; font-weight:bold; padding:2px 0;")
+        v.addWidget(self.identity_label)
+
         # Each heat is a resizable internal sub-window: the grid auto-fits it, so
         # maximizing the app doesn't blow up the buttons — the operator drags a
         # sub-window's borders to set a comfortable grid size.
@@ -298,7 +323,15 @@ class TimerPanel(QWidget):
 
     def _show_race(self):
         self._heats = self._race_heats(self._selected_race())
+        self.identity_label.setText(self._race_identity_text())
         self._build()
+
+    def _race_identity_text(self):
+        """What the selected race records, decoded per heat — the mis-pick guard's display."""
+        if not self._heats:
+            return ""
+        return "Records:   " + "       |       ".join(
+            heat_identity(self.eventdata, cl, h) for cl, h in self._heats)
 
     def _rec(self, cl, h):
         return self.eventdata.get("record", {}).get(cl, {}).get(h)
@@ -465,12 +498,13 @@ class TimerPanel(QWidget):
             self.window.on_save_as()
         return self.window.store is not None
 
+    def _recorded_heats(self):
+        """(cl, h) pairs in the selected race that already hold crossings."""
+        return [(cl, h) for cl, h in self._heats
+                if (self._rec(cl, h) or [None, {}])[1] and any((self._rec(cl, h))[1].values())]
+
     def _has_data(self):
-        for cl, h in self._heats:
-            rec = self._rec(cl, h)
-            if rec and any(rec[1].get(pid) for pid in rec[1]):
-                return True
-        return False
+        return bool(self._recorded_heats())
 
     def on_start(self):
         race = self._selected_race()
@@ -496,10 +530,13 @@ class TimerPanel(QWidget):
         self.status.setText("Recording…")
 
     def _confirm_overwrite(self):      # pragma: no cover - modal dialog
+        detail = "\n".join("  • " + heat_identity(self.eventdata, cl, h)
+                           for cl, h in self._recorded_heats())
         return QMessageBox.question(
             self, "Overwrite race record?",
-            "This race already has recorded data. Start over and lose it?\n"
-            "(Use Resume to continue timing instead.)") == QMessageBox.Yes
+            "This race already has recorded data — Start will OVERWRITE:\n\n%s\n\n"
+            "Start over and lose it? (Use Resume to continue timing instead.)" % detail
+            ) == QMessageBox.Yes
 
     def on_resume(self):
         if not self._ensure_store():
