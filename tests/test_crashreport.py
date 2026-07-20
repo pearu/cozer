@@ -191,6 +191,57 @@ def test_submit_pending_same_fingerprint_files_one_issue(tmp_path, monkeypatch):
     assert len(set(done)) == 1                             # all point at the one issue URL
 
 
+def test_bug_screenshot_uploaded_and_embedded_inline(tmp_path, monkeypatch):
+    # B1: a bug report carrying a screenshot commits the PNG to the side branch and embeds its
+    # raw URL inline in the issue body.
+    _cfg(tmp_path, monkeypatch)
+    rep = cr.build_user_report("gui glitch", eventdata={}, now=1000)
+    cr.write_local(rep, screenshot=b"\x89PNG\r\n\x1a\nX")
+    created = {}
+
+    def fake(method, url, headers, data):
+        body = json.loads(data) if data else {}
+        if method == "GET" and "/git/ref/heads/bug-screenshots" in url:
+            return 200, {"object": {"sha": "abc"}}            # branch exists
+        if method == "PUT" and "/contents/screenshots/" in url:
+            assert body["branch"] == "bug-screenshots" and body["content"]   # base64 payload
+            return 201, {"content": {"download_url": "https://raw/shot.png"}}
+        if "/search/issues" in url:
+            return 200, {"items": []}
+        if url.endswith("/issues"):
+            created["body"] = body["body"]
+            return 201, {"html_url": "https://github.com/pearu/cozer/issues/1"}
+        raise AssertionError("unexpected %s %s" % (method, url))
+
+    r = cr.Reporter(config={"token": "t", "auto_submit": True, "submitted": {}}, transport=fake)
+    url = r._submit(rep)
+    assert url.endswith("/issues/1")
+    assert "![screenshot](https://raw/shot.png)" in created["body"]   # embedded inline
+
+
+def test_bug_screenshot_branch_created_when_missing(tmp_path, monkeypatch):
+    # ensure_screenshot_branch creates the side branch off the default branch when it is absent.
+    _cfg(tmp_path, monkeypatch)
+    seen = []
+
+    def fake(method, url, headers, data):
+        body = json.loads(data) if data else {}
+        seen.append((method, url))
+        if method == "GET" and "/git/ref/heads/bug-screenshots" in url:
+            raise Exception("404")                            # branch missing (urllib would raise)
+        if method == "GET" and url.endswith("/repos/pearu/cozer"):
+            return 200, {"default_branch": "main"}
+        if method == "GET" and "/git/ref/heads/main" in url:
+            return 200, {"object": {"sha": "mainsha"}}
+        if method == "POST" and url.endswith("/git/refs"):
+            assert body["ref"] == "refs/heads/bug-screenshots" and body["sha"] == "mainsha"
+            return 201, {}
+        raise AssertionError("unexpected %s %s" % (method, url))
+
+    assert cr.ensure_screenshot_branch("t", transport=fake) is True
+    assert any(m == "POST" and u.endswith("/git/refs") for m, u in seen)   # branch was created
+
+
 def test_parse_body_json_or_form_encoded():
     # GitHub's device endpoints reply form-encoded unless asked for JSON — accept both
     assert cr._parse_body("") == {}

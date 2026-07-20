@@ -1690,19 +1690,23 @@ def test_bug_report_screenshot_saved_and_referenced(tmp_path, monkeypatch):
     assert os.path.basename(shot) in body and shot not in body         # referenced, path not leaked
 
 
-def test_report_bug_captures_and_forwards_screenshot(tmp_path, monkeypatch):
+def test_report_bug_screenshot_checkbox_gates_attachment(tmp_path, monkeypatch):
+    # The dialog's opt-in checkbox decides whether a screenshot is captured (default off): only
+    # when checked does _on_report_bug grab the window and forward the PNG to report_bug.
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
     _app()
     w = MainWindow(_timer_event())
     assert w._grab_png()[:8] == b"\x89PNG\r\n\x1a\n"        # grabs a real PNG of the window
-    captured = {}
+    sent = {}
     monkeypatch.setattr(appmain, "report_bug",
-                        lambda win, text, screenshot=None: captured.update(t=text, s=screenshot))
-    monkeypatch.setattr(appmain.QInputDialog, "getMultiLineText",
-                        staticmethod(lambda *a, **k: ("GUI looks wrong", True)))
+                        lambda win, text, screenshot=None: sent.update(t=text, s=screenshot))
+    monkeypatch.setattr(w, "_bug_dialog", lambda: ("no screenshot please", False))
     w._on_report_bug()
-    assert captured["s"][:8] == b"\x89PNG\r\n\x1a\n"        # screenshot forwarded to report_bug
+    assert sent["s"] is None                               # unchecked -> no screenshot
+    monkeypatch.setattr(w, "_bug_dialog", lambda: ("attach one", True))
+    w._on_report_bug()
+    assert sent["s"][:8] == b"\x89PNG\r\n\x1a\n"            # checked -> PNG forwarded
 
 
 def test_startup_file_selects_event_arg():

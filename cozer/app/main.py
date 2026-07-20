@@ -18,7 +18,7 @@ from datetime import datetime
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
-    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QToolButton, QTreeWidget,
     QTreeWidgetItem, QVBoxLayout, QWidget,
 )
@@ -812,16 +812,45 @@ class MainWindow(QMainWindow):
         self.grab().save(buf, "PNG")
         return bytes(ba.data())
 
+    def _bug_dialog(self):
+        """Show the bug-report dialog; return (description, attach_screenshot) or None if
+        cancelled. The screenshot checkbox is opt-in (default off)."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Report a bug")
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(QLabel("Describe what happened — the first line becomes the issue title.\n"
+                             "The current event is attached so the bug can be reproduced:"))
+        edit = QPlainTextEdit()
+        lay.addWidget(edit)
+        shot = QCheckBox("Attach a screenshot of the app")
+        shot.setToolTip("Include a picture of the current window in the report — useful for a "
+                        "visual/GUI bug. It is committed to the project's screenshot branch and "
+                        "shown inline in the issue.")
+        lay.addWidget(shot)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(dlg.reject)
+        buttons.addWidget(cancel)
+        send = QPushButton("Report")
+        send.setDefault(True)
+        send.clicked.connect(dlg.accept)
+        buttons.addWidget(send)
+        lay.addLayout(buttons)
+        if dlg.exec() != QDialog.Accepted:
+            return None
+        return edit.toPlainText().strip(), shot.isChecked()
+
     def _on_report_bug(self):
-        text, ok = QInputDialog.getMultiLineText(
-            self, "Report a bug",
-            "Describe what happened — the first line becomes the issue title.\n"
-            "The current event and a screenshot of the app are attached so it can be reproduced:")
-        if ok and text.strip():
-            url = report_bug(self, text, screenshot=self._grab_png())
-            self.log("Bug report %s (a screenshot was saved with the local report)"
-                     % ("filed: %s" % url if url
-                        else "saved locally — will submit when you sign in"))
+        res = self._bug_dialog()
+        if not res or not res[0]:
+            return
+        text, want_shot = res
+        screenshot = self._grab_png() if want_shot else None
+        url = report_bug(self, text, screenshot=screenshot)
+        self.log("Bug report %s%s"
+                 % ("filed: %s" % url if url else "saved locally — will submit when you sign in",
+                    " (screenshot attached)" if screenshot else ""))
 
     # ---- reports tab ----
     def _build_reports_tab(self):

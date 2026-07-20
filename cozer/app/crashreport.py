@@ -10,6 +10,7 @@ All GitHub network calls go through an injectable ``transport`` so the logic is
 unit-tested without touching the network. Uses only the standard library
 (``urllib``), so it adds no dependency and never breaks an offline install.
 """
+import base64
 import hashlib
 import json
 import os
@@ -24,6 +25,7 @@ from cozer.store import atomic_write, dumps, to_jsonable
 REPO = "pearu/cozer"
 SCOPE = "public_repo"
 LABEL = "needs-triage"
+SCREENSHOT_BRANCH = "bug-screenshots"   # side branch that holds bug-report screenshots (off main)
 # cozer's registered GitHub OAuth App (Device Flow). The client id is public and
 # safe to ship; the flow needs no client secret. Overridable via env/config.
 DEFAULT_CLIENT_ID = "Ov23lixGVzLMEmj1QaHv"
@@ -135,7 +137,7 @@ def report_title(report):
     return "[%s] Crash: %s: %s" % (tag, report["exc_type"], msg)
 
 
-def report_body(report):
+def report_body(report, screenshot_url=None):
     is_bug = report["exc_type"] == "BugReport"
     lines = [
         "User bug report from cozer." if is_bug else "Automated crash report from cozer.", "",
@@ -161,8 +163,11 @@ def report_body(report):
                 note = "\n_(truncated — full data is in the local crash file)_"
             lines += ["", "<details><summary>Event data (for reproduction)</summary>", "",
                       "```json", js, "```", "</details>" + note]
-    if report.get("screenshot"):
-        # basename only — never leak the reporter's local filesystem path into a public issue.
+    if screenshot_url:                       # uploaded (B1) -> render it inline in the issue
+        lines += ["", "### Screenshot", "", "![screenshot](%s)" % screenshot_url]
+    elif report.get("screenshot"):
+        # not uploaded: reference the local copy by basename only — never leak the reporter's
+        # local filesystem path into a public issue.
         lines += ["", "_A GUI screenshot was saved next to the local report (`%s`); "
                   "attach it here if filing manually._" % os.path.basename(report["screenshot"])]
     lines += ["", "<!-- crash-fingerprint:%s -->" % report["fingerprint"]]
@@ -292,6 +297,45 @@ def create_issue(token, title, body, repo=REPO, labels=(LABEL,), transport=None)
     return js.get("html_url")
 
 
+def _branch_sha(token, repo, branch, transport=None):
+    """The head commit sha of ``branch``, or None if it doesn't exist (a 404 raises in the real
+    urllib transport -> None)."""
+    try:
+        _, js = _http("GET", GITHUB_API + "/repos/%s/git/ref/heads/%s" % (repo, branch),
+                      token=token, transport=transport)
+    except Exception:
+        return None
+    return ((js or {}).get("object") or {}).get("sha")
+
+
+def ensure_screenshot_branch(token, repo=REPO, branch=SCREENSHOT_BRANCH, transport=None):
+    """Make sure the screenshot side branch exists (create it off the default branch if not).
+    Returns True if it exists/was created."""
+    if _branch_sha(token, repo, branch, transport):
+        return True
+    _, repo_js = _http("GET", GITHUB_API + "/repos/%s" % repo, token=token, transport=transport)
+    base = _branch_sha(token, repo, (repo_js or {}).get("default_branch", "main"), transport)
+    if not base:
+        return False
+    _http("POST", GITHUB_API + "/repos/%s/git/refs" % repo, token=token,
+          data={"ref": "refs/heads/%s" % branch, "sha": base}, transport=transport)
+    return True
+
+
+def upload_screenshot(token, png_bytes, name, repo=REPO, branch=SCREENSHOT_BRANCH, transport=None):
+    """Commit a screenshot PNG to the side branch and return a raw URL that renders inline in
+    markdown (option B1). Returns None on any failure, so the caller falls back to a local-file
+    note rather than losing the whole bug report."""
+    if not ensure_screenshot_branch(token, repo, branch, transport):
+        return None
+    path = "screenshots/%s" % name
+    _, js = _http("PUT", GITHUB_API + "/repos/%s/contents/%s" % (repo, path), token=token,
+                  data={"message": "bug screenshot %s" % name, "branch": branch,
+                        "content": base64.b64encode(png_bytes).decode("ascii")}, transport=transport)
+    return ((js or {}).get("content") or {}).get("download_url") or \
+        ("https://raw.githubusercontent.com/%s/%s/%s" % (repo, branch, path))
+
+
 # --- orchestrator -----------------------------------------------------------
 
 class Reporter:
@@ -331,12 +375,28 @@ class Reporter:
                                  # searchable for seconds, so draining N same-fp queued reports
                                  # would otherwise create N duplicate issues)
         token = self.config["token"]
-        url = (search_fingerprint(token, fp, transport=self.transport)
-               or create_issue(token, report_title(report), report_body(report),
-                               transport=self.transport))
+        url = search_fingerprint(token, fp, transport=self.transport)
+        if not url:
+            url = create_issue(token, report_title(report),
+                               report_body(report, screenshot_url=self._upload_shot(report, token)),
+                               transport=self.transport)
         self.config.setdefault("submitted", {})[fp] = url
         save_config(self.config)
         return url
+
+    def _upload_shot(self, report, token):
+        """Upload the report's local screenshot (if any) for inline embedding; return its URL or
+        None. A failure here must never block filing the bug report, so it degrades to the local
+        note rather than propagating."""
+        spath = report.get("screenshot")
+        if not spath or not os.path.exists(spath):
+            return None
+        try:
+            with open(spath, "rb") as f:
+                return upload_screenshot(token, f.read(), os.path.basename(spath),
+                                         transport=self.transport)
+        except Exception:        # pragma: no cover - network hiccup -> fall back to the local note
+            return None
 
     def submit_pending(self, online=True):
         if not (self.logged_in() and online):
