@@ -296,6 +296,10 @@ class MainWindow(QMainWindow):
                 return
         self._prev_tab = idx
         self._refresh_warnings()   # data may have changed on the tab we just left
+        # Entering the Timer: pick up races added on the Races tab (its combo is otherwise
+        # only built at event-load). Safe mid-timing — refresh_races is a no-op while running.
+        if self.tabs.widget(idx) is self.timer_panel:
+            self.timer_panel.refresh_races()
 
     def closeEvent(self, event):
         # Don't let unsaved race edits vanish on quit.

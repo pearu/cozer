@@ -445,6 +445,22 @@ def test_races_tab():
     assert len(ed["races"]) == before
 
 
+def test_timer_picks_up_races_added_on_races_tab():
+    # Regression: a race added on the Races tab must appear in the Timer combo when you switch
+    # to it (the combo was only built at event-load, so newly-added races were invisible).
+    _app()
+    ed = {"title": "T", "scoringsystem": [10], "rules": [], "record": {}, "participants": [],
+          "classes": [["", "GT", "1*(1000):1"]], "races": [], "configure": {}}
+    w = MainWindow(ed)
+    assert w.timer_panel.race_combo.count() == 0          # no races at load
+    w.races_tab._add_race()                               # add one on the Races tab
+    w.eventdata["races"][0] = [["", "GT", "1"]]
+    # simulate switching to the Timer tab
+    w.tabs.setCurrentWidget(w.timer_panel)
+    assert w.timer_panel.race_combo.count() == 1          # now visible in the Timer
+    assert "GT 1" in w.timer_panel.race_combo.itemText(0)
+
+
 def test_race_label_unit():
     from cozer.app.grids import race_label
     assert race_label(0, [["", "", ""]]) == "Race 1"           # empty -> bare label
@@ -901,11 +917,17 @@ def test_heat_course_handles_suffixed_and_restart_heats():
     # (1r/1R) and a time-trial heat (1t) must resolve to the right heat's lap lengths.
     # (No timer test exercised a suffixed heat before this.)
     from cozer.app.timer import heat_course
+    from cozer.native import to_native
     ed = {"classes": [["", "C", "3*(1000+2*1500):2"], ["", "C/T", "1*(1000):1"]]}
     assert heat_course(ed, "C", "1") == heat_course(ed, "C", "1r") == heat_course(ed, "C", "1R")
     assert heat_course(ed, "C", "1")[0] == [1000, 1500, 1500]     # heat 1 lap lengths
     assert heat_course(ed, "C", "2")[0] == [1000, 1500, 1500]     # heat 2
     assert heat_course(ed, "C/T", "1t")[0] == [1000]             # /T time-trial heat -> heat 1
+    # same answers on the native model (heat_course reads the pattern via class_pattern) -- it
+    # used to index classes as legacy rows and silently return an empty course on native
+    nat = to_native(ed)
+    assert heat_course(nat, "C", "2")[0] == [1000, 1500, 1500]
+    assert heat_course(nat, "C/T", "1t")[0] == [1000]
 
 
 def _memb_ev(classes, record=None, qheat1=None, boats=(10, 20, 30, 40)):

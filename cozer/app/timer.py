@@ -160,15 +160,16 @@ def ladder(rec):
 
 
 def heat_course(eventdata, cl, h):
-    """(lap-lengths, scored-heats, duration) for class ``cl`` heat ``h``."""
-    for l in eventdata.get("classes", []):
-        if len(l) > 2 and l[1] == cl and l[2]:
-            r = crack_race_pattern(l[2], cl)
-            rpat, sheats = r[0], r[1]
-            duration = r[2] if len(r) == 3 else None
-            li = heat_number(h) - 1                      # phase model decodes the heat-id suffix
-            li = max(0, min(li, len(rpat) - 1))
-            return list(rpat[li]), sheats, duration
+    """(lap-lengths, scored-heats, duration) for class ``cl`` heat ``h``. Reads the pattern via
+    class_pattern, so it works on the native ({name, phases}) and legacy models alike."""
+    pat = class_pattern(eventdata, cl)
+    if pat:
+        r = crack_race_pattern(pat, cl)
+        rpat, sheats = r[0], r[1]
+        duration = r[2] if len(r) == 3 else None
+        li = heat_number(h) - 1                          # phase model decodes the heat-id suffix
+        li = max(0, min(li, len(rpat) - 1))
+        return list(rpat[li]), sheats, duration
     return [], 1, None
 
 
@@ -313,6 +314,17 @@ class TimerPanel(QWidget):
         self.race_combo.blockSignals(False)
         self.on_stop()
         self._show_race()
+
+    def refresh_races(self):
+        """Re-sync the race combo with ``eventdata['races']`` — e.g. after races were added on
+        the Races tab — preserving the current selection. No-op while a race is being timed, so
+        switching tabs never interrupts timing (``reload`` would stop it)."""
+        if getattr(self, "_started", False):
+            return
+        i = self.race_combo.currentIndex()
+        self.reload()
+        if 0 <= i < self.race_combo.count():
+            self.race_combo.setCurrentIndex(i)
 
     def _selected_race(self):
         i = self.race_combo.currentIndex()
