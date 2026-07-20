@@ -14,8 +14,8 @@ dialog (common circuit fields + a live preview + an editable raw string).
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
     QComboBox, QCompleter, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-    QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QStyledItemDelegate,
-    QTableView, QTabWidget, QVBoxLayout, QWidget,
+    QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox,
+    QStyledItemDelegate, QTableView, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from cozer.app import ruleset as rulesetmod
@@ -185,10 +185,20 @@ class ClassParticipantsWidget(QWidget):
         v = QVBoxLayout(self)
         self.view = QTableView()
         self.view.setModel(self.model)
-        self.view.horizontalHeader().setStretchLastSection(True)
+        hdr = self.view.horizontalHeader()
         from_col = next(i for i, (f, _) in enumerate(ParticipantClassModel.COLS) if f == 3)
         self.view.setItemDelegateForColumn(
             from_col, AutoCompleteDelegate(self._from_suggestions, self.view))
+        # Absorb spare width in the 'From' column, not a trailing checkbox column (qheat1) --
+        # a lone checkbox stretched full-width looks broken; size checkbox columns to content.
+        if show_qheat1:
+            hdr.setStretchLastSection(False)
+            hdr.setSectionResizeMode(from_col, QHeaderView.Stretch)
+            for i, (field, _label) in enumerate(self.model._cols):
+                if field is None:                    # a checkbox (sentinel) column
+                    hdr.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        else:
+            hdr.setStretchLastSection(True)
         v.addWidget(self.view)
         row = QHBoxLayout()
         add = QPushButton("Add participant")

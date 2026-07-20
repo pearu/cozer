@@ -1507,3 +1507,15 @@ def test_qheat1_column_absent_without_qualification():
     _app()
     m = ParticipantClassModel([["", "A", "One", "EST", "C", "10"]], "C")  # show_qheat1=False
     assert m.columnCount() == 4                         # no qheat1 column
+
+
+def test_qheat1_checkbox_column_sized_to_content_not_stretched():
+    from PySide6.QtWidgets import QHeaderView
+    from cozer.app.classpart import ClassParticipantsWidget
+    _app()
+    w = ClassParticipantsWidget([["", "A", "One", "EST", "C", "10"]], "C",
+                                qheat1={}, show_qheat1=True)
+    hdr = w.view.horizontalHeader()
+    assert not hdr.stretchLastSection()                 # the checkbox column must not stretch
+    qcol = w.model.columnCount() - 1                    # the trailing qheat1 checkbox column
+    assert hdr.sectionResizeMode(qcol) == QHeaderView.ResizeToContents
