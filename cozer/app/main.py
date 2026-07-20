@@ -814,7 +814,8 @@ class MainWindow(QMainWindow):
 
     def _bug_dialog(self):
         """Show the bug-report dialog; return (description, attach_screenshot) or None if
-        cancelled. The screenshot checkbox is opt-in (default off)."""
+        cancelled. The screenshot checkbox is on by default (most bug reports benefit from it);
+        the operator can clear it."""
         dlg = QDialog(self)
         dlg.setWindowTitle("Report a bug")
         lay = QVBoxLayout(dlg)
@@ -823,6 +824,7 @@ class MainWindow(QMainWindow):
         edit = QPlainTextEdit()
         lay.addWidget(edit)
         shot = QCheckBox("Attach a screenshot of the app")
+        shot.setChecked(True)
         shot.setToolTip("Include a picture of the current window in the report — useful for a "
                         "visual/GUI bug. It is committed to the project's screenshot branch and "
                         "shown inline in the issue.")
