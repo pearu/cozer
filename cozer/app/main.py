@@ -420,13 +420,17 @@ class MainWindow(QMainWindow):
         self._refresh_title()
         self.log(msg)
 
-    def open_accumulated(self, paths):
+    def open_accumulated(self, paths, save_as=None):
         """``python -m cozer f1.cozj f2.cozj …`` — open/create one event that
         accumulates rulesets. With only rulesets, the result is an initial new
         event (use case 1). With one non-ruleset event file present, that event
         is the base and the rulesets are applied **non-destructively** — adding
         new class names/rules and filling empty scoring only, never overwriting
-        the event's data (use case 2). Conflicts are reported to terminal + Log."""
+        the event's data (use case 2). Conflicts are reported to terminal + Log.
+
+        ``save_as`` (the CLI's trailing *non-existing* ``.cozj`` argument) writes the merged
+        event to that new file — a copy of the base event with the ruleset files accumulated in
+        (use case 3). The input files are only read, never modified."""
         loaded = []
         for p in paths:
             try:
@@ -445,7 +449,11 @@ class MainWindow(QMainWindow):
                    ", ".join(os.path.basename(p) for p, _ in events[1:])))
             events = events[:1]
 
-        if events:
+        if save_as:                                 # write a NEW file; inputs stay read-only
+            self.eventdata = (copy.deepcopy(events[0][1]) if events
+                              else copy.deepcopy(DEFAULT_EVENT))
+            self.eventdata["classnames"] = rulesetmod.classnames_of(self.eventdata)
+        elif events:
             self.load(events[0][0])                 # store-backed base (never overwritten)
         else:
             self.on_new()                           # a fresh event to build from rulesets
@@ -454,6 +462,11 @@ class MainWindow(QMainWindow):
         for p, d in rulesets:                       # non-destructive: add new / fill empty
             reports += rulesetmod.accumulate_ruleset(
                 self.eventdata, d, "%s: " % os.path.basename(p))
+
+        if save_as:                                 # persist the merge to the new file
+            self.store = EventStore(save_as, self.eventdata)
+            self.store.snapshot()
+            self._refresh_title()
         self._reload_forms()
         for msg in reports:
             self._report_accum(msg)
@@ -463,6 +476,12 @@ class MainWindow(QMainWindow):
                 % (len(rulesets), len(self.eventdata["classnames"]),
                    len(self.eventdata["rules"]),
                    " (%d conflict(s) kept existing)" % len(reports) if reports else ""))
+        if save_as:
+            self._report_accum(
+                "created %s — %s%s" % (
+                    os.path.basename(save_as),
+                    ("copy of %s" % os.path.basename(events[0][0])) if events else "new event",
+                    " + %d ruleset(s)" % len(rulesets) if rulesets else ""))
 
     def _report_accum(self, msg):
         print("cozer: %s" % msg, file=sys.stderr)
@@ -838,19 +857,31 @@ def _startup_file(argv):
     return paths[0] if paths else None
 
 
+def _accumulate_target(argv):
+    """Split the startup file arguments into ``(inputs, output, missing)``. ``output`` is a
+    *trailing non-existing* ``.cozj`` argument — the CLI's create-and-merge target (write the
+    merged event there) — else None. ``inputs`` are the earlier files that exist; ``missing``
+    are other non-existing arguments (genuine typos, reported to the terminal)."""
+    paths = _startup_paths(argv)
+    output = None
+    if paths and paths[-1].lower().endswith(".cozj") and not os.path.exists(paths[-1]):
+        output, paths = paths[-1], paths[:-1]
+    inputs = [p for p in paths if os.path.exists(p)]
+    missing = [p for p in paths if not os.path.exists(p)]
+    return inputs, output, missing
+
+
 def run(argv=None, app=None):     # pragma: no cover - launches the Qt event loop
     argv = list(argv) if argv is not None else sys.argv[1:]
     if app is None:
         app = QApplication.instance() or QApplication([sys.argv[0]] + argv)
     win = MainWindow()
     _install_excepthook(win)
-    paths = _startup_paths(argv)                   # python -m cozer f1.cozj f2.cozj …
-    for p in paths:
-        if not os.path.exists(p):
-            print("cozer: file not found: %s" % p, file=sys.stderr)
-    paths = [p for p in paths if os.path.exists(p)]
-    if paths:
-        win.open_accumulated(paths)
+    inputs, save_as, missing = _accumulate_target(argv)   # python -m cozer f1.cozj f2.cozj [out.cozj]
+    for p in missing:
+        print("cozer: file not found: %s" % p, file=sys.stderr)
+    if inputs or save_as:
+        win.open_accumulated(inputs, save_as=save_as)
     win.show()
     # Ctrl+C on the terminal should behave like File -> Quit (a clean close).
     # A signal handler alone won't fire while Qt's C++ event loop is blocked, so a

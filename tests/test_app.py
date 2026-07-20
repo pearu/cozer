@@ -743,6 +743,47 @@ def test_import_bundled_rulesets_via_window(monkeypatch):
     assert w.classnames_editor.list.count() == len(w.eventdata["classnames"])
 
 
+def test_accumulate_target_splits_trailing_new_cozj(tmp_path):
+    from cozer.app.main import _accumulate_target
+    a = str(tmp_path / "a.cozj"); b = str(tmp_path / "b.cozj"); out = str(tmp_path / "out.cozj")
+    open(a, "w").write("{}"); open(b, "w").write("{}")
+    # trailing non-existing .cozj -> the create-and-merge output target
+    assert _accumulate_target([a, b, out]) == ([a, b], out, [])
+    # all existing -> no output target (normal accumulate/open)
+    assert _accumulate_target([a, b]) == ([a, b], None, [])
+    # a non-existing input that is NOT last -> reported as missing, not an output
+    assert _accumulate_target([out, a]) == ([a], None, [out])
+
+
+def test_cli_create_and_merge_to_new_cozj(tmp_path):
+    # `cozer base.cozj ruleset.cozj out.cozj` (out non-existing) -> create out = a copy of the base
+    # event with the ruleset accumulated in; the input files are read-only.
+    _app()
+    import os
+    from cozer.app.ruleset import bundled_dir
+    from cozer.store import dump_event, load_event
+
+    base = str(tmp_path / "base.cozj")
+    base_ed = {"title": "Base", "scoringsystem": [], "rules": [], "participants": [
+        ["", "A", "One", "EST", "GT", "1"]], "record": {}, "races": [], "schema": 2,
+        "classes": [{"name": "GT", "phases": [{"kind": "circuit", "pattern": "3*(1000):1"}]}]}
+    open(base, "w").write(dump_event(base_ed))
+    base_before = open(base).read()
+    rulesets = [os.path.join(bundled_dir(), n) for n in         # general = scoring/rules, circuit = vocab
+                ("uim_general_2013.cozj", "uim_circuit_2013.cozj")]
+    out = str(tmp_path / "merged.cozj")
+
+    w = MainWindow()
+    w.open_accumulated([base] + rulesets, save_as=out)
+    assert os.path.exists(out)                                         # the new file was created
+    merged = load_event(open(out, encoding="utf-8").read())
+    assert any(c["name"] == "GT" for c in merged["classes"])           # base event copied over
+    assert any(len(p) > 4 and p[4] == "GT" for p in merged["participants"])  # base data preserved
+    assert merged["scoringsystem"]                                     # ruleset scoring filled in
+    assert "O-500" in merged["classnames"]                            # ruleset vocabulary accumulated
+    assert open(base).read() == base_before                            # inputs untouched
+
+
 def _timer_event():
     return {
         "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
