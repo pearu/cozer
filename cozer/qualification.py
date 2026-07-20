@@ -82,6 +82,17 @@ def finalists(eventdata, cl):
     return [b for b, s in classify(eventdata, cl).items() if s != "dnq"]
 
 
+def qualification_class(eventdata, cl):
+    """The qualification-phase class name for ``cl``'s base (the sibling ``/Q`` phase), or
+    ``None`` if the base has no qualification phase. Lets the finals report find the Q/DNQ
+    split that feeds it (§5.1 step 4 — the UIM 209 DNQ tail)."""
+    base = getclass(cl)
+    for c, ph in class_phase_map(eventdata).items():
+        if ph.kind == "qualification" and getclass(c) == base:
+            return c
+    return None
+
+
 # --- qheat membership (§5.1: qheat1/qheat2 split + repechage field) ---------------
 # The **organizer** provides the qheat1/qheat2 split (rule-compliant, incl. the
 # 305.04.03 nationality balancing); the operator records it as a per-boat qheat1 flag

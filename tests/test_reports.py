@@ -113,6 +113,71 @@ def test_full_final_assembly_matches_core():
                 assert row["sumpoints"] == str(sr["points"])
 
 
+# --- UIM 209 DNQ tail (qualification -> finals report; §5.1 step 4) ---------------
+
+def _qh(fast, slow):
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    return [info, {fast: [(1, 20.0)] * 3, slow: [(1, 25.0)] * 3}]
+
+
+def _finals_heat(order):
+    """A 3-lap circuit heat; boats finish in the given order (first = fastest)."""
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    return [info, {b: [(1, 20.0 + i)] * 3 for i, b in enumerate(order)}]
+
+
+def _qual_finals_event(finals_heat):
+    """C/Q qualification (10,30 primary; 20 repechage; 40 DNQ) feeding a C final."""
+    classes = [["", "C/Q", "3*(1000):1!qualification[1,1,1]"], ["", "C", "2*(3*1000):1"]]
+    parts = [["", "N%s" % b, "S%s" % b, "FIN", "C", str(b)] for b in (10, 20, 30, 40)]
+    record = {"C/Q": {"1q": _qh("10", "20"), "2q": _qh("30", "40"), "3q": _qh("20", "40")},
+              "C": {"1": finals_heat}}
+    return {"kind": "event", "title": "Q", "classes": classes, "participants": parts,
+            "record": record, "scoringsystem": [400, 300, 225], "rules": []}
+
+
+def _finals_table(model):
+    return next(t for t in model["tables"] if t["heats"] == ["1"])   # the C final (not the qheats)
+
+
+def test_final_report_dnq_tail_lists_non_qualifiers():
+    ed = _qual_finals_event(_finals_heat(["10", "30", "20"]))       # finalists race the final
+    t = _finals_table(build_full_final(ed))
+    ids = [r["id"] for r in t["rows"]]
+    assert ids[:3] == ["10", "30", "20"]           # finalists classified, in finishing order
+    assert ids[-1] == "40"                          # the sole non-qualifier, appended below
+    dnq = t["rows"][-1]
+    assert dnq["best"] == "DNQ" and dnq["sumpoints"] == "-" and dnq["place"] == ""
+
+
+def test_final_report_dnq_boat_in_record_moves_to_tail_not_duplicated():
+    # finals record materialized with ALL participants: boat 40 (DNQ) sits there as a DNS
+    heat = _finals_heat(["10", "30", "20"])
+    heat[1]["40"] = []                              # no crossings -> DNS placeholder
+    t = _finals_table(build_full_final(_qual_finals_event(heat)))
+    ids = [r["id"] for r in t["rows"]]
+    assert ids.count("40") == 1                      # listed once...
+    assert ids[-1] == "40" and t["rows"][-1]["best"] == "DNQ"   # ...in the tail, not the body
+    assert set(ids[:-1]) == {"10", "30", "20"}       # body = finalists only (40 moved out)
+
+
+def test_final_report_dnq_tail_in_short_report_too():
+    t = _finals_table(build_short_final(_qual_finals_event(_finals_heat(["10", "30", "20"]))))
+    assert t["rows"][-1]["id"] == "40" and t["rows"][-1]["best"] == "DNQ"
+
+
+def test_final_report_no_dnq_tail_without_qualification():
+    # a plain circuit class (no /Q sibling) is unchanged -- no DNQ rows
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    ed = {"kind": "event", "title": "X", "scoringsystem": [400, 300, 225], "rules": [],
+          "classes": [["", "C", "2*(3*1000):1"]],
+          "participants": [["", "N", "S", "FIN", "C", str(b)] for b in (10, 20)],
+          "record": {"C": {"1": [info, {"10": [(1, 20.0)] * 3, "20": [(1, 25.0)] * 3}]}}}
+    t = next(t for t in build_full_final(ed)["tables"] if t["class"] == "C")
+    assert [r["id"] for r in t["rows"]] == ["10", "20"]         # both scored, no DNQ tail
+    assert all(r["best"] != "DNQ" for r in t["rows"])
+
+
 def test_report_skips_unrecorded_heat_in_heat_map():
     """A heat_map naming a heat absent from the record -- a stale tree selection
     (heat checked, then its record cleared) or a programmatic caller -- must degrade

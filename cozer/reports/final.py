@@ -3,6 +3,7 @@ summary only) results reports, built from the proven scoring core."""
 from cozer.analyzer import analyze, sumanalyze, getsumresorder, rule_action_codes
 from cozer.classes import getclass
 from cozer.phases import class_phase_map, phase_heat_map
+from cozer.qualification import classify, participant_boats, qualification_class
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
@@ -58,6 +59,37 @@ def _legend_html(legend, labels):
     return "; ".join(bits)
 
 
+def _finalist_set(eventdata, cl, ph):
+    """The finalist boat-ids for a finals class ``cl`` fed by a qualification phase, or
+    ``None`` when no such phase is recorded (then the report is unchanged). A finalist is a
+    boat ``classify`` marks `primary`/`repechage`; ``classify`` respects a manual `DNQ`/`Q`
+    edit, so a §10-F make-up promotion reads as a finalist here."""
+    if ph.kind in ("timetrial", "qualification"):
+        return None
+    qual_cl = qualification_class(eventdata, cl)
+    labels = classify(eventdata, qual_cl) if qual_cl else {}
+    if not labels:                                       # qualification not recorded -> no tail
+        return None
+    return {b for b, s in labels.items() if s != "dnq"}
+
+
+def _dnq_rows(eventdata, cl, finalist_set, parts, nheats):
+    """The UIM 209 DNQ tail: every entered-and-accepted boat that is not a finalist, in
+    participant-list order, marked `DNQ` with no final points (§5.1 step 4)."""
+    rows = []
+    for b in participant_boats(eventdata, cl):
+        if b in finalist_set:
+            continue
+        first, last, club = parts.get((cl, b), ("", "", ""))
+        names = get_fullname(first, last).split(";")
+        rows.append({
+            "place": "", "name": names[0].strip(), "extra": [n.strip() for n in names[1:]],
+            "from": club, "id": b, "heats": [{"result": "-", "points": "-"}] * nheats,
+            "best": "DNQ", "sumpoints": "-",
+        })
+    return rows
+
+
 def _build(eventdata, classes, heat_map, orientation, full):
     record = eventdata.get("record", {})
     ss = eventdata.get("scoringsystem", [])
@@ -80,9 +112,14 @@ def _build(eventdata, classes, heat_map, orientation, full):
         res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
+        # UIM 209 DNQ tail: when a qualification phase feeds this finals phase, the report
+        # lists every entered boat -- finalists in the classified body, non-qualifiers below.
+        finalist_set = _finalist_set(eventdata, cl, ph)
         legend = {}
         rows = []
         for pid in order:
+            if finalist_set is not None and str(pid) not in finalist_set:
+                continue                                # a non-qualifier -> shown in the DNQ tail
             first, last, club = parts.get((cl, str(pid)), ("", "", ""))
             names = get_fullname(first, last).split(";")
             sr = sumres[pid]
@@ -104,6 +141,8 @@ def _build(eventdata, classes, heat_map, orientation, full):
                 "best": ("%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if scored else "-",
                 "sumpoints": str(sr["points"]) if scored else "-",
             })
+        if finalist_set is not None:
+            rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, len(heats)))
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
