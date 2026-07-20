@@ -1706,6 +1706,30 @@ def test_check_for_updates_menu_and_handler(monkeypatch):
     w._on_check_updates()
 
 
+def test_apply_update_dispatches_by_install_kind(monkeypatch):
+    # Phase 2: _apply_update routes to the right action -- installer opens the .exe download, pip
+    # runs the wheel update, a source checkout is informational only.
+    _app()
+    w = MainWindow()
+    import cozer.app.update as upd
+    opened, ran = {}, {}
+    monkeypatch.setattr(appmain, "open_in_viewer", lambda u: opened.__setitem__("url", u))
+    monkeypatch.setattr(appmain.QMessageBox, "information", staticmethod(lambda *a, **k: None))
+    monkeypatch.setattr(appmain.QMessageBox, "question", staticmethod(lambda *a, **k: appmain.QMessageBox.Yes))
+    monkeypatch.setattr(w, "_run_pip_update", lambda url: ran.__setitem__("url", url))
+    res = {"current": "3.0.0", "kind": "x", "latest": {"url": "https://rel"}, "available": True}
+    monkeypatch.setattr(upd, "recommend", lambda r: {"action": "installer", "url": "https://dl/x.exe", "hint": "x.exe"})
+    w._apply_update(res)
+    assert opened.get("url") == "https://dl/x.exe"                  # installer -> browser download
+    monkeypatch.setattr(upd, "recommend", lambda r: {"action": "pip", "url": "https://dl/x.whl", "hint": "x.whl"})
+    w._apply_update(res)
+    assert ran.get("url") == "https://dl/x.whl"                     # pip -> wheel update
+    opened.clear(); ran.clear()
+    monkeypatch.setattr(upd, "recommend", lambda r: {"action": "source", "url": None, "hint": ""})
+    w._apply_update(res)
+    assert not opened and not ran                                  # source -> informational only
+
+
 def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)

@@ -93,3 +93,36 @@ def check(transport=None):
         "latest": rel,
         "available": bool(rel and is_newer(rel["tag"], __version__)),
     }
+
+
+def _find_asset(release, suffix):
+    for a in (release.get("assets") or []):
+        if (a.get("name") or "").lower().endswith(suffix):
+            return a
+    return None
+
+
+def recommend(res):
+    """The apply action for this install, given a :func:`check` result (docs/RELEASE.md §Phase 2):
+    ``{"action", "url", "hint"}`` where ``action`` is one of
+
+    - ``"none"``      — up to date / offline; nothing to do.
+    - ``"source"``    — running from a checkout: informational only (never mutate a working tree).
+    - ``"pip"``       — a plain pip install: ``pip install -U`` the release wheel (``url``). Safe —
+                        cozer's wheel declares no runtime deps, so this only updates cozer's code.
+    - ``"installer"`` — the Windows constructor install: download + run the new installer (``url``).
+                        (A fast wheel path here is a future optimization, gated on a deps-changed
+                        signal; the full installer is always safe.)
+    - ``"link"``      — the expected asset is missing: just open the release page (``url``).
+    """
+    if not res.get("available") or not res.get("latest"):
+        return {"action": "none", "url": None, "hint": ""}
+    rel = res["latest"]
+    kind = res.get("kind")
+    if kind == "source":
+        return {"action": "source", "url": rel.get("url"), "hint": "git pull && pip install -U ."}
+    asset = _find_asset(rel, ".exe" if kind == "windows-installer" else ".whl")
+    if asset:
+        return {"action": "installer" if kind == "windows-installer" else "pip",
+                "url": asset.get("url"), "hint": asset.get("name") or ""}
+    return {"action": "link", "url": rel.get("url"), "hint": "release page"}   # asset missing

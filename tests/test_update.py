@@ -50,3 +50,21 @@ def test_check_available_vs_up_to_date(monkeypatch):
 def test_install_kind_source_from_repo_tree():
     # the suite runs from the repo working tree (a .git above the package) -> "source"
     assert update.install_kind() == "source"
+
+
+def _res(kind, available=True, assets=()):
+    rel = {"tag": "v9.0.0", "name": "cozer v9.0.0", "notes": "n", "url": "https://rel",
+           "assets": [{"name": n, "url": "https://dl/%s" % n, "size": 1} for n in assets]}
+    return {"current": "3.0.0", "kind": kind, "latest": rel if available else None,
+            "available": available}
+
+
+def test_recommend_by_install_kind():
+    assert update.recommend(_res("wheel", available=False))["action"] == "none"    # up to date
+    assert update.recommend(_res("source"))["action"] == "source"                  # informational
+    r = update.recommend(_res("wheel", assets=["cozer-9.0.0-py3-none-any.whl"]))
+    assert r["action"] == "pip" and r["url"].endswith(".whl")                       # pip -U the wheel
+    r = update.recommend(_res("windows-installer", assets=["COZER-9.0.0-Windows-x86_64.exe"]))
+    assert r["action"] == "installer" and r["url"].endswith(".exe")                # download installer
+    r = update.recommend(_res("windows-installer", assets=[]))                      # expected asset missing
+    assert r["action"] == "link" and r["url"] == "https://rel"                      # -> release page

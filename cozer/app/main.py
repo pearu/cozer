@@ -799,10 +799,64 @@ class MainWindow(QMainWindow):
         if rel["notes"].strip():
             box.setDetailedText(rel["notes"])
         box.setStandardButtons(QMessageBox.Close)
+        update_btn = box.addButton("Update now", QMessageBox.AcceptRole)
         open_btn = box.addButton("Open release page", QMessageBox.ActionRole)
         box.exec()
-        if box.clickedButton() is open_btn and rel["url"]:
+        clicked = box.clickedButton()
+        if clicked is update_btn:
+            self._apply_update(res)
+        elif clicked is open_btn and rel["url"]:
             open_in_viewer(rel["url"])
+
+    def _apply_update(self, res):
+        """Apply the available update, adapting to how cozer is installed (docs/RELEASE.md §Phase 2):
+        a source checkout -> informational only; a pip install -> `pip install -U` the release wheel
+        (small, in-app); the Windows installer -> open the installer .exe download (the browser
+        fetches the big bundle, the operator runs it)."""
+        from cozer.app import update
+        plan = update.recommend(res)
+        action, url = plan["action"], plan["url"]
+        if action == "source":
+            QMessageBox.information(
+                self, "Update cozer",
+                "You're running cozer from a source checkout — update it with:\n\n"
+                "    git pull\n    pip install -U .")
+        elif action == "installer":
+            if url:
+                open_in_viewer(url)                  # the browser downloads the installer .exe
+            QMessageBox.information(
+                self, "Update cozer",
+                "The Windows installer (%s) is downloading in your browser.\n\nClose cozer, run the "
+                "installer to upgrade, then start cozer again." % (plan["hint"] or "latest release"))
+        elif action == "pip" and url:
+            if QMessageBox.question(
+                    self, "Update cozer",
+                    "Update cozer to the latest release now? cozer will need to be restarted "
+                    "afterwards.") == QMessageBox.Yes:
+                self._run_pip_update(url)
+        elif url:                                    # "link" fallback: asset missing -> release page
+            open_in_viewer(url)
+
+    def _run_pip_update(self, url):
+        """`pip install -U` the release wheel into the running interpreter, then prompt a restart.
+        Safe because cozer's wheel declares no runtime deps (they come from the env), so this only
+        replaces cozer's own code."""
+        import subprocess
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            proc = subprocess.run([sys.executable, "-m", "pip", "install", "-U", url],
+                                  capture_output=True, text=True, timeout=300)
+        except Exception as e:                       # network/timeout -> report, never crash
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, "Update cozer", "Update failed:\n%s" % e)
+            return
+        QApplication.restoreOverrideCursor()
+        if proc.returncode == 0:
+            QMessageBox.information(self, "Update cozer",
+                                    "cozer updated — restart cozer to use the new version.")
+        else:
+            QMessageBox.warning(self, "Update cozer", "Update failed (pip exit %d):\n\n%s"
+                                % (proc.returncode, (proc.stderr or proc.stdout or "")[-800:]))
 
     def _on_about(self):
         """The About box (cf. legacy Cozer): tagline, version, project link, author."""
