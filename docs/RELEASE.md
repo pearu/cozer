@@ -47,13 +47,14 @@
 - ✅ **Help ▸ "Check for updates…"** (`3ab772c`): reports up-to-date / offline / update-available
   (release notes + link to the release page). Manual; the apply is Phase 2.
 
-### Phase 1 — first release (after reviewer sign-off → push)
-1. Reviewer signs off → **push `main`** (closes #15, #19).
-2. Bump version → **`3.0.0rc1`** (one command, per Phase 0).
-3. Add a **Release step to `windows-installer.yml`**: `gh release create v3.0.0rc1` and upload
-   **both** the installer `.exe` **and** the wheel as release assets. The Release becomes the single
-   public source the app updates from.
-4. Tag `v3.0.0rc1` → CI builds the installer + attaches assets → the first live Release.
+### Phase 1 — first release — ✅ DONE (2026-07-21)
+1. ✅ **Pushed `main`** (`46bc089`, 63 commits) → **#15 and #19 auto-closed**.
+2. ✅ **Bumped to `3.0.0rc1`** (`tools/bump_version.py`).
+3. ✅ **Release step added to `windows-installer.yml`** (`gh release create` on a `v*` tag, uploads
+   the `.exe` + wheel with `contents: write`).
+4. ✅ **Tagged `v3.0.0rc1`** → the installer workflow built + **published Release `v3.0.0rc1`** with
+   both assets (`cozer-3.0.0rc1-py3-none-any.whl`, `COZER-3.0.0rc1-Windows-x86_64.exe`). Verified:
+   `releases/latest` returns it (not a prerelease) and `update.check()` sees it end-to-end.
 
 ### Phase 2 — apply the update (Windows only, per scope; needs a live release to test)
 The adaptive action, driven by `install_kind()` + what the release provides:
@@ -87,3 +88,7 @@ The adaptive action, driven by `install_kind()` + what the release provides:
 - **2026-07-21** — **Phase 0 done** (`3ab772c`, `e87439f`): version single-sourced; `update.py`
   check core + Help ▸ "Check for updates…" (status only). 604 green. Reviewer signed off on the
   posting-metadata work (86th coord msg) → **Phase 1 push is now unblocked** (owner to trigger).
+- **2026-07-21** — **Phase 1 done**: pushed `main` (63 commits; #15/#19 closed), bumped to
+  `3.0.0rc1`, added the `gh release create` step to the installer workflow, tagged `v3.0.0rc1` →
+  **Release published** with the installer `.exe` + wheel. `releases/latest` + `update.check()`
+  verified end-to-end. Phase 2 (adaptive apply) is now testable against a live release.
