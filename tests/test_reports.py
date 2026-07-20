@@ -430,3 +430,29 @@ def test_intermediate_qualification_shows_qdnq():
     assert {r["id"]: r["status"] for r in t["rows"]} == {"1": "Q", "2": "Q", "3": "DNQ"}
     html = intermediate_html(m)
     assert "Q/DNQ" in html and "DNQ" in html               # the status column renders
+
+
+def test_qualification_summary_final_like():
+    # The final-like qualification summary: per class, every boat's overall advancement across
+    # all qheats -- primaries (direct Q, by qheat), then repechage (second-chance Q), then DNQ.
+    from cozer.reports.qsummary import build_qualification, qualification_html
+    from cozer.native import to_native
+
+    def laps(t):
+        return [(1, t), (1, t), (1, t)]
+    # counts [2,1]: qheat1 selection (top 2 = primary), qheat2 = repechage (top 1)
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [400, 300, 225], "rules": [], "races": [],
+        "participants": [["", "N%d" % i, "", "EST", "F 500", str(i)] for i in (1, 2, 3, 4)],
+        "classes": [["", "F 500/Q", "1*(3*1000):1!qualification[2,1]"], ["", "F 500", "4*(1400):3"]],
+        "record": {"F 500/Q": {
+            "1q": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                   {"1": laps(20.0), "2": laps(21.0), "3": laps(22.0), "4": laps(23.0)}],
+            "2q": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                   {"3": laps(20.0), "4": laps(21.0)}]}},
+    })
+    m = build_qualification(ed)
+    t = next(x for x in m["tables"] if x["class"] == "F 500")
+    assert [(r["id"], r["qheat"], r["status"]) for r in t["rows"]] == \
+        [("1", "1", "Q"), ("2", "1", "Q"), ("3", "Rep.", "Q"), ("4", "Rep.", "DNQ")]
+    assert "Q/DNQ" in qualification_html(m) and "Rep." in qualification_html(m)

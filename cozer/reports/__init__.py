@@ -17,6 +17,9 @@ from cozer.reports.participants import (
 from cozer.reports.intermediate import (
     build_intermediate, intermediate_html, render_intermediate,
 )
+from cozer.reports.qsummary import (
+    build_qualification, qualification_html, render_qualification,
+)
 from cozer.reports.laps import (
     build_laps_protocol, laps_protocol_html, render_laps_protocol,
 )
@@ -36,6 +39,7 @@ __all__ = [
     "build_participants", "participants_html", "render_participants",
     "build_checklist", "checklist_html", "render_checklist",
     "build_intermediate", "intermediate_html", "render_intermediate",
+    "build_qualification", "qualification_html", "render_qualification",
     "build_laps_protocol", "laps_protocol_html", "render_laps_protocol",
     "build_endurance_final", "endurance_final_html", "render_endurance_final",
     "build_info_letter", "info_letter_html", "render_info_letter",

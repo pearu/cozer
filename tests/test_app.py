@@ -31,7 +31,7 @@ def test_window_builds_and_populates():
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
     assert w.report_tree.topLevelItemCount() == len(get_classes(ed))  # class/heat tree populated
-    assert w.report_combo.count() == 11                    # all reports offered (incl. 2 legacy Final)
+    assert w.report_combo.count() == 12                    # all reports offered (incl. 2 legacy Final)
 
 
 def test_event_field_edits_update_eventdata():
@@ -75,7 +75,7 @@ def test_export_report_writes_and_opens(tmp_path, monkeypatch):
                         staticmethod(lambda *a, **k: (out, "")))
     monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
     monkeypatch.setattr(appmain.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
-    w.report_combo.setCurrentIndex(2)                      # Full Final
+    w.report_combo.setCurrentIndex(3)                      # Full Final
     w.on_export()
     assert os.path.exists(out) and opened == [out]
 
@@ -90,7 +90,7 @@ def test_view_report_uses_event_reports_dir(tmp_path, monkeypatch):
     opened = []
     monkeypatch.setattr(appmain, "open_in_viewer", opened.append)
     monkeypatch.setattr(appmain.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
-    w.report_combo.setCurrentIndex(2)                      # Full Final
+    w.report_combo.setCurrentIndex(3)                      # Full Final (after Participants/Intermediate/Qualification)
     w.on_view()                                            # no Save dialog
     rdir = tmp_path / "ev.reports"
     latest = rdir / "full_final.pdf"
@@ -137,7 +137,7 @@ def test_report_generation_warns_on_findings(tmp_path, monkeypatch):
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
     monkeypatch.setattr(appmain, "open_in_viewer", lambda *a, **k: None)
-    w.report_combo.setCurrentIndex(2)                     # Full Final
+    w.report_combo.setCurrentIndex(3)                     # Full Final
     w.on_export()
     assert any("Data warnings" in t for t in warned)      # loud warning before generating
     assert (tmp_path / "r.pdf").exists()                  # ...and it still generated

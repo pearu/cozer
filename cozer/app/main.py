@@ -69,6 +69,7 @@ _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
 _REPORTS = [
     ("Participants", "render_participants", True, False),
     ("Intermediate", "render_intermediate", True, True),
+    ("Qualification", "render_qualification", True, False),
     ("Full Final", "render_full_final", True, True),
     ("Short Final", "render_short_final", True, True),
     ("Full Final (legacy)", "render_full_final_legacy", True, True),

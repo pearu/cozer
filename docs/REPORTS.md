@@ -97,8 +97,10 @@ per kind). All 209 common content applies per heat and in the summary.
   qualification qheat it shows an `isqual` table — finishing order + a **Q/DNQ** Status column
   (the qheat's top-`count` qualify, `qualification.classify_qheat`). This is the *Intermediate-like*
   view, printed after each qheat (owner). Hooks the per-phase model (`ph.kind == "qualification"`).
-- **[TODO, combined] A *Final-like* qualification summary** — one combined Q/DNQ advancement table
-  per class (who reached the finals across all qheats, incl. the repechage). Follow-up (item 2b).
+- **[FIXED 2026-07-20, combined] *Final-like* qualification summary** — a new **Qualification**
+  report (`reports/qsummary.py`, menu "Qualification"): one table per class with every boat's
+  overall Q/DNQ, ordered primaries (by qheat) → repechage → DNQ, showing the source qheat
+  (or "Rep."). Uses `qualification.classify` (aggregate). Registered in `_REPORTS`.
 
 ### 5.3 Finals / circuit (and shared across kinds)
 
@@ -126,7 +128,7 @@ per kind). All 209 common content applies per heat and in the summary.
 |---|-----|----------|-------|
 | 1 | ~~Time-trial best-lap **time**~~ | ✅ **DONE** | `analyze` reports the best (max-speed) lap's measured time; fixes the 1-lap `-`. See §5.1. |
 | 2 | Qualification per-qheat (Intermediate-like) | ✅ **DONE** | Intermediate report `isqual` mode: per-qheat results + Q/DNQ Status (top-N qualify). See §5.2. |
-| 2b | Qualification summary (Final-like) | **P1** (gap) | Combined Q/DNQ advancement per class across all qheats (incl. repechage). Follow-up. |
+| 2b | Qualification summary (Final-like) | ✅ **DONE** | New "Qualification" report (`qsummary.py`): combined Q/DNQ per class, primaries → repechage → DNQ. See §5.2. |
 | 3 | Restart `R` / `R2` display | P2 | Map heat-id `1r`→`1R`, last-heat `1R`→`1R2` in heat headers (context-aware). Presentation-only. |
 | 4 | Nationality column | P2 | Depends on **D1**. |
 | 5 | Laps for all finishers | P3 | Depends on **D3**. |
@@ -166,5 +168,8 @@ per kind). All 209 common content applies per heat and in the summary.
   `0 → 20.0` (deliberate divergence — legacy relied on manual lap-disabling). D1/D3 still open.
 - **2026-07-20** — Plan item **2 (per-qheat) done**: the Intermediate report is qualification-aware
   (`isqual` mode) — per-qheat Q/DNQ Status (top-N qualify), the "printed after each qheat" view
-  (owner). `qualification.classify_qheat` added. Item **2b** (combined Final-like qual summary)
-  remains.
+  (owner). `qualification.classify_qheat` added.
+- **2026-07-20** — Plan item **2b (Final-like) done**: new **Qualification** report
+  (`reports/qsummary.py`, menu entry) — combined per-class Q/DNQ advancement across all qheats
+  (primaries → repechage → DNQ). Reports item 2 complete. Open: D1 (nationality), D3 (laps),
+  restart R/R2 notation (§5.3).
