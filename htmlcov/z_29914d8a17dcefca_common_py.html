@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Coverage for cozer/reports/common.py: 90%</title>
+    <title>Coverage for cozer/reports/common.py: 91%</title>
     <link rel="icon" sizes="32x32" href="favicon_32_cb_c827f16f.png">
     <link rel="stylesheet" href="style_cb_4667309f.css" type="text/css">
     <script src="coverage_html_cb_dd2e7eb5.js" defer></script>
@@ -12,7 +12,7 @@
     <div class="content">
         <h1>
             <span class="text">Coverage for </span><b>cozer<span class="sep">/</span>reports<span class="sep">/</span>common.py</b>:
-            <span class="pc_cov">90%</span>
+            <span class="pc_cov">91%</span>
         </h1>
         <aside id="help_panel_wrapper">
             <input id="help_panel_state" type="checkbox">
@@ -55,8 +55,8 @@
             </div>
         </aside>
         <h2>
-            <span class="text">60 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">55<span class="text"> run</span></button>
+            <span class="text">62 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">57<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">5<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
             <button type="button" class="par run show_par button_toggle_par" value="par" data-shortcut="p" title="Toggle lines partially run">3<span class="text"> partial</span></button>
@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_29914d8a17dcefca_endurance_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-20 06:08 +0000
+            created at 2026-07-20 06:41 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -156,21 +156,24 @@
     <p class="run"><span class="n"><a id="t72" href="#t72">72</a></span><span class="t">    <span class="key">return</span> <span class="op">{</span><span class="nam">k</span><span class="op">:</span> <span class="nam">eventdata</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="nam">k</span><span class="op">,</span> <span class="str">""</span><span class="op">)</span> <span class="key">for</span> <span class="nam">k</span> <span class="key">in</span> <span class="op">(</span><span class="str">"title"</span><span class="op">,</span> <span class="str">"venue"</span><span class="op">,</span> <span class="str">"date"</span><span class="op">,</span> <span class="str">"officer"</span><span class="op">,</span> <span class="str">"secretary"</span><span class="op">)</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t73" href="#t73">73</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t74" href="#t74">74</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t75" href="#t75">75</a></span><span class="t"><span class="key">def</span> <span class="nam">document_html</span><span class="op">(</span><span class="nam">orientation</span><span class="op">,</span> <span class="nam">labels</span><span class="op">,</span> <span class="nam">meta</span><span class="op">,</span> <span class="nam">heading</span><span class="op">,</span> <span class="nam">body_parts</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t76" href="#t76">76</a></span><span class="t">    <span class="str">"""Wrap report body (a list of HTML fragments) in a full styled document."""</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t77" href="#t77">77</a></span><span class="t">    <span class="nam">css</span> <span class="op">=</span> <span class="nam">page_css</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t78" href="#t78">78</a></span><span class="t">        <span class="nam">orientation</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t79" href="#t79">79</a></span><span class="t">        <span class="nam">footer_left</span><span class="op">=</span><span class="str">"%s  /%s/"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"officer"</span><span class="op">]</span><span class="op">,</span> <span class="nam">labels</span><span class="op">[</span><span class="str">"OfficeroftheDay"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t80" href="#t80">80</a></span><span class="t">        <span class="nam">footer_center</span><span class="op">=</span><span class="nam">labels</span><span class="op">[</span><span class="str">"Page"</span><span class="op">]</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t81" href="#t81">81</a></span><span class="t">        <span class="nam">footer_right</span><span class="op">=</span><span class="str">"%s  /%s/"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"secretary"</span><span class="op">]</span><span class="op">,</span> <span class="nam">labels</span><span class="op">[</span><span class="str">"SecretaryoftheRace"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t82" href="#t82">82</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t83" href="#t83">83</a></span><span class="t">    <span class="nam">parts</span> <span class="op">=</span> <span class="op">[</span><span class="str">"&lt;style>%s\n%s&lt;/style>"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">css</span><span class="op">,</span> <span class="nam">TABLE_CSS</span><span class="op">)</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t84" href="#t84">84</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;h1 class="event-title">%s&lt;/h1>'</span> <span class="op">%</span> <span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"title"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t85" href="#t85">85</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;div class="event-meta">%s &amp;nbsp;&amp;middot;&amp;nbsp; %s&lt;/div>'</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t86" href="#t86">86</a></span><span class="t">                 <span class="op">%</span> <span class="op">(</span><span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"venue"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span> <span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"date"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t87" href="#t87">87</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;h2 class="report-heading">%s&lt;/h2>'</span> <span class="op">%</span> <span class="nam">display</span><span class="op">(</span><span class="nam">heading</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t88" href="#t88">88</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">extend</span><span class="op">(</span><span class="nam">body_parts</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t89" href="#t89">89</a></span><span class="t">    <span class="key">return</span> <span class="str">"\n"</span><span class="op">.</span><span class="nam">join</span><span class="op">(</span><span class="nam">parts</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t75" href="#t75">75</a></span><span class="t"><span class="key">def</span> <span class="nam">document_html</span><span class="op">(</span><span class="nam">orientation</span><span class="op">,</span> <span class="nam">labels</span><span class="op">,</span> <span class="nam">meta</span><span class="op">,</span> <span class="nam">heading</span><span class="op">,</span> <span class="nam">body_parts</span><span class="op">,</span> <span class="nam">subtitle</span><span class="op">=</span><span class="str">""</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t76" href="#t76">76</a></span><span class="t">    <span class="str">"""Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t77" href="#t77">77</a></span><span class="t"><span class="str">    (optional) is shown under the heading -- used for the phase-kind line (&#167;10-E)."""</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t78" href="#t78">78</a></span><span class="t">    <span class="nam">css</span> <span class="op">=</span> <span class="nam">page_css</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t79" href="#t79">79</a></span><span class="t">        <span class="nam">orientation</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t80" href="#t80">80</a></span><span class="t">        <span class="nam">footer_left</span><span class="op">=</span><span class="str">"%s  /%s/"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"officer"</span><span class="op">]</span><span class="op">,</span> <span class="nam">labels</span><span class="op">[</span><span class="str">"OfficeroftheDay"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t81" href="#t81">81</a></span><span class="t">        <span class="nam">footer_center</span><span class="op">=</span><span class="nam">labels</span><span class="op">[</span><span class="str">"Page"</span><span class="op">]</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t82" href="#t82">82</a></span><span class="t">        <span class="nam">footer_right</span><span class="op">=</span><span class="str">"%s  /%s/"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"secretary"</span><span class="op">]</span><span class="op">,</span> <span class="nam">labels</span><span class="op">[</span><span class="str">"SecretaryoftheRace"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t83" href="#t83">83</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t84" href="#t84">84</a></span><span class="t">    <span class="nam">parts</span> <span class="op">=</span> <span class="op">[</span><span class="str">"&lt;style>%s\n%s&lt;/style>"</span> <span class="op">%</span> <span class="op">(</span><span class="nam">css</span><span class="op">,</span> <span class="nam">TABLE_CSS</span><span class="op">)</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t85" href="#t85">85</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;h1 class="event-title">%s&lt;/h1>'</span> <span class="op">%</span> <span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"title"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t86" href="#t86">86</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;div class="event-meta">%s &amp;nbsp;&amp;middot;&amp;nbsp; %s&lt;/div>'</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t87" href="#t87">87</a></span><span class="t">                 <span class="op">%</span> <span class="op">(</span><span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"venue"</span><span class="op">]</span><span class="op">)</span><span class="op">,</span> <span class="nam">display</span><span class="op">(</span><span class="nam">meta</span><span class="op">[</span><span class="str">"date"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t88" href="#t88">88</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;h2 class="report-heading">%s&lt;/h2>'</span> <span class="op">%</span> <span class="nam">display</span><span class="op">(</span><span class="nam">heading</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t89" href="#t89">89</a></span><span class="t">    <span class="key">if</span> <span class="nam">subtitle</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t90" href="#t90">90</a></span><span class="t">        <span class="nam">parts</span><span class="op">.</span><span class="nam">append</span><span class="op">(</span><span class="str">'&lt;div class="report-subtitle">%s&lt;/div>'</span> <span class="op">%</span> <span class="nam">display</span><span class="op">(</span><span class="nam">subtitle</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t91" href="#t91">91</a></span><span class="t">    <span class="nam">parts</span><span class="op">.</span><span class="nam">extend</span><span class="op">(</span><span class="nam">body_parts</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t92" href="#t92">92</a></span><span class="t">    <span class="key">return</span> <span class="str">"\n"</span><span class="op">.</span><span class="nam">join</span><span class="op">(</span><span class="nam">parts</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -180,7 +183,7 @@
             <a class="nav" href="z_29914d8a17dcefca_endurance_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-20 06:08 +0000
+            created at 2026-07-20 06:41 +0000
         </p>
     </div>
 </footer>
