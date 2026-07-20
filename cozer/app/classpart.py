@@ -45,6 +45,34 @@ def _with_qual(pattern, counts_str):
     return "%s!qualification[%s]" % (base, ",".join(nums)) if nums else base
 
 
+# A qualification's default number of qheats when seeding: qheat1 + qheat2 + repechage
+# (the classic 305.04.03 split). The operator's qualifiers tuple then drives the real count.
+_DEFAULT_QHEATS = 3
+
+
+def _course_prefill(finals_pattern, heats=1):
+    """A starting pattern for a time-trial or qualification phase, derived from the finals:
+    keep the lap structure (all phases run the same **course**) and reset the scoring (a time
+    trial / qheat is ranked by lap, not scored). ``heats`` is the phase's heat count — a time
+    trial is a single solo run (1); a qualification seeds ``_DEFAULT_QHEATS`` qheats (the
+    Timer runs one heat per pattern heat, so it must match the qualifiers tuple length).
+    ``""`` for a non-circuit finals (e.g. endurance) — nothing sensible to seed."""
+    parsed = parse_simple_pattern(_strip_qual(finals_pattern))
+    if not parsed:
+        return ""
+    return format_circuit_pattern(parsed["first"], parsed["other"], parsed["laps"], heats, 1)
+
+
+def _set_heats(pattern, n):
+    """``pattern`` with its leading heat count set to ``n`` (keeps the course + scoring); the
+    original if it can't be reparsed."""
+    parsed = parse_simple_pattern(_strip_qual(pattern))
+    if not parsed:
+        return pattern
+    return format_circuit_pattern(parsed["first"], parsed["other"], parsed["laps"], n,
+                                  max(1, min(parsed["scored"], n)))
+
+
 def base_classes(eventdata):
     """Distinct BASE class names (``getclass``) in class-list order — a phase event's
     ``/T`` / ``/Q`` rows collapse onto their base, so each base is one tab."""
@@ -383,7 +411,7 @@ class PhasesDialog(QDialog):
     preceding phases so the operator never types a ``/T`` or ``/Q`` suffix — cozer writes
     those internal class rows. Qualifier counts are entered as a plain ``N,N,M`` list."""
 
-    def __init__(self, parent, base, tt_pattern, qual_pattern):
+    def __init__(self, parent, base, tt_pattern, qual_pattern, finals_pattern=""):
         super().__init__(parent)
         self.setWindowTitle("Phases — %s" % base)
         v = QVBoxLayout(self)
@@ -392,7 +420,11 @@ class PhasesDialog(QDialog):
 
         self.tt_enable = QCheckBox("Time-trial phase")
         self.tt_enable.setChecked(bool(tt_pattern))
-        self.tt_pat = QLineEdit(_strip_qual(tt_pattern) if tt_pattern else "")
+        # A new phase seeds its pattern from the finals course (heats / scoring reset);
+        # an existing one keeps its own. Seeded even while unchecked, so ticking the box
+        # reveals a ready pattern.
+        self.tt_pat = QLineEdit(_strip_qual(tt_pattern) if tt_pattern
+                                else _course_prefill(finals_pattern))
         self.tt_preview = QLabel("")
         self.tt_preview.setWordWrap(True)
         v.addWidget(self.tt_enable)
@@ -404,7 +436,8 @@ class PhasesDialog(QDialog):
         counts = qualification_counts(qual_pattern) if qual_pattern else None
         self.q_enable = QCheckBox("Qualification phase")
         self.q_enable.setChecked(bool(qual_pattern))
-        self.q_pat = QLineEdit(_strip_qual(qual_pattern) if qual_pattern else "")
+        self.q_pat = QLineEdit(_strip_qual(qual_pattern) if qual_pattern
+                               else _course_prefill(finals_pattern, _DEFAULT_QHEATS))
         self.q_counts = QLineEdit(",".join(str(c) for c in counts) if counts else "")
         self.q_counts.setPlaceholderText("qualifiers per qheat, e.g. 4,4,4 (last = repechage)")
         self.q_preview = QLabel("")
@@ -420,8 +453,22 @@ class PhasesDialog(QDialog):
         box.accepted.connect(self._accept)
         box.rejected.connect(self.reject)
         v.addWidget(box)
-        for w in (self.tt_pat, self.q_pat, self.q_counts):
-            w.textChanged.connect(self._update_previews)
+        self.tt_pat.textChanged.connect(self._update_previews)
+        self.q_pat.textChanged.connect(self._update_previews)
+        self.q_counts.textChanged.connect(self._counts_changed)
+        self._update_previews()
+
+    def _count_list(self):
+        return [s for s in self.q_counts.text().replace(" ", "").split(",") if s]
+
+    def _counts_changed(self, *_):
+        # the Timer runs one qheat per pattern heat (get_heats), so keep the pattern's heat
+        # count equal to the number of qualifiers entered (the tuple length).
+        nums = self._count_list()
+        if nums:
+            newpat = _set_heats(self.q_pat.text().strip(), len(nums))
+            if newpat and newpat != self.q_pat.text():
+                self.q_pat.setText(newpat)          # fires _update_previews
         self._update_previews()
 
     def _update_previews(self, *_):
@@ -454,10 +501,16 @@ class PhasesDialog(QDialog):
         return self.tt_pat.text().strip() if self.tt_enable.isChecked() else ""
 
     def qualification_pattern(self):
-        """The qualification phase's pattern incl. ``!qualification[...]``, or ``""``."""
+        """The qualification pattern incl. ``!qualification[...]``, or ``""``. The pattern's
+        heat count is forced to the number of qualifiers — the Timer enumerates one qheat per
+        pattern heat (get_heats), so they must agree."""
         if not self.q_enable.isChecked():
             return ""
-        return _with_qual(self.q_pat.text().strip(), self.q_counts.text())
+        nums = self._count_list()
+        pat = _strip_qual(self.q_pat.text().strip())
+        if nums:
+            pat = _set_heats(pat, len(nums))
+        return _with_qual(pat, self.q_counts.text())
 
 
 # --- the tab ----------------------------------------------------------------
@@ -577,9 +630,11 @@ class ClassesParticipantsPanel(QWidget):
         internal ``/T`` / ``/Q`` class rows — the operator never types a suffix)."""
         tt = self._phase_row(base, "timetrial")
         qq = self._phase_row(base, "qualification")
+        finals = self._plain_row(base)
         dlg = PhasesDialog(self, base,
                            tt[2] if tt and len(tt) > 2 else None,
-                           qq[2] if qq and len(qq) > 2 else None)
+                           qq[2] if qq and len(qq) > 2 else None,
+                           finals_pattern=finals[2] if finals and len(finals) > 2 else "")
         if not dlg.exec():
             return
         self._sync_phase(base, "/T", dlg.timetrial_pattern())

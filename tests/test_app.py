@@ -1582,3 +1582,39 @@ def test_phases_dialog_omitted_phase_returns_empty():
     dlg = PhasesDialog(None, "F 500", None, None)
     assert not dlg.tt_enable.isChecked() and not dlg.q_enable.isChecked()
     assert dlg.timetrial_pattern() == "" and dlg.qualification_pattern() == ""
+
+
+def test_phases_dialog_prefills_both_phases_from_finals_course():
+    _app()
+    from cozer.app.classpart import PhasesDialog
+    dlg = PhasesDialog(None, "F 500", None, None, finals_pattern="4*(1000+4*1500):3")
+    assert not dlg.tt_enable.isChecked() and not dlg.q_enable.isChecked()   # both off by default...
+    assert dlg.tt_pat.text() == "1*(1000+4*1500):1"     # time trial = a single solo run
+    assert dlg.q_pat.text() == "3*(1000+4*1500):1"      # qualification seeds 3 qheats (the default)
+    assert dlg.q_counts.text() == ""                    # counts left for the operator
+    # existing phases keep their own patterns (no reseed from finals)
+    keep = PhasesDialog(None, "F 500", "1*(900):1", "3*(1000):1!qualification[4,4,4]",
+                        finals_pattern="4*(1000+4*1500):3")
+    assert keep.tt_pat.text() == "1*(900):1"
+    assert keep.q_pat.text() == "3*(1000):1" and keep.q_counts.text() == "4,4,4"
+
+
+def test_phases_dialog_syncs_pattern_heats_to_qualifier_count():
+    # the Timer runs one qheat per pattern heat, so the pattern's heat count must follow the
+    # number of qualifiers entered -- otherwise not all qheats could be run.
+    _app()
+    from cozer.app.classpart import PhasesDialog
+    dlg = PhasesDialog(None, "F 500", None, None, finals_pattern="4*(1000+4*1500):3")
+    dlg.q_enable.setChecked(True)
+    dlg.q_counts.setText("5,5")                         # 2 qheats
+    assert dlg.q_pat.text() == "2*(1000+4*1500):1"      # pattern heat count live-synced to 2
+    assert dlg.qualification_pattern() == "2*(1000+4*1500):1!qualification[5,5]"
+    dlg.q_counts.setText("6,6,6,6")                     # 4 qheats
+    assert dlg.q_pat.text().startswith("4*")
+    assert dlg.qualification_pattern() == "4*(1000+4*1500):1!qualification[6,6,6,6]"
+
+
+def test_course_prefill_empty_for_endurance_finals():
+    from cozer.app.classpart import _course_prefill
+    assert _course_prefill("5000/6") == ""              # endurance -> nothing sensible to seed
+    assert _course_prefill("") == ""
