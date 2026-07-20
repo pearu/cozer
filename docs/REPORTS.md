@@ -144,10 +144,12 @@ per kind). All 209 common content applies per heat and in the summary.
   event with no clubs) is hidden. **Status: foundation done** (`a90d51f` — field + Participants
   GUI column + `show_from`/`show_nationality`/`nationalities_index`). **Participants report
   DONE**: conditional From + Nationality columns (fixes the mislabeled "Country"→club); a
-  "Nationality" label added (et = "Rahvus", owner to verify). **TODO:** the results reports
-  (finals / intermediate / qsummary). NB `final.py._table_html` is shared with the *frozen*
-  `*_legacy` reports — the conditional columns must apply to the native builders only, so guard
-  the legacy path (byte-faithful) carefully.
+  "Nationality" label added (et = "Rahvus", owner to verify). **Results reports DONE**:
+  qualification summary (`69fa45e`), intermediate (`… D1 intermediate`), and finals
+  (`2038da1`) all carry the conditional From + Nationality columns. `final.py._table_html` is
+  shared with the *frozen* `*_legacy` reports, so the conditional columns are gated on
+  `phase_native`: the legacy path passes the defaults (From-always, no Nationality) and stays
+  byte-identical — the byte-identity goldens confirm it. **D1 report display complete.**
 - **D2 — Time-trial metric. DECIDED (owner, 2026-07-20): best-lap _time_, from the recorded
   lap-time values.** 305.04.02 is specific about time. Use the **measured lap time** — the best
   completed lap's crossing interval from the record — **directly**; do **not** compute it from
@@ -185,4 +187,8 @@ per kind). All 209 common content applies per heat and in the summary.
   (primaries → repechage → DNQ). Reports item 2 complete.
 - **2026-07-20** — Plan item **3 done**: restart notation. `reports.common.heat_label` maps
   `1r`→`1R`, `1R`→`1R2` in the finals / intermediate / laps heat headers (presentation-only).
+- **2026-07-20** — **D1 report display done**: conditional From + Nationality columns wired
+  through the intermediate and finals reports (participants + qsummary already done). Native
+  builders only — `final.py._table_html` gates on `phase_native`, so the frozen `*_legacy`
+  reports keep From-always / no-Nationality and stay byte-identical (goldens green).
   Remaining: D1 (nationality) + D3 (laps) owner calls.
