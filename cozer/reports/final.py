@@ -9,7 +9,7 @@ from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
     meta_of, document_html,
 )
-from cozer.reports.labels import get_labels, phase_kinds_subtitle, LABELS, RECCODE_LABEL
+from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
 
 

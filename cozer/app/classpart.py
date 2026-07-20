@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import ruleset as rulesetmod
-from cozer.classes import getclass, isqclass, istclass
+from cozer.classes import getclass
 from cozer.qualification import qualification_counts
 from cozer.racepattern import (
     class_pattern, crack_race_pattern, describe_pattern, format_circuit_pattern,

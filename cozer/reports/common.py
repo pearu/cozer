@@ -1,6 +1,5 @@
 """Shared helpers for building and rendering cozer reports."""
 from cozer.racepattern import crack_race_pattern
-from cozer.reports.labels import get_labels
 from cozer.reports.latexish import latex_to_html
 from cozer.reports.render import TABLE_CSS, page_css
 
