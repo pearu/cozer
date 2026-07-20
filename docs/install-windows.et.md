@@ -19,7 +19,7 @@ Sa teed järgmist:
 
 > **Märkus.** GitHubi ja Windowsi ekraanid muutuvad aeg-ajalt, seega võib mõni
 > nupp olla veidi teises kohas, kui siin kirjeldatud. *Sammud* jäävad samaks.
-> See juhend on kirjutatud Windows 10/11 jaoks. (Viimati uuendatud: 2026-07-18.)
+> See juhend on kirjutatud Windows 10/11 jaoks. (Viimati uuendatud: 2026-07-21.)
 
 ---
 
@@ -53,8 +53,8 @@ Nüüd on sul GitHubi konto olemas. Hoia kasutajanimi ja parool käepärast.
    MB), sest sisaldab kõike, mida COZER vajab — sa **ei pea** eraldi paigaldama
    Pythonit, Qt-d ega midagi muud.
 
-> Kui link veel midagi alla ei lae, pole esimest avalikku väljalaset veel
-> avaldatud — küsi paigaldusfaili seni Pearult.
+> Link laadib alati alla uusima avaldatud väljalaske. Kui allalaadimine ei õnnestu, võib parasjagu
+> valmida uus väljalase — oota minut ja proovi uuesti või küsi Pearult.
 
 ---
 
@@ -96,6 +96,35 @@ saata veateate — see aitab tõrke kiiresti parandada. Palun hoia COZER sisse l
 
 ---
 
+## 6. Hoia COZER ajakohasena
+
+COZER oskab öelda, kui on saadaval uuem versioon, ja aidata see kätte saada.
+
+**Vaata, milline versioon sul on.** Ava COZERis menüü **Help** → **About cozer…** — versioon
+(näiteks `3.0.0rc2`) on näidatud ülal.
+
+**Kontrolli, kas on uuem versioon.** Ava menüü **Help** → **Check for updates…**. COZER küsib
+GitHubist ja ütleb kas:
+- *"cozer … is up to date"* (cozer … on ajakohane) — sul on juba uusim versioon; või
+- *"A newer version is available"* (saadaval on uuem versioon) — koos uue versiooni numbri ja
+  lühikese ülevaatega muudatustest (klõpsa **Show Details**, et seda lugeda).
+
+**Hangi uuendus (paigalda uuesti).** *Update available* aknas klõpsa **Update now**. Sinu
+veebibrauser laadib alla uusima paigaldusfaili — sama suur fail kui esmasel paigaldusel. Seejärel:
+1. **Sulge COZER.**
+2. Ava kaust **Downloads** (Allalaadimised) ja tee topeltklõps failil `COZER-Setup-Windows.exe`
+   (nagu sammus 3 — klõpsa **More info → Run anyway**, kui Windows hoiatab).
+3. Järgi **Next → Install → Finish**. See paigaldab vana versiooni peale.
+4. **Käivita COZER** uuesti (samm 4).
+
+Sinu **sündmuste failid jäävad uuendamisel puutumata** — need püsivad seal, kuhu need salvestasid,
+programmist eraldi.
+
+*(Kas **Update now** nuppu pole või soovid seda käsitsi teha? Laadi lihtsalt uusim paigaldusfail
+alla sama otselingi kaudu nagu sammus 2 ja käivita see.)*
+
+---
+
 ## Tõrkeotsing
 
 | Sümptom | Mida teha |
@@ -104,6 +133,7 @@ saata veateate — see aitab tõrke kiiresti parandada. Palun hoia COZER sisse l
 | Viirusetõrje blokeerib/eemaldab faili | **Luba / taasta** see ja käivita uuesti. |
 | Start-menüüs pole **COZER**i kirjet | Käivita paigaldaja uuesti; või ava paigalduskaust ja tee topeltklõps failil **`cozer-launch.pyw`**. |
 | Aken avaneb, aga raport ei õnnestu | Pane **Log** sakil olev teade kirja ja saada see Pearule (või Help → Report a bug kaudu). |
+| **Check for updates** ütleb, et ei saa kontrollida | Võib-olla oled võrguühenduseta (vaja on internetti) — proovi hiljem uuesti või laadi uusim paigaldusfail alla sammu 2 lingilt. |
 
 ---
 

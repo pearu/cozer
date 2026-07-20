@@ -14,7 +14,7 @@ You will:
 
 > **Note.** GitHub's and Windows' screens change from time to time, so a button
 > may sit in a slightly different place than described. The *steps* stay the same.
-> This guide was written for Windows 10/11. (Last updated: 2026-07-18.)
+> This guide was written for Windows 10/11. (Last updated: 2026-07-21.)
 
 ---
 
@@ -48,8 +48,8 @@ You now have a GitHub account. Keep the username and password handy.
    because it bundles everything COZER needs — you do **not** install Python, Qt,
    or anything else separately.
 
-> If the link doesn't download anything yet, the first public release hasn't been
-> published — ask Pearu for the installer in the meantime.
+> The link always fetches the newest published release. If it doesn't download, a new release
+> may be building right then — wait a minute and try again, or ask Pearu.
 
 ---
 
@@ -90,6 +90,35 @@ Please keep COZER signed in.
 
 ---
 
+## 6. Keeping COZER up to date
+
+COZER can tell you when a newer version is out and help you get it.
+
+**See which version you have.** In COZER, open the **Help** menu → **About cozer…** — the
+version (for example `3.0.0rc2`) is shown at the top.
+
+**Check for a newer version.** Open the **Help** menu → **Check for updates…**. COZER asks
+GitHub and tells you either:
+- *"cozer … is up to date"* — you already have the newest version; or
+- *"A newer version is available"* — with the new version number and a short summary of what
+  changed (click **Show Details** to read it).
+
+**Get the update (upgrade).** In the *update available* box, click **Update now**. Your web
+browser downloads the newest installer — the same large file as the first install. Then:
+1. **Close COZER.**
+2. Open your **Downloads** folder and **double-click** `COZER-Setup-Windows.exe` (as in step 3 —
+   click **More info → Run anyway** if Windows warns).
+3. Follow **Next → Install → Finish**. It installs over the old version.
+4. **Start COZER** again (step 4).
+
+Your **event files are not touched** by an update — they stay wherever you saved them, separate
+from the program.
+
+*(No **Update now** button, or prefer to do it by hand? Just download the newest installer from
+the same direct link as in step 2 and run it.)*
+
+---
+
 ## Troubleshooting
 
 | Symptom | What to do |
@@ -98,8 +127,9 @@ Please keep COZER signed in.
 | Antivirus blocks/removes the file | **Allow / restore** it, then run again. |
 | No **COZER** entry in Start menu | Re-run the installer; or open the install folder and double-click **`cozer-launch.pyw`**. |
 | Window opens but a report fails | Note the message in the **Log** tab and send it to Pearu (or via Help → Report a bug). |
+| **Check for updates** says it can't check | You may be offline (it needs the internet) — try again later, or download the newest installer from the step 2 link. |
 
 ---
 
-*This English guide is the source text; an Estonian translation (`install-windows.et.md`)
-will follow.*
+*This English guide is the source text; keep it and the Estonian translation
+(`install-windows.et.md`) a step in sync.*
