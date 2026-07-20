@@ -46,7 +46,10 @@ And per document:
 - **restart notation:** letter `R` after the race/heat number for a restart; `R2` for a
   last-heat second restart;
 - **all** entered-and-accepted drivers listed; non-qualifiers marked **DNQ**;
-- §209 outcome codes where applicable: **DNS / DNF / DNR / DSQ / ACC / DNQ**.
+- §209 outcome codes where applicable: **DNS / DNF / DNR / DSQ / ACC / DNQ**;
+- **posting metadata (§209):** the sheet must carry the **actual time of posting** and be
+  **signed** by the OOD/Race Director (a delegate may sign), co-signed/approved by the **UIM
+  Sports Commissioner** before posting. The posted time starts the protest clock (§403). See §10.
 
 ### 3.2 Time trial — 305.04.02
 
@@ -197,6 +200,42 @@ circuit/qual, qsummary) and wrong only in `istt`. Fix by making the prepended no
 footnotes stay relevant. Owner chose a **full content pass** (this section) with fixes coordinated to
 `b76f2173`.
 
+## 10. Posting metadata — time of posting + signatures (§209)
+
+A §209 gap surfaced by the owner (2026-07-21): a posted result sheet must carry the **actual time of
+posting** and be **signed**; cozer reports carry neither (only race date + an officer/secretary
+footer). Not cosmetic — the **protest window runs from posting** (§403: protests are against the
+*posted* provisional results; one hour from posting), so the posted time is the legal start of the
+protest clock.
+
+**Rule basis:**
+- **§209:** *"Results must be signed by the OOD/Race Director or by a person delegated by the OOD/Race
+  Director and has to include actual time of posting."*
+- **Officials' duties (rulebook p30, item 14):** *"The UIM Sports Commissioner must, together with the
+  O.O.D./Race Director, sign and approve the provisional and official results … before these are
+  posted on the notice board."*
+- **Race Director (p37):** *"All bulletins, results and official race documentation are signed by
+  him/her."*
+
+**Plan — owner-decided design (2026-07-21):**
+- **Auto "Printed at &lt;date · time&gt;"** stamp in a corner (render-time; each printout stamps its
+  own — informational, not the legal posting time).
+- **Blank "Posted on: __________" field** for the person posting to hand-write the actual notice-board
+  time **in pen** — this is the §209 "actual time of posting".
+- **Signature block** (blank ruled lines + role labels) for the required signers:
+  - **OOD / Race Director** — always (§209, p37); a **delegate** may sign (§209).
+  - **UIM Sports Commissioner** — co-signs/approves provisional + official results before posting
+    (p30 item 14; present at UIM-sanctioned events where one is assigned).
+  - Secretary of the Race is **not** a required results-signer per §209 (keep the existing footer name
+    if useful, but the ruled signature lines are OOD/RD + UIM Sports Commissioner).
+
+**Owner's question answered:** yes — the UIM Sports Commissioner must co-sign the provisional and
+official results (p30 item 14).
+
+**Applies to** all results reports (finals, intermediate, qualification, endurance); the frozen
+`*_legacy` reports stay byte-identical (add the block to the native builders / shared document
+chrome only).
+
 ## Change log
 
 - **2026-07-20** — Initial draft: audit of the four native report builders vs UIM 209 /
@@ -236,3 +275,7 @@ footnotes stay relevant. Owner chose a **full content pass** (this section) with
   footer replaced with "Lap Time = best full lap [s]" (mode-aware `_legend_html` + `LapTimeNote`);
   endurance report given the D1 conditional From/Nationality + `TotalLapsTime`/`TotalLaps` labels.
   The two §9 **minors** (Q/DNQ legend note; endurance subtitle) deferred pending owner.
+- **2026-07-21** — **§10 added: posting metadata** (§209). Owner asked whether results need a
+  time-of-posting → yes, and cozer had none. Also §209/p30 require signing (OOD/RD + UIM Sports
+  Commissioner). Owner design: auto "Printed at …" stamp + a pen-filled "Posted on: __" field +
+  a signature block (OOD/RD, UIM Sports Commissioner). §3.1 updated. To be coordinated with b76f2173.
