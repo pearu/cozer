@@ -479,6 +479,34 @@ def test_editor_picks_up_heats_recorded_after_load():
     assert "GT / 1" in w.editor_panel.heat_combo.itemText(0)
 
 
+def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
+    # Regression: the Reports class/heat tree read the record by synthesized class name, so on the
+    # native model (record keyed by base->kind->number) heats were missing; and it wasn't refreshed
+    # on entering the tab, so heats recorded elsewhere didn't show (the editor->reports update gap).
+    _app()
+    from cozer.native import to_native
+    from cozer.store import apply_op
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT", "2*(1000):1"]], "record": {}, "races": []})
+    apply_op(ed, {"op": "heat", "cl": "GT", "h": "1", "info": {"course": [1000]}, "ids": ["1"]})
+    apply_op(ed, {"op": "lap", "cl": "GT", "h": "1", "id": "1", "mark": [1, 20.0]})
+    w = MainWindow(ed)
+
+    def heats_of(cl):
+        tree = w.report_tree
+        for i in range(tree.topLevelItemCount()):
+            c = tree.topLevelItem(i)
+            if c.text(0) == cl:
+                return [c.child(j).text(0) for j in range(c.childCount())]
+        return None
+
+    assert heats_of("GT") == ["1"]                        # native heat shows (was empty/wrong)
+    apply_op(w.eventdata, {"op": "heat", "cl": "GT", "h": "2", "info": {"course": [1000]}, "ids": ["1"]})
+    apply_op(w.eventdata, {"op": "lap", "cl": "GT", "h": "2", "id": "1", "mark": [1, 21.0]})
+    w.tabs.setCurrentWidget(w._reports_tab)               # switch to Reports -> refreshed
+    assert heats_of("GT") == ["1", "2"]
+
+
 def test_race_label_unit():
     from cozer.app.grids import race_label
     assert race_label(0, [["", "", ""]]) == "Race 1"           # empty -> bare label

@@ -31,6 +31,7 @@ from cozer.app.grids import (
     GridTab, RacesTab, StringListEditor, parse_scoring, validate_rule_cell,
 )
 from cozer.app.timer import TimerPanel
+from cozer.phases import class_phase_map, phase_heat_ids
 from cozer.racepattern import get_classes
 from cozer.native import to_native
 from cozer.store import EventStore, load_event, read_legacy_coz
@@ -303,6 +304,8 @@ class MainWindow(QMainWindow):
             self.timer_panel.refresh_races()
         elif self.tabs.widget(idx) is self.editor_panel:
             self.editor_panel.refresh_heats()
+        elif self.tabs.widget(idx) is self._reports_tab:
+            self._reload_classes()          # pick up classes/heats recorded on other tabs
 
     def closeEvent(self, event):
         # Don't let unsaved race edits vanish on quit.
@@ -714,18 +717,30 @@ class MainWindow(QMainWindow):
         return w
 
     def _reload_classes(self):
-        """Populate the Reports tab's class/heat tree. (Name kept: the Classes/
-        Participants panel calls this when classes change.)"""
+        """Populate the Reports tab's class/heat tree, preserving the operator's checks.
+        (Name kept: the Classes/Participants panel calls this when classes change; it is also
+        refreshed on entering the Reports tab, so heats recorded on other tabs show up.) Heats
+        are enumerated via the phase view, so the native record shape is transparent."""
+        prev = {}                                   # class name -> (class check, {heat: check})
+        for i in range(self.report_tree.topLevelItemCount()):
+            c = self.report_tree.topLevelItem(i)
+            prev[c.text(0)] = (c.checkState(0),
+                               {c.child(j).text(0): c.child(j).checkState(0)
+                                for j in range(c.childCount())})
         self.report_tree.clear()
-        record = self.eventdata.get("record", {})
+        phase_map = class_phase_map(self.eventdata)  # synthesized class name -> its Phase (recorded)
         for cl in get_classes(self.eventdata):
+            pstate, pheats = prev.get(cl, (Qt.Unchecked, {}))
             c = QTreeWidgetItem(self.report_tree, [cl])
             c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
-            c.setCheckState(0, Qt.Unchecked)
-            for h in sorted(record.get(cl, {}).keys()):
+            ph = phase_map.get(cl)
+            heat_ids = phase_heat_ids(ph) if ph is not None else []
+            for h in heat_ids:
                 hi = QTreeWidgetItem(c, [str(h)])
                 hi.setFlags(hi.flags() | Qt.ItemIsUserCheckable)
-                hi.setCheckState(0, Qt.Unchecked)
+                hi.setCheckState(0, pheats.get(str(h), Qt.Unchecked))
+            if not heat_ids:                         # childless class: no auto-tristate to derive from
+                c.setCheckState(0, Qt.Checked if pstate == Qt.Checked else Qt.Unchecked)
 
     def _report_selection(self):
         """(classes, heat_map) from the report tree; (None, None) means 'all'.

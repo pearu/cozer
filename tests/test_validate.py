@@ -1,13 +1,20 @@
 """Tests for the non-fatal results-validation layer (cozer/validate.py)."""
+import glob
 import os
 import sys
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cozer import store
+from cozer.native import to_native
 from cozer.validate import check_results, format_findings
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_EVENTS = sorted(glob.glob(os.path.join(REPO, "legacy", "events", "*.coz")) +
+                 glob.glob(os.path.join(REPO, "legacy", "cozer", "data", "*.coz")))
 
 
 def _complete_event(course_laps, boat_laps, ss=(400, 300, 225)):
@@ -181,3 +188,16 @@ def test_per_class_speed_hint_raises_the_bar():
     marks = {"7": [(1, 40.0), (1, 15.0), (1, 41.0), (1, 40.0)]}     # a 15s lap
     assert "misclick" in _codes(check_results(_race_event(marks)))                        # 150 -> min 24s -> flagged
     assert "misclick" not in _codes(check_results(_race_event(marks, "1*(6*1000):1@300")))  # 300 -> min 12s -> ok
+
+
+@pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
+def test_check_results_native_matches_legacy(path):
+    # check_results reads the record via the phase view, so validation is identical whether the
+    # in-memory model is native (base/kind/number) or the legacy suffixed heat-ids. (It used to
+    # read record.get(cl) by synthesized class name -> no findings on the native model.)
+    ed = store.read_legacy_coz(path)
+    assert check_results(ed) == check_results(to_native(ed))
+
+
+def test_validate_sees_events():
+    assert _EVENTS, "no legacy events found -- native/legacy validate parity would pass vacuously"

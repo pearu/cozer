@@ -14,7 +14,7 @@ import statistics
 from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
-from cozer.phases import class_phase_map
+from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed
 from cozer.records import gettimes
 
@@ -98,12 +98,13 @@ def check_results(eventdata):
         #    place-gap checks below.
         phase_of = class_phase_map(eventdata)
 
-        classes = [c for c in get_classes(eventdata) if c in record]
-        for cl in classes:
+        for cl in get_classes(eventdata):
             ph = phase_of.get(cl)
             if ph is None:
                 continue
-            heats = record.get(cl) or {}
+            heats = phase_heat_map(ph)          # dual-shape: native record is keyed by base/kind
+            if not heats:                       # (was `record.get(cl)`, which missed native heats)
+                continue
             for h in sorted(heats):
                 info, rec = heats[h]
 

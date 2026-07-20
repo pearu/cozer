@@ -367,9 +367,6 @@ class EditRecordsPanel(QWidget):
         v.addLayout(body, 1)
 
     # ---- data ----
-    def _record(self):
-        return self.window.eventdata.get("record", {})
-
     def reload(self):
         # A new document: drop any draft (callers flush first via maybe_flush).
         self._draft = None
