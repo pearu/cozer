@@ -7,9 +7,8 @@ table view with Add/Delete buttons; ``RacesTab`` handles the nested race list
 """
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QHBoxLayout, QInputDialog, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QStyledItemDelegate, QTableView, QVBoxLayout,
-    QWidget,
+    QComboBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QMessageBox, QPushButton, QTableView, QVBoxLayout, QWidget,
 )
 
 from cozer.classes import getclass
@@ -91,28 +90,6 @@ def validate_rule_cell(row, field, value, rows):
             return ("Rule %s/%s is already defined (row %d)" % (action, paragraph or "-", i + 1),
                     False)
     return None
-
-
-class SuggestingDelegate(QStyledItemDelegate):
-    """An editable combo-box cell editor: it offers the suggestions from
-    ``items_fn(index)`` but lets the operator type an override (cozer suggests,
-    the organizer decides)."""
-
-    def __init__(self, items_fn, parent=None):
-        super().__init__(parent)
-        self._items_fn = items_fn
-
-    def createEditor(self, parent, option, index):
-        combo = QComboBox(parent)
-        combo.setEditable(True)
-        combo.addItems([str(x) for x in self._items_fn(index)])
-        return combo
-
-    def setEditorData(self, editor, index):
-        editor.setCurrentText(index.data() or "")
-
-    def setModelData(self, editor, model, index):
-        model.setData(index, editor.currentText().strip(), Qt.EditRole)
 
 
 class ListTableModel(QAbstractTableModel):
@@ -414,54 +391,12 @@ class RaceHeatsModel(QAbstractTableModel):
         return "%d (restart %d)" % (num, occ) if occ else str(num)
 
     def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable   # display-only; heats are added via the form
 
-    def _reject(self, msg):
-        if self._warn:
-            self._warn(msg)
-        return False
-
-    def setData(self, index, value, role=Qt.EditRole):
-        if role != Qt.EditRole or not index.isValid():
-            return False
-        e = self._race[index.row()]
-        col = index.column()
-        value = (value or "").strip()
-        if col == 0:                                    # Class (base)
-            if value and value not in _base_classes(self.eventdata):
-                return self._reject("Class %s is not a defined class" % value)
-            if value and any(o is not e and o.get("name") == value for o in self._race):
-                return self._reject("Class %s is already in this race" % value)
-            e["name"] = value
-            phases = _phases_of(self.eventdata, value)
-            e["kind"] = phases[-1] if phases else ""    # default to the finals phase
-            e["number"] = 1 if e["kind"] else 0
-            e["occurrence"] = 0
-        elif col == 1:                                  # Phase (kind); value is a label
-            kind = next((k for k, lbl in _PHASE_LABEL.items() if lbl == value), value)
-            if kind and kind not in _phases_of(self.eventdata, e.get("name", "")):
-                return self._reject("%s has no %s phase" % (e.get("name", ""), value or "?"))
-            e["kind"] = kind
-            e["number"] = 1 if kind else 0
-            e["occurrence"] = 0
-        else:                                           # Heat (number)
-            try:
-                num = int(str(value).split()[0])
-            except (ValueError, IndexError):
-                return False
-            valid = _heat_numbers(self.eventdata, e.get("name", ""), e.get("kind", ""))
-            if valid and num not in valid and self._warn:  # advisory, not blocked
-                self._warn("Heat %d is out of range for %s %s (1..%d)"
-                           % (num, e.get("name", ""),
-                              _PHASE_LABEL.get(e.get("kind", ""), ""), valid[-1]))
-            e["number"] = num
-        self.dataChanged.emit(index, self.index(index.row(), len(self.COLS) - 1))
-        return True
-
-    def add_row(self):
+    def add_entry(self, entry):
         n = len(self._race)
         self.beginInsertRows(QModelIndex(), n, n)
-        self._race.append({"name": "", "kind": "", "number": 0, "occurrence": 0})
+        self._race.append(entry)
         self.endInsertRows()
 
     def delete_row(self, row):
@@ -472,6 +407,11 @@ class RaceHeatsModel(QAbstractTableModel):
 
 
 class RacesTab(QWidget):
+    """Schedule which heat each class runs in each race. The left column lists the races; the
+    right pane is an **add-a-heat form** — three always-visible cascading dropdowns (Class →
+    Phase → Heat) + Add — over a read-only table of the selected race's heats. Suffix-free: the
+    operator picks a base class, a phase, and a heat number; nothing shows or types a /T,/Q,t,q."""
+
     def __init__(self, window=None):
         super().__init__()
         self.window = window
@@ -492,52 +432,95 @@ class RacesTab(QWidget):
         h.addLayout(left, 1)
 
         right = QVBoxLayout()
+        form = QHBoxLayout()                            # visible dropdowns, so the feature is obvious
+        form.addWidget(QLabel("Add heat:"))
+        self.class_combo = QComboBox()
+        self.phase_combo = QComboBox()
+        self.heat_combo = QComboBox()
+        form.addWidget(self.class_combo, 2)
+        form.addWidget(self.phase_combo, 2)
+        form.addWidget(self.heat_combo, 1)
+        self.add_btn = QPushButton("Add")
+        self.add_btn.clicked.connect(self._add_heat)
+        form.addWidget(self.add_btn)
+        right.addLayout(form)
+
         warn = window.log if window is not None else None
         self.model = RaceHeatsModel(window, warn=warn)
         self.view = QTableView()
         self.view.setModel(self.model)
+        self.view.setEditTriggers(QTableView.NoEditTriggers)   # read-only; edit via the form
         self.view.horizontalHeader().setStretchLastSection(True)
         right.addWidget(self.view)
-        if window is not None:      # cascading suffix-free dropdowns: class → phase → heat number
-            self.view.setItemDelegateForColumn(
-                0, SuggestingDelegate(lambda idx: self._defined_classes(), self.view))
-            self.view.setItemDelegateForColumn(
-                1, SuggestingDelegate(self._phase_items, self.view))
-            self.view.setItemDelegateForColumn(
-                2, SuggestingDelegate(self._heat_items, self.view))
+        del_heat = QPushButton("Delete heat")
+        del_heat.clicked.connect(self._delete_heat)
         rb = QHBoxLayout()
-        addr = QPushButton("Add row")
-        addr.clicked.connect(self.model.add_row)
-        delr = QPushButton("Delete row")
-        delr.clicked.connect(self._delete_row)
-        rb.addWidget(addr)
-        rb.addWidget(delr)
+        rb.addWidget(del_heat)
         rb.addStretch()
         right.addLayout(rb)
         h.addLayout(right, 2)
 
-        # Keep the selected race's list label ("Race N: GT15 1, …") in sync as cells/rows change.
-        self.model.dataChanged.connect(self._update_current_label)
+        if window is not None:                          # cascade: class -> its phases -> heat numbers
+            self.class_combo.currentTextChanged.connect(self._reload_phases)
+            self.phase_combo.currentTextChanged.connect(self._reload_heats)
         self.model.rowsInserted.connect(self._update_current_label)
         self.model.rowsRemoved.connect(self._update_current_label)
 
+    # ---- the add-a-heat form ----
     def _defined_classes(self):
         return _base_classes(self.window.eventdata)
 
-    def _row_entry(self, index):
-        r = index.row()
-        return self.model._race[r] if 0 <= r < len(self.model._race) else {}
+    def _reload_class_combo(self):
+        self.class_combo.blockSignals(True)
+        self.class_combo.clear()
+        if self.window is not None:
+            self.class_combo.addItems(self._defined_classes())
+        self.class_combo.blockSignals(False)
+        self._reload_phases()
 
-    def _phase_items(self, index):
-        base = self._row_entry(index).get("name", "")
-        return [_PHASE_LABEL[k] for k in _phases_of(self.window.eventdata, base)] if base else []
+    def _reload_phases(self, *args):
+        base = self.class_combo.currentText().strip()
+        self.phase_combo.blockSignals(True)
+        self.phase_combo.clear()
+        if base and self.window is not None:
+            self.phase_combo.addItems(
+                [_PHASE_LABEL[k] for k in _phases_of(self.window.eventdata, base)])
+        self.phase_combo.blockSignals(False)
+        self._reload_heats()
 
-    def _heat_items(self, index):
-        e = self._row_entry(index)
-        return [str(n) for n in _heat_numbers(self.window.eventdata,
-                                              e.get("name", ""), e.get("kind", ""))]
+    def _reload_heats(self, *args):
+        base, kind = self.class_combo.currentText().strip(), self._form_kind()
+        self.heat_combo.blockSignals(True)
+        self.heat_combo.clear()
+        if base and kind and self.window is not None:
+            self.heat_combo.addItems(
+                [str(n) for n in _heat_numbers(self.window.eventdata, base, kind)])
+        self.heat_combo.blockSignals(False)
 
-    def _delete_row(self):
+    def _form_kind(self):
+        lbl = self.phase_combo.currentText()
+        return next((k for k, l in _PHASE_LABEL.items() if l == lbl), "")
+
+    def _add_heat(self):
+        if self.window is None or self.race_list.currentRow() < 0:
+            return
+        base = self.class_combo.currentText().strip()
+        if not base or base not in self._defined_classes():
+            if base:
+                self.window.log("Class %s is not a defined class" % base)
+            return
+        if any(isinstance(e, dict) and e.get("name") == base for e in self.model._race):
+            self.window.log("Class %s is already in this race" % base)
+            return
+        try:
+            number = int(self.heat_combo.currentText())
+        except (ValueError, TypeError):
+            number = 1
+        self.model.add_entry({"name": base, "kind": self._form_kind(),
+                              "number": number, "occurrence": 0})
+        self._update_current_label()
+
+    def _delete_heat(self):
         idx = self.view.currentIndex()
         if not idx.isValid():
             return
@@ -545,9 +528,12 @@ class RacesTab(QWidget):
         if e.get("name") and not confirm_delete(self, "heat %s" % (_entry_label(e) or e.get("name"))):
             return
         self.model.delete_row(idx.row())
+        self._update_current_label()
 
+    # ---- races ----
     def set_data(self, races):
         self._races = races
+        self._reload_class_combo()
         self._refill()
 
     def _refill(self):
@@ -558,6 +544,10 @@ class RacesTab(QWidget):
             self.race_list.setCurrentRow(0)
         else:
             self.model.set_race([])
+        self._sync_enabled()
+
+    def _sync_enabled(self):
+        self.add_btn.setEnabled(self.race_list.currentRow() >= 0)
 
     def _update_current_label(self, *args):
         row = self.race_list.currentRow()
@@ -568,9 +558,10 @@ class RacesTab(QWidget):
     def _select(self, row):
         if 0 <= row < len(self._races):
             self.model.set_race(self._races[row])
+        self._sync_enabled()
 
     def _add_race(self):
-        self._races.append([{"name": "", "kind": "", "number": 0, "occurrence": 0}])
+        self._races.append([])                          # a new, empty race (fill it via the form)
         self._refill()
         self.race_list.setCurrentRow(len(self._races) - 1)
 

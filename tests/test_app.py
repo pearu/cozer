@@ -616,11 +616,12 @@ def test_races_tab_label_shows_class_heat_and_updates_live():
     w = MainWindow(ed)
     rt = w.races_tab
     assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2"     # suffix-free label
-    # editing a class cell to another defined class updates the list label live
+    # adding a heat via the add-heat form updates the list label live
     rt.race_list.setCurrentRow(0)
-    rt.model.setData(rt.model.index(0, 0), "S-250")
-    assert rt.race_list.item(0).text() == "Race 1: S-250 1, OSY-400 2"  # class reset heat -> 1
-    assert ed["races"][0][0] == {"name": "S-250", "kind": "circuit", "number": 1, "occurrence": 0}
+    rt.class_combo.setCurrentText("S-250")             # cascade -> phase Circuit, heat 1
+    rt._add_heat()
+    assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2, S-250 1"
+    assert ed["races"][0][-1] == {"name": "S-250", "kind": "circuit", "number": 1, "occurrence": 0}
 
 
 def test_validate_rule_cell_pure():
@@ -646,9 +647,9 @@ def test_rules_grid_advisory_on_duplicate():
     assert logs and "already defined" in logs[-1]
 
 
-def test_races_grid_advisory_and_dropdowns():
+def test_races_add_heat_form_cascades_and_validates():
     _app()
-    from cozer.app.grids import RacesTab, SuggestingDelegate
+    from cozer.app.grids import RacesTab
     from cozer.native import to_native
 
     class FakeWin:
@@ -661,35 +662,27 @@ def test_races_grid_advisory_and_dropdowns():
 
     ed = to_native({"classes": [["", "GT", "3*(1000):1"], ["", "GT/T", "1*(1000):1"],
                                 ["", "OT", "3*(1000):1"]], "record": {}, "races": []})
-    ed["races"] = [[{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 0},
-                    {"name": "", "kind": "", "number": 0, "occurrence": 0}]]
+    ed["races"] = [[]]                                  # one empty race
     win = FakeWin(ed)
     rt = RacesTab(win)
     rt.set_data(ed["races"])
     rt.race_list.setCurrentRow(0)
-    m = rt.model
-    # class not defined -> HARD REJECT (pattern/heat logic depend on it), and warned
-    assert m.setData(m.index(1, 0), "XYZ") is False and ed["races"][0][1]["name"] == ""
-    assert any("not a defined class" in s for s in win.logs)
-    # a class already in the race -> HARD REJECT
-    assert m.setData(m.index(1, 0), "GT") is False
-    assert any("already in this race" in s for s in win.logs)
-    # a defined class is accepted; setting it defaults the phase to finals + heat to 1
-    assert m.setData(m.index(1, 0), "OT") is True
-    assert ed["races"][0][1] == {"name": "OT", "kind": "circuit", "number": 1, "occurrence": 0}
-    # class column offers the BASE classes (no /T), editable (override allowed)
-    cd = rt.view.itemDelegateForColumn(0)
-    assert isinstance(cd, SuggestingDelegate)
-    ce = cd.createEditor(rt.view.viewport(), None, m.index(0, 0))
-    assert {ce.itemText(i) for i in range(ce.count())} == {"GT", "OT"} and ce.isEditable()
-    # phase column offers the row-class's phases as words (GT has circuit + time trial)
-    pd = rt.view.itemDelegateForColumn(1)
-    pe = pd.createEditor(rt.view.viewport(), None, m.index(0, 1))
-    assert {pe.itemText(i) for i in range(pe.count())} == {"Circuit", "Time trial"}
-    # heat column offers the valid heat numbers for the row's (class, phase)
-    hd = rt.view.itemDelegateForColumn(2)
-    he = hd.createEditor(rt.view.viewport(), None, m.index(0, 2))
-    assert [he.itemText(i) for i in range(he.count())] == ["1", "2", "3"]   # GT circuit: 3 heats
+
+    # the add-heat form's three dropdowns are always visible + cascade:
+    assert {rt.class_combo.itemText(i) for i in range(rt.class_combo.count())} == {"GT", "OT"}  # bases, no /T
+    rt.class_combo.setCurrentText("GT")                # -> phases of GT (circuit + time trial)
+    assert {rt.phase_combo.itemText(i) for i in range(rt.phase_combo.count())} == {"Circuit", "Time trial"}
+    rt.phase_combo.setCurrentText("Circuit")           # -> heat numbers 1..3 (GT circuit = 3 heats)
+    assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1", "2", "3"]
+
+    rt.heat_combo.setCurrentText("2")                  # Add appends a native suffix-free entry
+    rt._add_heat()
+    assert ed["races"][0] == [{"name": "GT", "kind": "circuit", "number": 2, "occurrence": 0}]
+    rt._add_heat()                                     # GT already in the race -> rejected + logged
+    assert len(ed["races"][0]) == 1 and any("already in this race" in s for s in win.logs)
+
+    rt.phase_combo.setCurrentText("Time trial")        # cascade updates the heat list (TT = 1 heat)
+    assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1"]
 
 
 def test_timer_race_combo_label_has_class_heat():
