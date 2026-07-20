@@ -165,24 +165,24 @@ def _rotate_backups(path, keep=3):
 # --------------------------------------------------------------------------- #
 
 def apply_op(eventdata, op):
-    """Apply one journal operation to ``eventdata`` in place."""
+    """Apply one journal operation to ``eventdata`` in place. Record ops address the heat by
+    the legacy ``(cl, h)`` id via ``native.record_heat``/``ensure_heat``, so they work whether
+    the in-memory record is the native shape or the legacy suffixed one."""
+    from cozer.native import record_heat, ensure_heat
     kind = op["op"]
     if kind == "field":
         eventdata[op["key"]] = op["value"]
     elif kind == "heat":
-        rec = eventdata.setdefault("record", {})
-        rec.setdefault(op["cl"], {})[op["h"]] = [
-            dict(op.get("info", {})),
-            {i: [] for i in op.get("ids", [])},
-        ]
+        ensure_heat(eventdata, op["cl"], op["h"],
+                    [dict(op.get("info", {})), {i: [] for i in op.get("ids", [])}])
     elif kind == "info":
-        eventdata["record"][op["cl"]][op["h"]][0][op["key"]] = op["value"]
+        record_heat(eventdata, op["cl"], op["h"])[0][op["key"]] = op["value"]
     elif kind == "lap":
-        eventdata["record"][op["cl"]][op["h"]][1].setdefault(op["id"], []).append(op["mark"])
+        record_heat(eventdata, op["cl"], op["h"])[1].setdefault(op["id"], []).append(op["mark"])
     elif kind == "replace":
-        eventdata["record"][op["cl"]][op["h"]][1][op["id"]] = list(op["marks"])
+        record_heat(eventdata, op["cl"], op["h"])[1][op["id"]] = list(op["marks"])
     elif kind == "editmark":
-        marks = eventdata["record"][op["cl"]][op["h"]][1][op["id"]]
+        marks = record_heat(eventdata, op["cl"], op["h"])[1][op["id"]]
         if op.get("mark") is None:
             del marks[op["index"]]
         else:

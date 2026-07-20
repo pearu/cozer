@@ -107,6 +107,37 @@ def _phase_of(eventdata, name):
     return ph
 
 
+def _native_addr(eventdata, cl, h):
+    """A legacy ``(class, heat_id)`` → the native address ``(base, kind, number, occurrence)``."""
+    return getclass(cl), race_kind(eventdata, cl), _parse_heat(h)
+
+
+def record_heat(eventdata, cl, h):
+    """The ``[info, boats]`` record for legacy ``(class, heat_id)``, or ``None`` — works on
+    both shapes (native ``record[base][kind][number][occurrence]`` and legacy ``record[cl][h]``),
+    so a direct-record consumer addresses heats by the legacy id regardless of the storage."""
+    rec = eventdata.get("record", {}) or {}
+    if eventdata.get("schema", 1) >= SCHEMA:
+        base, kind, (num, occ) = _native_addr(eventdata, cl, h)
+        lst = (rec.get(base, {}) or {}).get(kind, {}).get(str(num))
+        return lst[occ] if lst and occ < len(lst) else None
+    return rec.get(cl, {}).get(h)
+
+
+def ensure_heat(eventdata, cl, h, slot):
+    """Place ``slot`` (``[info, boats]``) at legacy ``(class, heat_id)``, creating the path.
+    Native: ``record[base][kind][number]`` is a list indexed by restart occurrence."""
+    rec = eventdata.setdefault("record", {})
+    if eventdata.get("schema", 1) >= SCHEMA:
+        base, kind, (num, occ) = _native_addr(eventdata, cl, h)
+        lst = rec.setdefault(base, {}).setdefault(kind, {}).setdefault(str(num), [])
+        while len(lst) <= occ:
+            lst.append([{}, {}])
+        lst[occ] = slot
+    else:
+        rec.setdefault(cl, {})[h] = slot
+
+
 def to_native(eventdata):
     """Legacy suffixed ``eventdata`` → the suffix-free shape (a new dict; input untouched).
     Tags the result with ``schema = SCHEMA`` so the on-disk format is self-describing.

@@ -158,6 +158,19 @@ def test_to_native_and_from_native_are_idempotent():
     assert from_native(suf) == suf          # already suffixed -> returned as-is
 
 
+def test_apply_op_and_record_heat_on_native():
+    from cozer.store import apply_op
+    nat = to_native({"classes": [["", "C", "2*(3*1000):1"]], "record": {}, "races": []})
+    apply_op(nat, {"op": "heat", "cl": "C", "h": "1", "info": {"course": [1000]}, "ids": ["7", "3"]})
+    apply_op(nat, {"op": "lap", "cl": "C", "h": "1", "id": "7", "mark": [1, 20.0]})
+    apply_op(nat, {"op": "heat", "cl": "C", "h": "1r", "info": {}, "ids": ["7"]})   # restart -> occ 1
+    apply_op(nat, {"op": "lap", "cl": "C", "h": "1r", "id": "7", "mark": [1, 19.0]})
+    from cozer.native import record_heat
+    assert record_heat(nat, "C", "1")[1]["7"] == [[1, 20.0]]                        # original
+    assert record_heat(nat, "C", "1r")[1]["7"] == [[1, 19.0]]                       # restart (occ 1)
+    assert len(nat["record"]["C"]["circuit"]["1"]) == 2                             # both under number 1
+
+
 def test_native_passes_other_keys_through():
     ed = {"classes": [], "record": {}, "races": [], "participants": [["", "A", "B", "C", "F 500", "10"]],
           "scoringsystem": [400, 300], "rules": [["", "DQ"]], "qheat1": {"F 500": ["10"]}, "title": "T"}

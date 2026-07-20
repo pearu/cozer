@@ -355,11 +355,11 @@ def describe_pattern(pat):
 
 
 def get_allowed_heats(eventdata, cl):
-    rpat = None
-    for l in eventdata['classes']:
-        if l[1] and l[2] and l[1] == cl:
-            rpat = crack_race_pattern(l[2])[0]
-            break
+    pat = class_pattern(eventdata, cl)               # dual-shape (native or legacy)
+    try:
+        rpat = crack_race_pattern(pat)[0] if pat else None
+    except Exception:
+        rpat = None
     if not rpat:
         return []
     n = len(rpat)
