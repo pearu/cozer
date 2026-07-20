@@ -152,14 +152,15 @@ def report_exception(window, exc_type, exc, tb, action=None):
         return None, None
 
 
-def report_bug(window, description):
-    """File a user-initiated bug report (submits if signed in, else queues). Returns
-    the issue URL if filed, else None."""
+def report_bug(window, description, screenshot=None):
+    """File a user-initiated bug report (submits if signed in, else queues). ``screenshot``
+    is optional PNG bytes of the app, saved with the local report. Returns the issue URL if
+    filed, else None."""
     store = getattr(window, "store", None)
     path = store.path if store is not None else None
     report = crashreport.build_user_report(description, event_path=path,
                                             eventdata=getattr(window, "eventdata", None))
-    return crashreport.Reporter().handle(report, event_path=path)
+    return crashreport.Reporter().handle(report, event_path=path, screenshot=screenshot)
 
 
 class SignInDialog(QDialog):     # pragma: no cover - modal dialog + network polling
@@ -802,15 +803,25 @@ class MainWindow(QMainWindow):
         lay.addLayout(row)
         dlg.exec()
 
-    def _on_report_bug(self):     # pragma: no cover - modal input dialog
+    def _grab_png(self):
+        """PNG bytes of the current main window, to attach to a bug report (GUI snapshot)."""
+        from PySide6.QtCore import QBuffer, QByteArray
+        ba = QByteArray()
+        buf = QBuffer(ba)
+        buf.open(QBuffer.WriteOnly)
+        self.grab().save(buf, "PNG")
+        return bytes(ba.data())
+
+    def _on_report_bug(self):
         text, ok = QInputDialog.getMultiLineText(
             self, "Report a bug",
             "Describe what happened — the first line becomes the issue title.\n"
-            "The current event is attached so it can be reproduced:")
+            "The current event and a screenshot of the app are attached so it can be reproduced:")
         if ok and text.strip():
-            url = report_bug(self, text)
-            self.log("Bug report %s" % ("filed: %s" % url if url
-                                        else "saved locally — will submit when you sign in"))
+            url = report_bug(self, text, screenshot=self._grab_png())
+            self.log("Bug report %s (a screenshot was saved with the local report)"
+                     % ("filed: %s" % url if url
+                        else "saved locally — will submit when you sign in"))
 
     # ---- reports tab ----
     def _build_reports_tab(self):

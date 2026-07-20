@@ -161,6 +161,10 @@ def report_body(report):
                 note = "\n_(truncated — full data is in the local crash file)_"
             lines += ["", "<details><summary>Event data (for reproduction)</summary>", "",
                       "```json", js, "```", "</details>" + note]
+    if report.get("screenshot"):
+        # basename only — never leak the reporter's local filesystem path into a public issue.
+        lines += ["", "_A GUI screenshot was saved next to the local report (`%s`); "
+                  "attach it here if filing manually._" % os.path.basename(report["screenshot"])]
     lines += ["", "<!-- crash-fingerprint:%s -->" % report["fingerprint"]]
     return "\n".join(lines)
 
@@ -176,10 +180,15 @@ def crashes_dir(event_path=None):
     return d
 
 
-def write_local(report, event_path=None):
-    name = "crash-%d-%s.json" % (int(report["time"]), report["fingerprint"])
-    path = os.path.join(crashes_dir(event_path), name)
+def write_local(report, event_path=None, screenshot=None):
+    d = crashes_dir(event_path)
+    stem = "crash-%d-%s" % (int(report["time"]), report["fingerprint"])
+    if screenshot:                          # a GUI snapshot (PNG bytes) attached to the report
+        report["screenshot"] = os.path.join(d, stem + ".png")
+    path = os.path.join(d, stem + ".json")
     atomic_write(path, json.dumps(report, indent=2, default=str).encode("utf-8"))
+    if screenshot:                          # JSON first, so a PNG-write failure can't lose the report
+        atomic_write(report["screenshot"], screenshot)
     return path
 
 
@@ -293,11 +302,11 @@ class Reporter:
     def logged_in(self):
         return bool(self.config.get("token"))
 
-    def handle(self, report, event_path=None, online=True):
+    def handle(self, report, event_path=None, online=True, screenshot=None):
         """Always write locally; auto-submit if logged-in + online + new, else
         queue for later. Returns the issue URL if filed, else None. Never raises."""
         try:
-            write_local(report, event_path)
+            write_local(report, event_path, screenshot)
         except Exception:        # a report-write failure must never propagate (it crashed the
             pass                 # bug-report flow when the event had tuple keys); submit anyway
         fp = report["fingerprint"]

@@ -479,6 +479,7 @@ def test_nationality_dropdown_delegate_and_soft_validate():
     assert "EST — Estonia" in texts and "LTU — Lithuania" in texts   # code + English name (§209)
     assert not any(t.startswith("LIT ") for t in texts)              # the corpus typo isn't offered
     assert combo.itemData(combo.findText("EST — Estonia")) == "EST"  # stores the bare code
+    assert combo.view().minimumWidth() >= 200        # popup widened so "CODE — Country" is readable
     # the cell renders the readable "CODE — Country" form (an unknown code shows as-is)
     assert d.displayText("EST", None) == "EST — Estonia"
     assert d.displayText("LIT", None) == "LIT" and d.displayText("", None) == ""
@@ -1664,6 +1665,35 @@ def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     w = MainWindow(_timer_event())
     url = appmain.report_bug(w, "the timer button did nothing")
     assert url is None and len(cr.list_pending()) == 1     # queued until signed in
+
+
+def test_bug_report_screenshot_saved_and_referenced(tmp_path, monkeypatch):
+    # A GUI snapshot is saved next to the local report and referenced (by basename only — no
+    # local path leaked into the public issue body).
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import cozer.app.crashreport as cr
+    png = b"\x89PNG\r\n\x1a\n\x00fake-image-bytes"
+    rep = cr.build_user_report("GUI glitch", eventdata={})
+    cr.write_local(rep, screenshot=png)
+    shot = rep["screenshot"]
+    assert shot.endswith(".png") and open(shot, "rb").read() == png     # PNG written to disk
+    body = cr.report_body(rep)
+    assert os.path.basename(shot) in body and shot not in body         # referenced, path not leaked
+
+
+def test_report_bug_captures_and_forwards_screenshot(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
+    _app()
+    w = MainWindow(_timer_event())
+    assert w._grab_png()[:8] == b"\x89PNG\r\n\x1a\n"        # grabs a real PNG of the window
+    captured = {}
+    monkeypatch.setattr(appmain, "report_bug",
+                        lambda win, text, screenshot=None: captured.update(t=text, s=screenshot))
+    monkeypatch.setattr(appmain.QInputDialog, "getMultiLineText",
+                        staticmethod(lambda *a, **k: ("GUI looks wrong", True)))
+    w._on_report_bug()
+    assert captured["s"][:8] == b"\x89PNG\r\n\x1a\n"        # screenshot forwarded to report_bug
 
 
 def test_startup_file_selects_event_arg():
