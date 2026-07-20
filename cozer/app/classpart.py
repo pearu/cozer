@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from cozer.app import ruleset as rulesetmod
 from cozer.app.grids import confirm_delete
 from cozer.classes import getclass
+from cozer.countries import IOC, is_ioc_code
 from cozer.qualification import qualification_counts
 from cozer.racepattern import (
     class_pattern, crack_race_pattern, describe_pattern, format_circuit_pattern,
@@ -307,6 +308,9 @@ class ParticipantClassModel(QAbstractTableModel):
                         self._warn("Boat number %s is already used in class %s"
                                    % (value, self._class))
                     return False
+        if ci == 6 and value and not is_ioc_code(value):   # Nationality: soft-validate the IOC code
+            if self._warn:                                 # accepted anyway (soft) — catches e.g. LIT->LTU
+                self._warn("%r is not an IOC nationality code — pick one from the list" % value)
         while len(row) <= ci:
             row.append("")
         row[ci] = value
@@ -332,6 +336,34 @@ class ParticipantClassModel(QAbstractTableModel):
             del self._all[self._idx[r]]
             self._reindex()
             self.endRemoveRows()
+
+
+class NationalityDelegate(QStyledItemDelegate):
+    """Combo-box editor for the Nationality column: a dropdown of the IOC 3-letter codes shown
+    as ``"EST — Estonia"`` (UIM §209 allows the code or the English name), storing the bare code
+    ``"EST"``. Editable + type-ahead so the operator can type a code; the cell shows the code."""
+
+    _items = sorted(IOC.items())            # (code, name) sorted by code — built once
+
+    def createEditor(self, parent, option, index):
+        combo = QComboBox(parent)
+        combo.setEditable(True)
+        combo.setInsertPolicy(QComboBox.NoInsert)
+        combo.addItem("", "")               # blank = clear the field
+        for code, name in self._items:
+            combo.addItem("%s — %s" % (code, name), code)
+        combo.completer().setCaseSensitivity(Qt.CaseInsensitive)
+        return combo
+
+    def setEditorData(self, editor, index):
+        code = (index.data() or "").strip().upper()
+        i = editor.findData(code)
+        editor.setCurrentIndex(i) if i >= 0 else editor.setEditText(code)
+
+    def setModelData(self, editor, model, index):
+        text = editor.currentText().strip()
+        code = text.split()[0].upper() if text else ""   # "EST — Estonia" / "est" -> "EST"
+        model.setData(index, code, Qt.EditRole)
 
 
 class AutoCompleteDelegate(QStyledItemDelegate):
@@ -363,6 +395,9 @@ class ClassParticipantsWidget(QWidget):
         from_col = next(i for i, (f, _) in enumerate(self.model._cols) if f == 3)
         self.view.setItemDelegateForColumn(
             from_col, AutoCompleteDelegate(self._from_suggestions, self.view))
+        nat_col = next((i for i, (f, _) in enumerate(self.model._cols) if f == 6), None)
+        if nat_col is not None:                          # Nationality: IOC-code dropdown
+            self.view.setItemDelegateForColumn(nat_col, NationalityDelegate(self.view))
         # 'From' (club) absorbs spare width; the Nationality (a 3-char code) and the qheat1
         # checkbox columns are sized to content -- a code or a checkbox needs no extra width.
         hdr.setStretchLastSection(False)

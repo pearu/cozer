@@ -441,6 +441,25 @@ def test_nationality_field_and_show_helper():
     assert m.setData(m.index(1, natcol), "SWE") and ed["participants"][1][6] == "SWE"
 
 
+def test_nationality_dropdown_delegate_and_soft_validate():
+    # The Nationality column is a dropdown of IOC codes shown "CODE — Name", storing the bare
+    # code; an invalid code (e.g. legacy LIT) is accepted but flagged (offering the list = LTU).
+    _app()
+    from cozer.app.classpart import NationalityDelegate, ParticipantClassModel
+    d = NationalityDelegate()
+    combo = d.createEditor(None, None, None)
+    texts = [combo.itemText(i) for i in range(combo.count())]
+    assert "EST — Estonia" in texts and "LTU — Lithuania" in texts   # code + English name (§209)
+    assert not any(t.startswith("LIT ") for t in texts)              # the corpus typo isn't offered
+    assert combo.itemData(combo.findText("EST — Estonia")) == "EST"  # stores the bare code
+
+    warns = []
+    m = ParticipantClassModel([["", "A", "", "", "GT", "1", ""]], "GT", warn=warns.append)
+    natcol = next(i for i, (ci, _) in enumerate(m.COLS) if ci == 6)
+    assert m.setData(m.index(0, natcol), "LIT") and "not an IOC" in warns[-1]   # accepted + warned
+    assert m.setData(m.index(0, natcol), "EST") and len(warns) == 1            # valid -> no new warn
+
+
 def test_classname_guard_and_races_dropdown_on_native_model():
     # Regression (3c-2): the native {name, phases} model must not crash the catalog-delete
     # guard or the Races-tab class dropdown -- both used to read classes as legacy `c[1]` rows.
