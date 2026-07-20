@@ -56,19 +56,25 @@
    both assets (`cozer-3.0.0rc1-py3-none-any.whl`, `COZER-3.0.0rc1-Windows-x86_64.exe`). Verified:
    `releases/latest` returns it (not a prerelease) and `update.check()` sees it end-to-end.
 
-### Phase 2 — apply the update (Windows only, per scope; needs a live release to test)
-The adaptive action, driven by `install_kind()` + what the release provides:
-- **Fast (wheel):** download the release wheel → `sys.executable -m pip install -U --no-deps
-  <wheel>` → prompt restart. Right when only cozer code changed. Works on the constructor env
-  (it has pip) and any pip install.
-- **Full (installer):** download + run the new `COZER-*.exe` → replaces the whole bundled env.
-  Needed when dependencies change. The NSIS installer handles the replace; cozer quits and the
-  installer relaunches.
-- **Which to offer:** the release carries a marker (e.g. a `deps-changed` label / a
-  `min-installer` field in the release body) so the app knows if the fast path is safe; default to
-  the full installer when unsure.
-- **Non-Windows:** the check is shown but the action is informational (`pip install -U` / `git
-  pull`) — never mutate a dev checkout.
+### Phase 2 — apply the update — ✅ DONE (2026-07-21, `189e718`)
+`update.recommend(check_result)` picks the action from `install_kind()`; the update-available
+dialog's **"Update now"** button dispatches `_apply_update`:
+- **`pip` (a plain pip install — the owner's path):** `pip install -U <release wheel>` in-app
+  (small; cozer's wheel declares no runtime deps, so only cozer's code is replaced) → restart prompt.
+- **`installer` (Windows constructor install — novice operators):** open the installer `.exe`
+  download in the browser (the OS fetches the ~276 MB bundle); run it to upgrade.
+- **`source` (a checkout):** informational only (`git pull` / `pip install -U .`) — never mutate a
+  working tree.
+- **Deferred:** the *fast-wheel-on-Windows* optimization (small update on the constructor env
+  instead of the full installer) — needs a deps-changed signal in the release to be safe; the full
+  installer is always correct, and Windows operators update rarely (between events), so this is fine.
+
+**Install-guide direct link (release convention).** `docs/install-windows.md` + `.et.md` link to
+`releases/latest/download/COZER-Setup-Windows.exe` — a **stable, version-independent** URL. So the
+release workflow uploads the installer under that stable name (`cp` before `gh release upload`),
+and the docs need **no per-release edit**. (The wheel keeps its versioned name; `update.py` finds
+either asset by suffix.) NB: `v3.0.0rc1` was published with the *versioned* asset name before this
+fix, so that direct link 404s until rc1 is re-released (re-tag) or the next release lands.
 
 ### Phase 3 — optional polish
 - **Throttled startup check** (once/day, background, reusing the offline-tolerant Reporter
@@ -92,3 +98,7 @@ The adaptive action, driven by `install_kind()` + what the release provides:
   `3.0.0rc1`, added the `gh release create` step to the installer workflow, tagged `v3.0.0rc1` →
   **Release published** with the installer `.exe` + wheel. `releases/latest` + `update.check()`
   verified end-to-end. Phase 2 (adaptive apply) is now testable against a live release.
+- **2026-07-21** — **Phase 2 done** (`189e718`): adaptive "Update now" apply — pip-U the wheel
+  (pip installs), open the installer download (Windows), or informational (source). Also fixed the
+  release to upload the installer under the **stable** name `COZER-Setup-Windows.exe` so the install
+  guides' `releases/latest/download/…` direct link works with no per-release doc edits. 607 green.

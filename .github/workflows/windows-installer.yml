@@ -72,8 +72,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "cozer ${{ github.ref_name }}" \
-            --generate-notes \
-            "${{ steps.find.outputs.exe }}" \
-            installer/dist/cozer-*.whl
+          # Upload the installer under a STABLE, version-independent name so the install guides'
+          # direct link -- releases/latest/download/COZER-Setup-Windows.exe (docs/install-windows.md
+          # + .et.md) -- always fetches the newest installer, with NO per-release doc edits.
+          cp "${{ steps.find.outputs.exe }}" COZER-Setup-Windows.exe
+          # Create the release if the tag is new, else (re-run/re-tag) clobber the assets in place.
+          gh release create "${{ github.ref_name }}" --title "cozer ${{ github.ref_name }}" \
+            --generate-notes COZER-Setup-Windows.exe installer/dist/cozer-*.whl \
+          || gh release upload "${{ github.ref_name }}" --clobber \
+            COZER-Setup-Windows.exe installer/dist/cozer-*.whl
