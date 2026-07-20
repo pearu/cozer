@@ -202,6 +202,10 @@ footnotes stay relevant. Owner chose a **full content pass** (this section) with
 
 ## 10. Posting metadata — time of posting + signatures (§209)
 
+> ✅ **IMPLEMENTED** (`d4c52bc`, b76f2173) — see the change log for the as-built refinements the
+> owner made during implementation ("Printed at" in the footer-left, "Posted on" carries the
+> *generation* date, empty signers/fields hidden). Gated the D1 way; legacy goldens green.
+
 A §209 gap surfaced by the owner (2026-07-21): a posted result sheet must carry the **actual time of
 posting** and be **signed**; cozer reports carry neither (only race date + an officer/secretary
 footer). Not cosmetic — the **protest window runs from posting** (§403: protests are against the
@@ -314,3 +318,12 @@ phase kind is endurance, and the separate `endurance.py` report is then removed 
   intermediate + qualification-summary legends. The endurance-subtitle minor is **deferred** in
   favour of **§11**. **§11 added:** owner direction to **fold the endurance report into Full
   Final** (kind-aware) and retire the separate builder — not yet scoped.
+- **2026-07-21** — **§10 posting metadata implemented** (`d4c52bc`, b76f2173). New
+  `uim_commissioner` event field (default + settings-form row + `meta_of`); `document_html` gains a
+  `posting` gate (native results builders pass it, legacy omits → byte-identical). Owner refinements
+  during build: **"Printed at"** sits in the **footer-left** (where the now-redundant OOD was, not a
+  top-corner stamp); **"Posted on"** carries the **document-generation date** (not the event date),
+  time blank for pen; a **signer/field is shown only when named**; extra room above the signatures;
+  new labels `UIMCommissioner`/`PostedOn`/`PrintedAt` (ET owner-to-verify). Regression **#19**
+  (a `%`-format bug in the signature template, `width:100%%`) surfaced via the new bug-report flow
+  and fixed in the same commit. 597 green.
