@@ -360,19 +360,16 @@ class ClassParticipantsWidget(QWidget):
         self.view = QTableView()
         self.view.setModel(self.model)
         hdr = self.view.horizontalHeader()
-        from_col = next(i for i, (f, _) in enumerate(ParticipantClassModel.COLS) if f == 3)
+        from_col = next(i for i, (f, _) in enumerate(self.model._cols) if f == 3)
         self.view.setItemDelegateForColumn(
             from_col, AutoCompleteDelegate(self._from_suggestions, self.view))
-        # Absorb spare width in the 'From' column, not a trailing checkbox column (qheat1) --
-        # a lone checkbox stretched full-width looks broken; size checkbox columns to content.
-        if show_qheat1:
-            hdr.setStretchLastSection(False)
-            hdr.setSectionResizeMode(from_col, QHeaderView.Stretch)
-            for i, (field, _label) in enumerate(self.model._cols):
-                if field is None:                    # a checkbox (sentinel) column
-                    hdr.setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        else:
-            hdr.setStretchLastSection(True)
+        # 'From' (club) absorbs spare width; the Nationality (a 3-char code) and the qheat1
+        # checkbox columns are sized to content -- a code or a checkbox needs no extra width.
+        hdr.setStretchLastSection(False)
+        hdr.setSectionResizeMode(from_col, QHeaderView.Stretch)
+        for i, (field, _label) in enumerate(self.model._cols):
+            if field == 6 or field is None:          # Nationality code / checkbox column -> narrow
+                hdr.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         v.addWidget(self.view)
         row = QHBoxLayout()
         add = QPushButton("Add participant")
