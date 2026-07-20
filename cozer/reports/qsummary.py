@@ -10,7 +10,8 @@ from cozer.phases import canonical_record, class_phase_map
 from cozer.qualification import classify, qualification_counts
 from cozer.racepattern import class_pattern, get_classes
 from cozer.reports.common import (
-    display, esc, get_fullname, meta_of, participants_index, document_html,
+    display, esc, get_fullname, meta_of, participants_index, nationalities_index,
+    show_from, show_nationality, document_html,
 )
 from cozer.reports.final import _legend_html, _result_text
 from cozer.reports.labels import get_labels
@@ -49,6 +50,7 @@ def build_qualification(eventdata, classes=None, heat_map=None):
             for pid in getresorder(res):
                 info[str(pid)] = (number, _result_text(res[pid], legend), res[pid]["place"], is_rep)
 
+        nats = nationalities_index(eventdata)
         rows = []
         for boat, st in final.items():
             number, result, place, is_rep = info.get(boat, (0, "-", 0, False))
@@ -56,7 +58,7 @@ def build_qualification(eventdata, classes=None, heat_map=None):
             names = get_fullname(first, last).split(";")
             rows.append({
                 "id": boat, "name": names[0].strip(), "extra": [n.strip() for n in names[1:]],
-                "from": club, "result": result,
+                "from": club, "nat": nats.get((cl, boat), ""), "result": result,
                 "qheat": (labels["Repechage"] if is_rep else str(number)) if number else "-",
                 "status": "DNQ" if st == "dnq" else "Q",
                 # order: qualified first (primaries by qheat/place, then repechage), then DNQ
@@ -67,28 +69,36 @@ def build_qualification(eventdata, classes=None, heat_map=None):
             del r["_sort"]
         tables.append({"class": getclass(cl), "rows": rows, "legend": _legend_html(legend, labels)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
-            "heading": labels["PhaseQualification"], "tables": tables}
+            "heading": labels["PhaseQualification"], "tables": tables,
+            "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
 def qualification_html(model):
     L = model["labels"]
+    # optional person columns between Name and Qheat: From (club, 14%) and/or Nationality (8%),
+    # each shown only when it varies across the event.
+    person = (([("from", L["From"], 14)] if model.get("show_from") else [])
+              + ([("nat", L["Nationality"], 8)] if model.get("show_nat") else []))
+    name_w = 100 - (8 + 10 + 20 + 12) - sum(w for _, _, w in person)   # No, Qheat, Res, Qualify + person
+    cols = ('<col style="width:8%">' + '<col style="width:%d%%">' % name_w
+            + "".join('<col style="width:%d%%">' % w for _, _, w in person)
+            + '<col style="width:10%"><col style="width:20%"><col style="width:12%">')
+    head = ('<tr><th class="num">%s</th><th>%s</th>%s<th class="num">%s</th>'
+            '<th class="num">%s</th><th class="num">%s</th></tr>'
+            % (esc(L["No"]), esc(L["Name"]), "".join("<th>%s</th>" % esc(h) for _, h, _ in person),
+               esc(L["Heat"]), esc(L["Res"]), esc(L["Qualify"])))
     body = []
     for t in model["tables"]:
-        cols = ('<col style="width:8%"><col style="width:34%"><col style="width:16%">'
-                '<col style="width:10%"><col style="width:20%"><col style="width:12%">')
-        head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                '<th class="num">%s</th><th class="num">%s</th></tr>'
-                % (esc(L["No"]), esc(L["Name"]), esc(L["From"]), esc(L["Heat"]),
-                   esc(L["Res"]), esc(L["Qualify"])))
         rows = []
         for r in t["rows"]:
-            rows.append('<tr><td class="num">%s</td><td class="name">%s</td><td>%s</td>'
+            person_cells = "".join("<td>%s</td>" % display(r[k]) for k, _, _ in person)
+            rows.append('<tr><td class="num">%s</td><td class="name">%s</td>%s'
                         '<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
-                        % (esc(r["id"]), display(r["name"]), display(r["from"]),
+                        % (esc(r["id"]), display(r["name"]), person_cells,
                            esc(r["qheat"]), r["result"], esc(r["status"])))
             for x in r["extra"]:
                 rows.append('<tr class="sub"><td></td><td class="name">%s</td>'
-                            '<td colspan="4"></td></tr>' % display(x))
+                            '<td colspan="%d"></td></tr>' % (display(x), 3 + len(person)))
         body.append('<h3 class="class-heading">%s %s</h3>' % (esc(L["Class"]), display(t["class"])))
         body.append('<table class="results"><colgroup>%s</colgroup><thead>%s</thead>'
                     '<tbody>%s</tbody></table>' % (cols, head, "".join(rows)))

@@ -443,7 +443,8 @@ def test_qualification_summary_final_like():
     # counts [2,1]: qheat1 selection (top 2 = primary), qheat2 = repechage (top 1)
     ed = to_native({
         "configure": {"language": "English"}, "scoringsystem": [400, 300, 225], "rules": [], "races": [],
-        "participants": [["", "N%d" % i, "", "EST", "F 500", str(i)] for i in (1, 2, 3, 4)],
+        "participants": [["", "N%d" % i, "", "Club%d" % i, "F 500", str(i), nat]
+                         for i, nat in [(1, "EST"), (2, "FIN"), (3, "LAT"), (4, "NOR")]],
         "classes": [["", "F 500/Q", "1*(3*1000):1!qualification[2,1]"], ["", "F 500", "4*(1400):3"]],
         "record": {"F 500/Q": {
             "1q": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
@@ -455,7 +456,9 @@ def test_qualification_summary_final_like():
     t = next(x for x in m["tables"] if x["class"] == "F 500")
     assert [(r["id"], r["qheat"], r["status"]) for r in t["rows"]] == \
         [("1", "1", "Q"), ("2", "1", "Q"), ("3", "Rep.", "Q"), ("4", "Rep.", "DNQ")]
-    assert "Q/DNQ" in qualification_html(m) and "Rep." in qualification_html(m)
+    html = qualification_html(m)
+    assert "Q/DNQ" in html and "Rep." in html
+    assert "Nationality" in html and "EST" in html and "From" in html   # varied -> both columns shown
 
 
 def test_participants_conditional_from_nationality_columns():
