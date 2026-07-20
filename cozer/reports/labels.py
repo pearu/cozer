@@ -15,7 +15,7 @@ LABELS = {
         "Meeting": "Meeting", "Class": "Class", "Name": "Name", "Country": "Country",
         "RaceNo": "Race No.", "Heat": "Heat", "Heats": "Heats", "Place": "Place",
         "From": "From", "No": "No.", "Res": "Res.", "LapTime": "Lap Time", "Qualify": "Q/DNQ",
-        "Repechage": "Rep.", "Nationality": "Nationality",
+        "Repechage": "Rep.", "Nationality": "Nat.",   # short header: the column holds a 3-char code
         "Results": "Results", "Pts": "Pts.", "Points": "Points", "Starttime": "Start time",
         "Summary": "Summary", "Lp": "L", "Lap": "Lap", "Start": "Start", "None": "None",
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",

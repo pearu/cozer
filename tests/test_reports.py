@@ -458,7 +458,7 @@ def test_qualification_summary_final_like():
         [("1", "1", "Q"), ("2", "1", "Q"), ("3", "Rep.", "Q"), ("4", "Rep.", "DNQ")]
     html = qualification_html(m)
     assert "Q/DNQ" in html and "Rep." in html
-    assert "Nationality" in html and "EST" in html and "From" in html   # varied -> both columns shown
+    assert "Nat." in html and "EST" in html and "From" in html   # varied -> both columns shown
 
 
 def test_participants_conditional_from_nationality_columns():
@@ -469,12 +469,12 @@ def test_participants_conditional_from_nationality_columns():
             "participants": [["", "A", "One", "Tallinn HC", "GT", "1", "EST"],
                              ["", "B", "Two", "Helsinki JK", "GT", "2", "FIN"]]}
     h = participants_html(build_participants(intl))
-    assert "From" in h and "Nationality" in h and "EST" in h and "Tallinn HC" in h  # both shown
+    assert "From" in h and "Nat." in h and "EST" in h and "Tallinn HC" in h  # both shown
     national = {"configure": {"language": "English"}, "classes": [["", "GT", "3*(1000):1"]],
                 "participants": [["", "A", "One", "HC", "GT", "1", "EST"],
                                  ["", "B", "Two", "HC", "GT", "2", "EST"]]}
     h2 = participants_html(build_participants(national))
-    assert "Nationality" not in h2 and "HC" not in h2 and "EST" not in h2   # uniform -> both hidden
+    assert "Nat." not in h2 and "HC" not in h2 and "EST" not in h2   # uniform -> both hidden
 
 
 def _two_class_event(nats, clubs):
@@ -496,12 +496,12 @@ def test_final_conditional_from_nationality_columns():
                                      build_full_final_legacy)
     intl = _two_class_event(["EST", "FIN"], ["Tallinn", "Helsinki"])
     h = full_final_html(build_full_final(intl))
-    assert "From" in h and "Nationality" in h and "EST" in h and "FIN" in h  # both vary -> shown
+    assert "From" in h and "Nat." in h and "EST" in h and "FIN" in h  # both vary -> shown
     hl = full_final_html(build_full_final_legacy(intl))
-    assert "From" in hl and "Nationality" not in hl                          # legacy: From-always, no Nat
+    assert "From" in hl and "Nat." not in hl                          # legacy: From-always, no Nat
     national = _two_class_event(["EST", "EST"], ["Klubi", "Klubi"])
     h2 = full_final_html(build_full_final(national))
-    assert "From" not in h2 and "Nationality" not in h2                      # uniform -> both hidden
+    assert "From" not in h2 and "Nat." not in h2                      # uniform -> both hidden
 
 
 def test_intermediate_conditional_from_nationality_columns():
@@ -509,10 +509,10 @@ def test_intermediate_conditional_from_nationality_columns():
     from cozer.reports.intermediate import build_intermediate, intermediate_html
     intl = _two_class_event(["EST", "FIN"], ["Tallinn", "Helsinki"])
     h = intermediate_html(build_intermediate(intl))
-    assert "From" in h and "Nationality" in h and "EST" in h and "FIN" in h  # both vary -> shown
+    assert "From" in h and "Nat." in h and "EST" in h and "FIN" in h  # both vary -> shown
     national = _two_class_event(["EST", "EST"], ["Klubi", "Klubi"])
     h2 = intermediate_html(build_intermediate(national))
-    assert "From" not in h2 and "Nationality" not in h2                      # uniform -> both hidden
+    assert "From" not in h2 and "Nat." not in h2                      # uniform -> both hidden
 
 
 def _full_finisher_event():
