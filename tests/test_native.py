@@ -37,7 +37,9 @@ def test_native_round_trips_the_corpus(path):
     rt = from_native(to_native(ed))
     assert rt["record"] == ed["record"]              # byte-exact record -> goldens unaffected
     assert rt["races"] == ed["races"]                # scheduled heats exact (incl. restart refs)
-    assert _cls_map(rt["classes"]) == _cls_map(ed["classes"])   # class name -> (col0, pattern) kept
+    # classes are content-preserving but order-CANONICALIZED (base-grouped) -- compare as a
+    # name -> (col0, pattern) map; the explicit order behaviour is locked below.
+    assert _cls_map(rt["classes"]) == _cls_map(ed["classes"])
 
 
 def test_native_sees_the_corpus():
@@ -72,6 +74,19 @@ def test_native_round_trips_a_new_qualification_event():
     ed = {"classes": [["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"],
                       ["", "F 500", "4*(1400):3"]], "record": {}, "races": []}
     assert from_native(to_native(ed))["classes"] == ed["classes"]
+
+
+def test_native_canonicalizes_class_order_base_grouped():
+    # a legacy flat layout (all bases, then all /T) regroups to base-grouped -- each base
+    # followed by its phases. Intended: the native model nests phases under a base, so
+    # base-grouped IS its canonical order (and matches the base-grouped Classes tab).
+    ed = {"classes": [["", "A", "1*(1000):1"], ["", "B", "1*(1000):1"],
+                      ["", "A/T", "1*(1000):1"], ["", "B/T", "1*(1000):1"]],
+          "record": {}, "races": []}
+    assert [r[1] for r in ed["classes"]] == ["A", "B", "A/T", "B/T"]        # interleaved before
+    rt = from_native(to_native(ed))
+    assert [r[1] for r in rt["classes"]] == ["A", "A/T", "B", "B/T"]        # base-grouped after
+    assert _cls_map(rt["classes"]) == _cls_map(ed["classes"])              # same content though
 
 
 def test_native_carries_a_schema_version():

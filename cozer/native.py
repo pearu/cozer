@@ -16,9 +16,14 @@ Everything else in ``eventdata`` (participants, scoringsystem, rules, qheat1, �
 through untouched — participants/qheat1 are already base-keyed. The record ``[info, boats]``
 objects are carried through by reference.
 
-``to_native`` / ``from_native`` are inverses on canonically-suffixed input (the whole
-bundled corpus — verified: only ``/T`` and heat suffixes ``''``/``r``/``t``, no
-non-canonical spellings). Legacy provenance is intentionally NOT preserved: a legacy `.coz`
+``to_native`` / ``from_native`` are inverses on canonically-suffixed input **for the record
+and races**; ``classes`` are **content-preserving but order-canonicalized** — nesting phases
+under a base means the round-trip regroups a legacy flat ``[all bases, then all /T]`` layout
+to **base-grouped** (each base followed by its ``/T``/``/Q``), matching the native model (and
+the base-grouped Classes tab). Base order and each class's col0/pattern are kept; only the
+interleaving of a base's phases is canonicalized. Verified on the whole bundled corpus (only
+``/T`` and heat suffixes ``''``/``r``/``t``, no non-canonical spellings). Legacy provenance is
+intentionally NOT preserved: a legacy `.coz`
 is read once (import) and never written back (``legacy/cozer`` remains for legacy files —
 owner), so the round-trip canonicalizes, which is a no-op on the canonical corpus.
 """
