@@ -126,7 +126,7 @@ def _posted_on(labels, posted_date):
     the time is left blank (larger, for hand-writing in pen) — the §209 *actual time of posting*,
     which starts the protest clock (§403)."""
     return ('<div style="text-align:right;font-size:10pt;margin-bottom:.15em">%s: %s &nbsp;'
-            '<span style="font-size:14pt">__:__</span></div>'
+            '<span style="font-size:16pt">____:____</span></div>'
             % (esc(labels["PostedOn"]), esc(posted_date)))
 
 
