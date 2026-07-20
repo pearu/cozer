@@ -4,8 +4,9 @@ rem DRAFT: validate on a real Windows box / CI.
 
 rem 1) Install cozer itself into the bundled env, offline, from the shipped wheel
 rem    (runtime deps are already present via construct.yaml `specs`, so --no-deps).
-"%PREFIX%\python.exe" -m pip install --no-deps --no-index "%PREFIX%\cozer-3.0.0.dev0-py3-none-any.whl"
-del "%PREFIX%\cozer-3.0.0.dev0-py3-none-any.whl"
+rem    Match the wheel by glob so this script is version-independent.
+for %%W in ("%PREFIX%\cozer-*.whl") do "%PREFIX%\python.exe" -m pip install --no-deps --no-index "%%W"
+del "%PREFIX%\cozer-*.whl"
 
 rem 2) Start-menu shortcut -> pythonw running cozer-launch.pyw (no console window).
 rem    cozer-launch.pyw adds <prefix>\Library\bin to the DLL search path so

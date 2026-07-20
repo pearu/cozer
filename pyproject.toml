@@ -4,11 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cozer"
-version = "3.0.0.dev0"
+dynamic = ["version"]                 # single-sourced from cozer/__init__.py (__version__)
 description = "COZER - COmpetition organiZER (modernized): organize powerboat racing events under U.I.M. Circuit Rules"
 requires-python = ">=3.13"
 authors = [{ name = "Pearu Peterson" }]
 readme = "README.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "cozer.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["cozer*"]

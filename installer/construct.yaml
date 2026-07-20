@@ -15,7 +15,10 @@
 # built beside this file).
 
 name: COZER
-version: 3.0.0.dev0          # keep in sync with pyproject.toml + cozer/__init__.py
+# version + the extra_files wheel name below are set by `tools/bump_version.py`
+# (cozer/__init__.py's __version__ is the single source of truth; pyproject reads
+# it dynamically and post_install.bat globs the wheel).
+version: 3.0.0.dev0
 company: COZER
 
 channels:
