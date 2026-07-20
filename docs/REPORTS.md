@@ -111,9 +111,9 @@ per kind). All 209 common content applies per heat and in the summary.
   distinctly-labelled field. → **P2 + owner call D1**.
 - **[FIXED 2026-07-20] Restart notation (209).** Report heat headers now display via
   `reports.common.heat_label`: `1r`→`1R` (first restart), `1R`→`1R2` (second restart); TT/qual
-  ids pass through. Applied in the finals / intermediate / laps headers. Presentation-only
-  (the model keeps the raw ids). §8 "does R2 need last-heat context?" → **no**: the `R` suffix
-  already encodes the second restart, so the mapping is context-free.
+  ids show a **bare number** (`2t`→`2`, `3q`→`3`) since the phase is shown separately. Applied in
+  the finals / intermediate / laps headers. Presentation-only (the model keeps the raw ids). §8
+  "does R2 need last-heat context?" → **no**: the `R` suffix already encodes the second restart.
 - **Laps per result (209).** Finishers get speed only; the completed-lap count appears
   (`…/NL`) **only** when a boat is short. 209 says "time (or speed) / **laps**". Defensible
   (full count implicit) but strictly under-specified. → **P3 + owner call D3**.

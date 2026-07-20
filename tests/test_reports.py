@@ -463,7 +463,7 @@ def test_report_restart_notation():
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.
     from cozer.reports.common import heat_label
     assert heat_label("1") == "1" and heat_label("1r") == "1R" and heat_label("1R") == "1R2"
-    assert heat_label("2t") == "2t" and heat_label("3q") == "3q"
+    assert heat_label("2t") == "2" and heat_label("3q") == "3"       # bare number: phase shown separately
     from cozer.reports.final import build_full_final, full_final_html
     from cozer.native import to_native
     ed = to_native({

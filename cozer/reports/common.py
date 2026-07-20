@@ -6,13 +6,14 @@ from cozer.reports.render import TABLE_CSS, page_css
 
 
 def heat_label(heat_id):
-    """A heat id in UIM 209 restart notation for report display: ``1``→``1``, ``1r``→``1R``
-    (first restart), ``1R``→``1R2`` (second restart). Time-trial (``2t``) / qualification
-    (``3q``) ids pass through unchanged (the phase is shown separately). Presentation-only;
-    the ``R`` suffix already means "second restart", so no finals/last-heat context is needed.
-    An unrecognized id raises (surfaced, not silently mangled)."""
+    """A heat id as displayed in a report header. UIM 209 restart notation: ``1``→``1``,
+    ``1r``→``1R`` (first restart), ``1R``→``1R2`` (second restart). Time-trial (``2t``) and
+    qualification (``3q``) ids show a **bare number** (``2``/``3``) — the phase kind is already
+    shown separately (report subtitle / column), so the ``t``/``q`` would be a redundant leak.
+    Presentation-only; the ``R`` suffix already means "second restart", so no finals/last-heat
+    context is needed. An unrecognized id raises (surfaced, not silently mangled)."""
     number, suffix = _parse_heat_id(heat_id)
-    return "%d%s" % (number, {"r": "R", "R": "R2"}.get(suffix, suffix))
+    return "%d%s" % (number, {"r": "R", "R": "R2", "t": "", "q": ""}.get(suffix, suffix))
 
 
 def esc(s):
