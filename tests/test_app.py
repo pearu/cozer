@@ -1681,6 +1681,31 @@ def test_menu_corner_reflects_signin_state(tmp_path, monkeypatch):
     assert not any("Sign in" in t or "Signed in" in t for t in htexts)
 
 
+def test_check_for_updates_menu_and_handler(monkeypatch):
+    # Help ▸ Check for updates: the action exists and the handler reports each state without error.
+    _app()
+    w = MainWindow()
+    htexts = [a.text() for a in w._help_menu.actions() if a.text()]
+    assert any("Check for" in t and "update" in t.lower() for t in htexts)
+    import cozer.app.update as upd
+    seen = {}
+    monkeypatch.setattr(appmain.QMessageBox, "information",
+                        staticmethod(lambda parent, title, text, *a, **k: seen.__setitem__("text", text)))
+    monkeypatch.setattr(upd, "check", lambda *a, **k: {
+        "current": "3.0.0", "kind": "wheel", "latest": {"tag": "v3.0.0"}, "available": False})
+    w._on_check_updates()
+    assert "up to date" in seen["text"]                                    # up-to-date path
+    monkeypatch.setattr(upd, "check", lambda *a, **k: {
+        "current": "3.0.0", "kind": "wheel", "latest": None, "available": False})
+    w._on_check_updates()
+    assert "unreachable" in seen["text"] or "release" in seen["text"]      # offline / no release path
+    monkeypatch.setattr(appmain.QMessageBox, "exec", lambda self: 0)       # available path -> must not raise
+    monkeypatch.setattr(upd, "check", lambda *a, **k: {
+        "current": "3.0.0rc1", "kind": "windows-installer", "available": True,
+        "latest": {"tag": "v3.0.0", "name": "cozer v3.0.0", "notes": "notes", "url": "https://x", "assets": []}})
+    w._on_check_updates()
+
+
 def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)

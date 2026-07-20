@@ -357,6 +357,7 @@ class MainWindow(QMainWindow):
         guide = self._help_menu.addAction("&Usage guide (coming soon)")
         guide.setEnabled(False)                          # planned; no target yet
         self._help_menu.addSeparator()
+        self._help_menu.addAction("Check for &updates…", self._on_check_updates)
         self._help_menu.addAction("&About cozer…", self._on_about)
         # Right-aligned corner: bug report + GitHub account state/toggle. Held on self so the
         # widget (and its buttons) is not garbage-collected out from under the menu bar.
@@ -773,6 +774,35 @@ class MainWindow(QMainWindow):
         crashreport.save_config(cfg)
         self._refresh_auth_corner()
         self.log("Signed out of GitHub")
+
+    def _on_check_updates(self):
+        """Help ▸ Check for updates: query the latest GitHub release and report status. The
+        adaptive apply (fast wheel vs full installer, per install kind) is Phase 2 — for now an
+        available update links to the release page. (docs/RELEASE.md)"""
+        from cozer.app import update
+        res = update.check()
+        rel = res["latest"]
+        if rel is None:
+            QMessageBox.information(
+                self, "Check for updates",
+                "Couldn't check for updates just now — no published release yet, or GitHub is "
+                "unreachable.\n\nYou are running cozer %s." % res["current"])
+            return
+        if not res["available"]:
+            QMessageBox.information(
+                self, "Check for updates", "cozer %s is up to date." % res["current"])
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Update available")
+        box.setText("A newer version is available: %s\nYou are running cozer %s."
+                    % (rel["name"], res["current"]))
+        if rel["notes"].strip():
+            box.setDetailedText(rel["notes"])
+        box.setStandardButtons(QMessageBox.Close)
+        open_btn = box.addButton("Open release page", QMessageBox.ActionRole)
+        box.exec()
+        if box.clickedButton() is open_btn and rel["url"]:
+            open_in_viewer(rel["url"])
 
     def _on_about(self):
         """The About box (cf. legacy Cozer): tagline, version, project link, author."""
