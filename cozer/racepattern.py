@@ -11,7 +11,19 @@ pattern is enforced by ``tests/test_model_equivalence.py``.
 """
 import ast
 
-from cozer.classes import isqclass, istclass
+from cozer.classes import getclass, isqclass, istclass
+
+
+def _synth_name(base, kind):
+    """Canonical legacy class name for a native (base, kind) — the synthesized legacy view a
+    consumer still addresses classes by while the migration is in flight."""
+    return base + "/T" if kind == "timetrial" else base + "/Q" if kind == "qualification" else base
+
+
+def _name_kind(cl):
+    """The phase kind a (synthesized) legacy class name denotes: ``timetrial`` for ``/T``,
+    ``qualification`` for ``/Q``, else ``None`` = the finals phase (circuit or endurance)."""
+    return "timetrial" if istclass(cl) else "qualification" if isqclass(cl) else None
 
 
 _ALLOWED_BINOP = (ast.Add, ast.Sub, ast.Mult)
@@ -151,7 +163,21 @@ def pattern_kind(pat, default=None):
 
 
 def class_pattern(eventdata, cl):
-    """The race-pattern string for class ``cl``, or None."""
+    """The race-pattern string for class ``cl`` (a legacy name, real or synthesized), or None.
+    Handles both event shapes: native ``classes`` = ``[{name, phases:[{kind, pattern, …}]}]``
+    and the legacy suffixed rows."""
+    if eventdata.get("schema", 1) >= 2:
+        base, target = getclass(cl), _name_kind(cl)
+        for entry in eventdata.get("classes", []) or []:
+            if entry.get("name") != base:
+                continue
+            for ph in entry.get("phases", []) or []:
+                if ph["kind"] == target or (target is None and ph["kind"] in ("circuit", "endurance")):
+                    pat = ph.get("pattern", "") or ""
+                    if ph.get("qualifiers"):
+                        pat = "%s!qualification[%s]" % (pat, ",".join(str(c) for c in ph["qualifiers"]))
+                    return pat or None
+        return None
     for l in eventdata.get("classes", []):
         if len(l) > 2 and l[1] == cl and l[2]:
             return l[2]
@@ -250,6 +276,10 @@ def crack_race_pattern(pat, cl='', warn=None):
 
 
 def get_classes(eventdata):
+    if eventdata.get("schema", 1) >= 2:                 # native: synthesize a legacy name per phase
+        return [_synth_name(entry.get("name"), ph["kind"])
+                for entry in eventdata.get("classes", []) or []
+                for ph in entry.get("phases", []) or []]
     try:
         classes = [x[1] for x in eventdata['classes']]
     except KeyError:

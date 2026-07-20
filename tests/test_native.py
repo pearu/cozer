@@ -70,6 +70,19 @@ def test_to_phases_reads_native_identically(path):
     assert to_phases(to_native(ed)) == to_phases(ed)
 
 
+@pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
+def test_racepattern_helpers_read_native_identically(path):
+    # get_classes / class_pattern / race_kind answer the same on the native model (addressed by
+    # synthesized legacy names) as on the legacy model.
+    from cozer.racepattern import get_classes, class_pattern, race_kind
+    ed = read_legacy_coz(path)
+    nat = to_native(ed)
+    assert set(get_classes(nat)) == set(get_classes(ed))
+    for cl in get_classes(ed):
+        assert class_pattern(nat, cl) == class_pattern(ed, cl), cl
+        assert race_kind(nat, cl) == race_kind(ed, cl), cl
+
+
 def test_native_shape_is_suffix_free():
     ed = {"classes": [["", "F 500/T", "1*(1000):1"],
                       ["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"],
