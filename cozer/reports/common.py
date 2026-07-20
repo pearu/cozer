@@ -1,7 +1,18 @@
 """Shared helpers for building and rendering cozer reports."""
+from cozer.phases import _parse_heat_id
 from cozer.racepattern import crack_race_pattern
 from cozer.reports.latexish import latex_to_html
 from cozer.reports.render import TABLE_CSS, page_css
+
+
+def heat_label(heat_id):
+    """A heat id in UIM 209 restart notation for report display: ``1``→``1``, ``1r``→``1R``
+    (first restart), ``1R``→``1R2`` (second restart). Time-trial (``2t``) / qualification
+    (``3q``) ids pass through unchanged (the phase is shown separately). Presentation-only;
+    the ``R`` suffix already means "second restart", so no finals/last-heat context is needed.
+    An unrecognized id raises (surfaced, not silently mangled)."""
+    number, suffix = _parse_heat_id(heat_id)
+    return "%d%s" % (number, {"r": "R", "R": "R2"}.get(suffix, suffix))
 
 
 def esc(s):

@@ -6,7 +6,7 @@ from cozer.analyzer import countlaps
 from cozer.classes import getclass
 from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
-from cozer.reports.common import esc, display, meta_of, document_html
+from cozer.reports.common import esc, display, heat_label, meta_of, document_html
 from cozer.reports.labels import get_labels
 from cozer.reports.render import render_pdf
 
@@ -55,7 +55,7 @@ def laps_protocol_html(model):
                           % (("<b>%s</b>" % esc(i)) if (i and fl) else esc(i)) for (i, fl) in row)
             rows.append("<tr>%s</tr>" % tds)
         body.append('<h3 class="class-heading">%s %s &nbsp; %s %s</h3>'
-                    % (esc(L["Class"]), display(t["class"]), esc(L["Heat"]), esc(t["heat"])))
+                    % (esc(L["Class"]), display(t["class"]), esc(L["Heat"]), esc(heat_label(t["heat"]))))
         body.append('<table class="results">%s<thead>%s</thead><tbody>%s</tbody></table>'
                     % (colg, head, "".join(rows)))
     return document_html(model["orientation"], L, model["meta"], model["heading"], body)

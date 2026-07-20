@@ -456,3 +456,22 @@ def test_qualification_summary_final_like():
     assert [(r["id"], r["qheat"], r["status"]) for r in t["rows"]] == \
         [("1", "1", "Q"), ("2", "1", "Q"), ("3", "Rep.", "Q"), ("4", "Rep.", "DNQ")]
     assert "Q/DNQ" in qualification_html(m) and "Rep." in qualification_html(m)
+
+
+def test_report_restart_notation():
+    # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
+    # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.
+    from cozer.reports.common import heat_label
+    assert heat_label("1") == "1" and heat_label("1r") == "1R" and heat_label("1R") == "1R2"
+    assert heat_label("2t") == "2t" and heat_label("3q") == "3q"
+    from cozer.reports.final import build_full_final, full_final_html
+    from cozer.native import to_native
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [400, 300, 225], "rules": [], "races": [],
+        "participants": [["", "A", "", "EST", "GT", "1"]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {h: [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                              {"1": [(1, 20.0), (1, 20.0), (1, 20.0)]}] for h in ("1", "2", "2r")}},
+    })
+    html = full_final_html(build_full_final(ed))
+    assert "Heat 2R" in html and "Heat 2r" not in html               # the restart column shows 2R

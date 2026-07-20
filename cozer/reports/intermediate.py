@@ -8,7 +8,7 @@ from cozer.phases import class_phase_map, heat_number, phase_heat_map
 from cozer.qualification import classify_qheat, qheat_qualify_count
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
-    esc, display, get_fullname, participants_index, sheats_for as _sheats,
+    esc, display, get_fullname, heat_label, participants_index, sheats_for as _sheats,
     meta_of, document_html,
 )
 from cozer.reports.final import _result_text, _legend_html
@@ -139,7 +139,7 @@ def intermediate_html(model):
                 rows.append('<tr class="sub"><td></td><td class="name">%s</td>'
                             '<td colspan="%d"></td></tr>' % (display(x), ncols - 2))
         body.append('<h3 class="class-heading">%s %s &nbsp; %s %s</h3>'
-                    % (esc(L["Class"]), display(t["class"]), esc(L["Heat"]), esc(t["heat"])))
+                    % (esc(L["Class"]), display(t["class"]), esc(L["Heat"]), esc(heat_label(t["heat"]))))
         body.append('<div class="event-meta">%s: %s</div>' % (esc(L["Starttime"]), esc(t["starttime"])))
         body.append('<table class="results"><colgroup>%s</colgroup><thead>%s</thead>'
                     '<tbody>%s</tbody></table>' % ("".join(cols), head, "".join(rows)))

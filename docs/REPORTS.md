@@ -109,9 +109,11 @@ per kind). All 209 common content applies per heat and in the summary.
   **or** nationality. 209 requires *nationality* specifically (IOC-3 / country). There is
   even an unused `Country` ("Linn" = *city*) label. Nationality is not a guaranteed,
   distinctly-labelled field. → **P2 + owner call D1**.
-- **Restart notation (209).** Heat headers show the raw heat id `1r` / `1R`. 209 wants
-  heat-number + `R` (first restart) and `R2` (last-heat second restart). Presentation
-  mismatch. → **P2**.
+- **[FIXED 2026-07-20] Restart notation (209).** Report heat headers now display via
+  `reports.common.heat_label`: `1r`→`1R` (first restart), `1R`→`1R2` (second restart); TT/qual
+  ids pass through. Applied in the finals / intermediate / laps headers. Presentation-only
+  (the model keeps the raw ids). §8 "does R2 need last-heat context?" → **no**: the `R` suffix
+  already encodes the second restart, so the mapping is context-free.
 - **Laps per result (209).** Finishers get speed only; the completed-lap count appears
   (`…/NL`) **only** when a boat is short. 209 says "time (or speed) / **laps**". Defensible
   (full count implicit) but strictly under-specified. → **P3 + owner call D3**.
@@ -129,7 +131,7 @@ per kind). All 209 common content applies per heat and in the summary.
 | 1 | ~~Time-trial best-lap **time**~~ | ✅ **DONE** | `analyze` reports the best (max-speed) lap's measured time; fixes the 1-lap `-`. See §5.1. |
 | 2 | Qualification per-qheat (Intermediate-like) | ✅ **DONE** | Intermediate report `isqual` mode: per-qheat results + Q/DNQ Status (top-N qualify). See §5.2. |
 | 2b | Qualification summary (Final-like) | ✅ **DONE** | New "Qualification" report (`qsummary.py`): combined Q/DNQ per class, primaries → repechage → DNQ. See §5.2. |
-| 3 | Restart `R` / `R2` display | P2 | Map heat-id `1r`→`1R`, last-heat `1R`→`1R2` in heat headers (context-aware). Presentation-only. |
+| 3 | ~~Restart `R` / `R2` display~~ | ✅ **DONE** | `reports.common.heat_label`: `1r`→`1R`, `1R`→`1R2` in finals/intermediate/laps headers. See §5.3. |
 | 4 | Nationality column | P2 | Depends on **D1**. |
 | 5 | Laps for all finishers | P3 | Depends on **D3**. |
 
@@ -148,12 +150,13 @@ per kind). All 209 common content applies per heat and in the summary.
 
 ## 8. Open questions
 
-- Does the qualification report show one table per qheat, or a combined ranking with a
-  Q/DNQ column? (Ties to how `classify` exposes per-qheat vs aggregate order.)
-- Restart `R2` is defined by 209 only for the *last heat's* second restart — does the
-  display mapping need finals-context (which heat is "last") that the report has?
+- ~~Does the qualification report show one table per qheat, or a combined ranking?~~
+  **RESOLVED**: both — per-qheat is Intermediate-like (`isqual`), combined is the Final-like
+  Qualification report (§5.2).
+- ~~Restart `R2`: does the display mapping need last-heat context?~~ **RESOLVED: no** — the `R`
+  suffix already encodes the second restart, so `heat_label` maps context-free (§5.3).
 - Legacy byte-faithful reports (`*_legacy`) are intentionally frozen — do any 209 fixes
-  apply to them, or only to the native builders?
+  apply to them, or only to the native builders? *(so far: native builders only.)*
 
 ## Change log
 
@@ -171,5 +174,7 @@ per kind). All 209 common content applies per heat and in the summary.
   (owner). `qualification.classify_qheat` added.
 - **2026-07-20** — Plan item **2b (Final-like) done**: new **Qualification** report
   (`reports/qsummary.py`, menu entry) — combined per-class Q/DNQ advancement across all qheats
-  (primaries → repechage → DNQ). Reports item 2 complete. Open: D1 (nationality), D3 (laps),
-  restart R/R2 notation (§5.3).
+  (primaries → repechage → DNQ). Reports item 2 complete.
+- **2026-07-20** — Plan item **3 done**: restart notation. `reports.common.heat_label` maps
+  `1r`→`1R`, `1R`→`1R2` in the finals / intermediate / laps heat headers (presentation-only).
+  Remaining: D1 (nationality) + D3 (laps) owner calls.

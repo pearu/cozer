@@ -6,7 +6,7 @@ from cozer.phases import class_phase_map, phase_heat_map
 from cozer.qualification import classify, participant_boats, qualification_class
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
-    esc, display, get_fullname, participants_index, sheats_for as _sheats,
+    esc, display, get_fullname, heat_label, participants_index, sheats_for as _sheats,
     meta_of, document_html,
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
@@ -186,7 +186,7 @@ def _table_html(t, labels, full):
             cols.append('<col style="width:%.2f%%">' % (pair * 0.58))
             cols.append('<col style="width:%.2f%%">' % (pair * 0.42))
         head1 = ('<tr><th colspan="4"></th>'
-                 + "".join('<th class="num" colspan="2">%s %s</th>' % (esc(L["Heat"]), esc(h)) for h in heats)
+                 + "".join('<th class="num" colspan="2">%s %s</th>' % (esc(L["Heat"]), esc(heat_label(h))) for h in heats)
                  + '<th class="num" colspan="2">%s</th></tr>' % esc(L["Summary"]))
         head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
                  % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]))
