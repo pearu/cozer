@@ -477,6 +477,44 @@ def test_participants_conditional_from_nationality_columns():
     assert "Nationality" not in h2 and "HC" not in h2 and "EST" not in h2   # uniform -> both hidden
 
 
+def _two_class_event(nats, clubs):
+    from cozer.native import to_native
+    return to_native({
+        "configure": {"language": "English"}, "scoringsystem": [10, 8], "rules": [], "races": [],
+        "participants": [["", "A", "", clubs[0], "GT", "1", nats[0]],
+                         ["", "B", "", clubs[1], "GT", "2", nats[1]]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {"1": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                                {"1": [(1, 20.0)] * 3, "2": [(1, 21.0)] * 3}]}},
+    })
+
+
+def test_final_conditional_from_nationality_columns():
+    # D1 finals: the native final report shows From/Nationality only when they vary; the legacy
+    # (byte-faithful) report keeps From-always and never adds Nationality.
+    from cozer.reports.final import (build_full_final, full_final_html,
+                                     build_full_final_legacy)
+    intl = _two_class_event(["EST", "FIN"], ["Tallinn", "Helsinki"])
+    h = full_final_html(build_full_final(intl))
+    assert "From" in h and "Nationality" in h and "EST" in h and "FIN" in h  # both vary -> shown
+    hl = full_final_html(build_full_final_legacy(intl))
+    assert "From" in hl and "Nationality" not in hl                          # legacy: From-always, no Nat
+    national = _two_class_event(["EST", "EST"], ["Klubi", "Klubi"])
+    h2 = full_final_html(build_full_final(national))
+    assert "From" not in h2 and "Nationality" not in h2                      # uniform -> both hidden
+
+
+def test_intermediate_conditional_from_nationality_columns():
+    # D1 intermediate: same visibility rule as the finals/participants reports.
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    intl = _two_class_event(["EST", "FIN"], ["Tallinn", "Helsinki"])
+    h = intermediate_html(build_intermediate(intl))
+    assert "From" in h and "Nationality" in h and "EST" in h and "FIN" in h  # both vary -> shown
+    national = _two_class_event(["EST", "EST"], ["Klubi", "Klubi"])
+    h2 = intermediate_html(build_intermediate(national))
+    assert "From" not in h2 and "Nationality" not in h2                      # uniform -> both hidden
+
+
 def test_report_restart_notation():
     # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.

@@ -6,8 +6,8 @@ from cozer.phases import class_phase_map, phase_heat_map
 from cozer.qualification import classify, participant_boats, qualification_class
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
-    esc, display, get_fullname, heat_label, participants_index, sheats_for as _sheats,
-    meta_of, document_html,
+    esc, display, get_fullname, heat_label, participants_index, nationalities_index,
+    show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
@@ -73,7 +73,7 @@ def _finalist_set(eventdata, cl, ph):
     return {b for b, s in labels.items() if s != "dnq"}
 
 
-def _dnq_rows(eventdata, cl, finalist_set, parts, nheats):
+def _dnq_rows(eventdata, cl, finalist_set, parts, nats, nheats):
     """The UIM 209 DNQ tail: every entered-and-accepted boat that is not a finalist, in
     participant-list order, marked `DNQ` with no final points (§5.1 step 4)."""
     rows = []
@@ -84,7 +84,8 @@ def _dnq_rows(eventdata, cl, finalist_set, parts, nheats):
         names = get_fullname(first, last).split(";")
         rows.append({
             "place": "", "name": names[0].strip(), "extra": [n.strip() for n in names[1:]],
-            "from": club, "id": b, "heats": [{"result": "-", "points": "-"}] * nheats,
+            "from": club, "nat": nats.get((cl, b), ""), "id": b,
+            "heats": [{"result": "-", "points": "-"}] * nheats,
             "best": "DNQ", "sumpoints": "-",
         })
     return rows
@@ -97,6 +98,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
     if classes is None:
         classes = get_classes(eventdata)
     parts = participants_index(eventdata)
+    nats = nationalities_index(eventdata)
     tables, kinds = [], []
     for cl in classes:
         ph = phase_of.get(cl)
@@ -138,20 +140,25 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
                 "name": names[0].strip(),
                 "extra": [n.strip() for n in names[1:]],
                 "from": club,
+                "nat": nats.get((cl, str(pid)), ""),
                 "id": str(pid),
                 "heats": heatcells,
                 "best": ("%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if scored else "-",
                 "sumpoints": str(sr["points"]) if scored else "-",
             })
         if finalist_set is not None:
-            rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, len(heats)))
+            rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, nats, len(heats)))
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels)})
         kinds.append(ph.kind)
     subtitle = phase_kinds_subtitle(labels, kinds) if phase_native else ""
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
             "full": full, "heading": labels["FinalResults"], "tables": tables,
-            "subtitle": subtitle}
+            "subtitle": subtitle,
+            # From/Nationality columns are native-only (legacy stays byte-faithful: From always,
+            # no Nationality); each native column shows only when it varies across the event.
+            "show_from": show_from(eventdata) if phase_native else True,
+            "show_nat": show_nationality(eventdata) if phase_native else False}
 
 
 # New phase-native reports (PHASES §5.1 step 4 / §10-E): the DNQ tail + phase-kind subtitle.
@@ -173,42 +180,65 @@ def build_short_final_legacy(eventdata, classes=None, heat_map=None):
     return _build(eventdata, classes, heat_map, "portrait", False, phase_native=False)
 
 
-def _table_html(t, labels, full):
+def _table_html(t, labels, full, show_f=True, show_n=False):
+    # Leading columns Place, Name, [From], [Nationality], No. From/Nationality are optional
+    # (native reports only, shown when they vary); with the defaults (From on, Nationality off)
+    # this reproduces the frozen legacy layout byte-for-byte.
     L = labels
     heats = t["heats"]
+    lead_head = '<th class="num">%s</th><th>%s</th>' % (esc(L["Place"]), esc(L["Name"]))
+    if show_f:
+        lead_head += '<th>%s</th>' % esc(L["From"])
+    if show_n:
+        lead_head += '<th class="num">%s</th>' % esc(L["Nationality"])
+    lead_head += '<th class="num">%s</th>' % esc(L["No"])
+    nlead = 3 + int(show_f) + int(show_n)
     if full:
         # Heats and the Summary hold the same kind of data (result + points), so give
-        # them equal-width result+points column pairs (issue #14).
-        pair = 69.0 / (len(heats) + 1)
-        cols = ['<col style="width:4%">', '<col style="width:15%">',
-                '<col style="width:8%">', '<col style="width:4.5%">']
+        # them equal-width result+points column pairs (issue #14). The pool left for those
+        # pairs shifts by any width the optional From/Nationality columns free up or take.
+        pool = 69.0 + (0 if show_f else 8) - (5 if show_n else 0)
+        pair = pool / (len(heats) + 1)
+        cols = ['<col style="width:4%">', '<col style="width:15%">']
+        if show_f:
+            cols.append('<col style="width:8%">')
+        if show_n:
+            cols.append('<col style="width:5%">')
+        cols.append('<col style="width:4.5%">')
         for _ in range(len(heats) + 1):        # one pair per heat, plus one for the Summary
             cols.append('<col style="width:%.2f%%">' % (pair * 0.58))
             cols.append('<col style="width:%.2f%%">' % (pair * 0.42))
-        head1 = ('<tr><th colspan="4"></th>'
+        head1 = ('<tr><th colspan="%d"></th>' % nlead
                  + "".join('<th class="num" colspan="2">%s %s</th>' % (esc(L["Heat"]), esc(heat_label(h))) for h in heats)
                  + '<th class="num" colspan="2">%s</th></tr>' % esc(L["Summary"]))
-        head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]))
+        head2 = ('<tr>' + lead_head
                  + ('<th class="num">%s</th><th class="num">%s</th>' % (esc(L["Res"]), esc(L["Pts"]))) * len(heats)
                  + '<th class="num">%s</th><th class="num">%s</th></tr>' % (esc(L["Res"]), esc(L["Pts"])))
         fs = max(6.5, 9.0 - 0.45 * max(0, len(heats) - 3))
     else:
-        # Place, Name, From, No, Results, Points — Results needs room for "45.6/48.2".
-        cols = ['<col style="width:7%">', '<col style="width:38%">',
-                '<col style="width:15%">', '<col style="width:8%">',
-                '<col style="width:20%">', '<col style="width:12%">']
+        # Place, Name, [From], [Nationality], No, Results, Points — Results needs room for
+        # "45.6/48.2"; Name absorbs the width any optional column frees up or takes.
+        name_w = 38 + (0 if show_f else 15) - (8 if show_n else 0)
+        cols = ['<col style="width:7%">', '<col style="width:%d%%">' % name_w]
+        if show_f:
+            cols.append('<col style="width:15%">')
+        if show_n:
+            cols.append('<col style="width:8%">')
+        cols += ['<col style="width:8%">', '<col style="width:20%">', '<col style="width:12%">']
         head1 = ""
-        head2 = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                 '<th class="num">%s</th><th class="num">%s</th></tr>'
-                 % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
-                    esc(L["Results"]), esc(L["Points"])))
+        head2 = ('<tr>' + lead_head
+                 + '<th class="num">%s</th><th class="num">%s</th></tr>'
+                 % (esc(L["Results"]), esc(L["Points"])))
         fs = 9.0
-    ncols = (4 + 2 * len(heats) + 2) if full else 6
+    ncols = (nlead + 2 * len(heats) + 2) if full else (nlead + 2)
     body = []
     for row in t["rows"]:
-        cells = ('<td class="num">%s</td><td class="name">%s</td><td>%s</td><td class="num">%s</td>'
-                 % (esc(row["place"]), display(row["name"]), display(row["from"]), esc(row["id"])))
+        cells = '<td class="num">%s</td><td class="name">%s</td>' % (esc(row["place"]), display(row["name"]))
+        if show_f:
+            cells += '<td>%s</td>' % display(row["from"])
+        if show_n:
+            cells += '<td class="num">%s</td>' % esc(row["nat"])
+        cells += '<td class="num">%s</td>' % esc(row["id"])
         if full:
             for hc in row["heats"]:
                 cells += '<td class="num">%s</td><td class="num">%s</td>' % (hc["result"], esc(hc["points"]))
@@ -228,7 +258,8 @@ def _table_html(t, labels, full):
 
 
 def _results_html(model):
-    body = [_table_html(t, model["labels"], model["full"]) for t in model["tables"]]
+    show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
+    body = [_table_html(t, model["labels"], model["full"], show_f, show_n) for t in model["tables"]]
     return document_html(model["orientation"], model["labels"], model["meta"], model["heading"],
                          body, subtitle=model.get("subtitle", ""))
 
