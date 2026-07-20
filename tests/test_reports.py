@@ -458,6 +458,22 @@ def test_qualification_summary_final_like():
     assert "Q/DNQ" in qualification_html(m) and "Rep." in qualification_html(m)
 
 
+def test_participants_conditional_from_nationality_columns():
+    # D1: the Participants report shows the From (club) and Nationality columns only when they
+    # vary across the event; a national / no-club event hides them.
+    from cozer.reports.participants import build_participants, participants_html
+    intl = {"configure": {"language": "English"}, "classes": [["", "GT", "3*(1000):1"]],
+            "participants": [["", "A", "One", "Tallinn HC", "GT", "1", "EST"],
+                             ["", "B", "Two", "Helsinki JK", "GT", "2", "FIN"]]}
+    h = participants_html(build_participants(intl))
+    assert "From" in h and "Nationality" in h and "EST" in h and "Tallinn HC" in h  # both shown
+    national = {"configure": {"language": "English"}, "classes": [["", "GT", "3*(1000):1"]],
+                "participants": [["", "A", "One", "HC", "GT", "1", "EST"],
+                                 ["", "B", "Two", "HC", "GT", "2", "EST"]]}
+    h2 = participants_html(build_participants(national))
+    assert "Nationality" not in h2 and "HC" not in h2 and "EST" not in h2   # uniform -> both hidden
+
+
 def test_report_restart_notation():
     # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.
