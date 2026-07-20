@@ -16,6 +16,7 @@ def test_set_version_rewrites_init_and_construct(tmp_path):
     shutil.copy(os.path.join(ROOT, "installer", "construct.yaml"),
                 tmp_path / "installer" / "construct.yaml")
 
+    bump_version.set_version("1.2.3", root=str(tmp_path))               # a known baseline (repo-version-independent)
     changed = bump_version.set_version("9.9.9rc3", root=str(tmp_path))
     assert len(changed) == 2
     init = (tmp_path / "cozer" / "__init__.py").read_text()
@@ -23,7 +24,7 @@ def test_set_version_rewrites_init_and_construct(tmp_path):
     assert '__version__ = "9.9.9rc3"' in init
     assert "version: 9.9.9rc3" in yaml
     assert "dist/cozer-9.9.9rc3-py3-none-any.whl" in yaml
-    assert "3.0.0.dev0" not in init and "cozer-3.0.0.dev0" not in yaml   # old version fully gone
+    assert "1.2.3" not in init and "cozer-1.2.3" not in yaml            # prior version fully replaced
     assert bump_version.set_version("9.9.9rc3", root=str(tmp_path)) == []  # idempotent
 
 
