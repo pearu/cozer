@@ -119,7 +119,7 @@ per kind). All 209 common content applies per heat and in the summary.
 
 | # | Fix | Priority | Notes |
 |---|-----|----------|-------|
-| 1 | Time-trial best-lap **time** | **P1** (bug) | Derive from the best lap's crossing interval, or `lap_length / maxlapspeed`; stop trusting analyze `laptime` (0 on 1-lap). |
+| 1 | Time-trial best-lap **time** | **P1** (bug) | Use the measured lap time (best lap's recorded crossing interval) directly — not speed-derived, not analyze `laptime` (0 on 1-lap). See D2. |
 | 2 | **Qualification report** (new kind) | **P1** (gap) | 209 result content per qheat + **Q/DNQ** advancement; hooks `qualification.classify`; slots into the per-phase report model. |
 | 3 | Restart `R` / `R2` display | P2 | Map heat-id `1r`→`1R`, last-heat `1R`→`1R2` in heat headers (context-aware). Presentation-only. |
 | 4 | Nationality column | P2 | Depends on **D1**. |
@@ -130,10 +130,11 @@ per kind). All 209 common content applies per heat and in the summary.
 - **D1 — Nationality data model.** Is `participants[i][3]` *the* nationality field (then
   relabel the column "Nationality" and validate IOC-3/country), or do we add a distinct
   nationality field separate from "From/club"? 209 requires nationality specifically.
-- **D2 — Time-trial metric. DECIDED (owner, 2026-07-20): best-lap _time_.** 305.04.02 is
-  specific about time. Derive it from the best lap's crossing interval (or lap length ÷
-  best-lap speed) — *not* analyze `laptime`, which is 0 on a 1-lap heat. Ships with the §5.1
-  P1 fix when reports work resumes.
+- **D2 — Time-trial metric. DECIDED (owner, 2026-07-20): best-lap _time_, from the recorded
+  lap-time values.** 305.04.02 is specific about time. Use the **measured lap time** — the best
+  completed lap's crossing interval from the record — **directly**; do **not** compute it from
+  speed (`lap_length ÷ speed`) unless the measured interval is genuinely unavailable, and do not
+  use analyze `laptime` (0 on a 1-lap heat). Ships with the §5.1 P1 fix when reports resume.
 - **D3 — Laps for all finishers.** Show the completed-lap count for every result, or keep
   the current "only when short" (`NL`) convention?
 
@@ -152,4 +153,5 @@ per kind). All 209 common content applies per heat and in the summary.
   305.04.02 / 305.04.03 / 317; discrepancies (§5), plan (§6), decisions (§7). Seeded by
   `7948e787`; handed to `b76f2173` (reports owner) to own/extend.
 - **2026-07-20** — Owner parked reports for now (still testing 3c-2); committing this plan
-  for later. Owner decided **D2 = best-lap time**. D1 / D3 remain open.
+  for later. Owner decided **D2 = best-lap time**, taken from the recorded lap-time values
+  (not speed-derived). D1 / D3 remain open.
