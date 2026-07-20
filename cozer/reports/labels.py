@@ -30,6 +30,8 @@ LABELS = {
         "DidNotStart": "Did not start", "DidNotFinish": "Did not finish",
         "DidNotRestart": "Did not restart", "Disqualified": "Disqualified",
         "Accident": "Accident", "DidNotQualify": "Did not qualify",
+        "PhaseTimeTrial": "Time Trial", "PhaseQualification": "Qualification",
+        "PhaseFinal": "Final", "PhaseEndurance": "Endurance",
     },
     "Estonian": {
         "OfficeroftheDay": "Peakohtunik", "SecretaryoftheRace": "Võistluste sekretär",
@@ -56,8 +58,24 @@ LABELS = {
         "DidNotStart": "Ei startinud", "DidNotFinish": "Ei lõpetanud",
         "DidNotRestart": "Ei taasstartinud", "Disqualified": "Diskvalifitseeritud",
         "Accident": "Õnnetus", "DidNotQualify": "Ei kvalifitseerunud",
+        # NOTE: Estonian phase-kind names are best-effort -- owner to verify/correct.
+        "PhaseTimeTrial": "Ajasõit", "PhaseQualification": "Kvalifikatsioon",
+        "PhaseFinal": "Finaal", "PhaseEndurance": "Kestvussõit",
     },
 }
+
+# Phase kind (race_kind) -> label key, and canonical display order for a report subtitle.
+PHASE_KIND_LABEL = {"timetrial": "PhaseTimeTrial", "qualification": "PhaseQualification",
+                    "circuit": "PhaseFinal", "endurance": "PhaseEndurance"}
+_PHASE_KIND_ORDER = ("timetrial", "qualification", "circuit", "endurance")
+
+
+def phase_kinds_subtitle(labels, kinds):
+    """A report subtitle naming the phase kind(s) present (§10-E), in canonical order and
+    localized; distinct kinds are joined with ' · '. Empty when no known kind is present."""
+    seen = set(kinds)
+    names = [labels[PHASE_KIND_LABEL[k]] for k in _PHASE_KIND_ORDER if k in seen]
+    return " · ".join(names)
 
 # record code -> label key (for note legends)
 RECCODE_LABEL = {

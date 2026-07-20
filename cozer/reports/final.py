@@ -9,7 +9,7 @@ from cozer.reports.common import (
     esc, display, get_fullname, participants_index, sheats_for as _sheats,
     meta_of, document_html,
 )
-from cozer.reports.labels import get_labels, LABELS, RECCODE_LABEL
+from cozer.reports.labels import get_labels, phase_kinds_subtitle, LABELS, RECCODE_LABEL
 from cozer.reports.render import render_pdf
 
 
@@ -98,7 +98,7 @@ def _build(eventdata, classes, heat_map, orientation, full):
         classes = [c for c in get_classes(eventdata) if c in record]
     phase_of = class_phase_map(eventdata)               # legacy class name -> its Phase
     parts = participants_index(eventdata)
-    tables = []
+    tables, kinds = [], []
     for cl in classes:
         ph = phase_of.get(cl)
         if ph is None:                                  # cl not in record
@@ -145,8 +145,10 @@ def _build(eventdata, classes, heat_map, orientation, full):
             rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, len(heats)))
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels)})
+        kinds.append(ph.kind)
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
-            "full": full, "heading": labels["FinalResults"], "tables": tables}
+            "full": full, "heading": labels["FinalResults"], "tables": tables,
+            "subtitle": phase_kinds_subtitle(labels, kinds)}
 
 
 def build_full_final(eventdata, classes=None, heat_map=None):
@@ -213,7 +215,8 @@ def _table_html(t, labels, full):
 
 def _results_html(model):
     body = [_table_html(t, model["labels"], model["full"]) for t in model["tables"]]
-    return document_html(model["orientation"], model["labels"], model["meta"], model["heading"], body)
+    return document_html(model["orientation"], model["labels"], model["meta"], model["heading"],
+                         body, subtitle=model.get("subtitle", ""))
 
 
 def full_final_html(model):

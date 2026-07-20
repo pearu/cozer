@@ -10,6 +10,8 @@ body { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; color:#111; fon
 h1.event-title { font-size:13pt; margin:0 0 .1cm 0; }
 .event-meta { font-size:9pt; color:#333; margin:0 0 .35cm 0; }
 h2.report-heading { text-align:center; font-size:14pt; margin:.1cm 0 .45cm 0; }
+/* subtitle (phase kind) pulls up under the heading; absent on subtitle-less reports */
+.report-subtitle { text-align:center; font-size:10.5pt; color:#333; margin:-.35cm 0 .45cm 0; }
 h3.class-heading { font-size:11pt; margin:.55cm 0 .15cm 0; padding-bottom:1px;
                    border-bottom:1.5px solid #000; }
 /* table-layout:fixed + a colgroup summing to 100% keeps every table within the

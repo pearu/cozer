@@ -166,6 +166,32 @@ def test_final_report_dnq_tail_in_short_report_too():
     assert t["rows"][-1]["id"] == "40" and t["rows"][-1]["best"] == "DNQ"
 
 
+def test_final_report_subtitle_names_the_phase_kind():
+    # an all-classes report over a qualification event spans two phases -> both named
+    model = build_full_final(_qual_finals_event(_finals_heat(["10", "30", "20"])))
+    assert model["subtitle"] == "Qualification · Final"
+    assert '<div class="report-subtitle">Qualification · Final</div>' in full_final_html(model)
+    # a per-phase report (select the final) names just that phase
+    assert build_full_final(_qual_finals_event(_finals_heat(["10", "30", "20"])),
+                            classes=["C"])["subtitle"] == "Final"
+
+
+def test_final_report_subtitle_localized_and_timetrial():
+    # a synthetic time-trial-only event -> "Time Trial"
+    info = {"course": [1000], "sheats": 1, "duration": None}
+    tt = {"kind": "event", "title": "TT", "scoringsystem": [400, 300, 225], "rules": [],
+          "classes": [["", "C/T", "1*(1000):1"]],
+          "participants": [["", "N", "S", "FIN", "C", "10"]],
+          "record": {"C/T": {"1t": [info, {"10": [(1, 20.0)]}]}}}
+    assert build_full_final(tt)["subtitle"] == "Time Trial"
+    # a real merged event names both phases present, joined with ' · '
+    merged = read_legacy_coz(os.path.join(REPO, "legacy", "events", "WC 2024_Time_trials.coz"))
+    assert build_full_final(merged)["subtitle"] == "Time Trial · Final"
+    # localized (Estonian): a circuit final -> "Finaal"
+    et = read_legacy_coz(EVENT); et.setdefault("configure", {})["language"] = "Estonian"
+    assert build_short_final(et)["subtitle"] == "Finaal"
+
+
 def test_final_report_no_dnq_tail_without_qualification():
     # a plain circuit class (no /Q sibling) is unchanged -- no DNQ rows
     info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}

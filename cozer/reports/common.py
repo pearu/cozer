@@ -72,8 +72,9 @@ def meta_of(eventdata):
     return {k: eventdata.get(k, "") for k in ("title", "venue", "date", "officer", "secretary")}
 
 
-def document_html(orientation, labels, meta, heading, body_parts):
-    """Wrap report body (a list of HTML fragments) in a full styled document."""
+def document_html(orientation, labels, meta, heading, body_parts, subtitle=""):
+    """Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``
+    (optional) is shown under the heading -- used for the phase-kind line (§10-E)."""
     css = page_css(
         orientation,
         footer_left="%s  /%s/" % (meta["officer"], labels["OfficeroftheDay"]),
@@ -85,5 +86,7 @@ def document_html(orientation, labels, meta, heading, body_parts):
     parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
                  % (display(meta["venue"]), display(meta["date"])))
     parts.append('<h2 class="report-heading">%s</h2>' % display(heading))
+    if subtitle:
+        parts.append('<div class="report-subtitle">%s</div>' % display(subtitle))
     parts.extend(body_parts)
     return "\n".join(parts)
