@@ -718,23 +718,18 @@ class MainWindow(QMainWindow):
     def _build_reports_tab(self):
         w = QWidget()
         v = QVBoxLayout(w)
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Report:"))
+        # Report options: the report to render plus its rendering toggles, in one titled box --
+        # they are the same kind of per-render choice, and future options slot in here alongside.
+        opts = QGroupBox("Report options")
+        ol = QVBoxLayout(opts)
+        typerow = QHBoxLayout()
+        typerow.addWidget(QLabel("Report:"))
         self.report_combo = QComboBox()
         for r in _REPORTS:
             self.report_combo.addItem(r[0])
-        row.addWidget(self.report_combo)
-        view = QPushButton("View")
-        view.clicked.connect(self.on_view)
-        row.addWidget(view)
-        export = QPushButton("Export…")
-        export.clicked.connect(self.on_export)
-        row.addWidget(export)
-        row.addStretch()
-        v.addLayout(row)
-        # Report options: a titled home for report-rendering toggles (future options slot in here).
-        opts = QGroupBox("Report options")
-        ol = QVBoxLayout(opts)
+        typerow.addWidget(self.report_combo)
+        typerow.addStretch()
+        ol.addLayout(typerow)
         self.opt_all_laps = QCheckBox("Show lap count for all finishers")
         self.opt_all_laps.setToolTip(
             "By default the completed-lap count (e.g. 45.6/48.2/8L) is shown only for a boat that "
@@ -742,6 +737,15 @@ class MainWindow(QMainWindow):
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
         v.addWidget(opts)
+        btnrow = QHBoxLayout()                            # actions (not options): View / Export
+        view = QPushButton("View")
+        view.clicked.connect(self.on_view)
+        btnrow.addWidget(view)
+        export = QPushButton("Export…")
+        export.clicked.connect(self.on_export)
+        btnrow.addWidget(export)
+        btnrow.addStretch()
+        v.addLayout(btnrow)
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
         self.report_tree = QTreeWidget()
         self.report_tree.setHeaderHidden(True)
