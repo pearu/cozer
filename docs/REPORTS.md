@@ -137,9 +137,14 @@ per kind). All 209 common content applies per heat and in the summary.
 
 ## 7. Decisions (owner calls — OPEN)
 
-- **D1 — Nationality data model.** Is `participants[i][3]` *the* nationality field (then
-  relabel the column "Nationality" and validate IOC-3/country), or do we add a distinct
-  nationality field separate from "From/club"? 209 requires nationality specifically.
+- **D1 — Nationality. DECIDED (owner, 2026-07-20): a distinct field.** Nationality is a new
+  participant field (index 6), separate from From/club. **Column visibility rule (owner):** a
+  report shows the From *and* the Nationality column only when it holds >1 distinct non-empty
+  value across the event — an all-empty or uniform column (a national event's all-`EST`, or an
+  event with no clubs) is hidden. **Status: foundation done** (`a90d51f` — field + Participants
+  GUI column + `show_from`/`show_nationality`/`nationalities_index`). **TODO:** render the
+  conditional From/Nationality columns in the reports (per-report variable-column layout + a
+  proper "Nationality" label).
 - **D2 — Time-trial metric. DECIDED (owner, 2026-07-20): best-lap _time_, from the recorded
   lap-time values.** 305.04.02 is specific about time. Use the **measured lap time** — the best
   completed lap's crossing interval from the record — **directly**; do **not** compute it from
