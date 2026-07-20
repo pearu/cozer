@@ -90,7 +90,7 @@ def _dnq_rows(eventdata, cl, finalist_set, parts, nheats):
     return rows
 
 
-def _build(eventdata, classes, heat_map, orientation, full):
+def _build(eventdata, classes, heat_map, orientation, full, phase_native=False):
     record = eventdata.get("record", {})
     ss = eventdata.get("scoringsystem", [])
     labels = get_labels(eventdata)
@@ -114,7 +114,8 @@ def _build(eventdata, classes, heat_map, orientation, full):
         order = getsumresorder(sumres)
         # UIM 209 DNQ tail: when a qualification phase feeds this finals phase, the report
         # lists every entered boat -- finalists in the classified body, non-qualifiers below.
-        finalist_set = _finalist_set(eventdata, cl, ph)
+        # A new-convention feature only: the legacy report stays byte-faithful.
+        finalist_set = _finalist_set(eventdata, cl, ph) if phase_native else None
         legend = {}
         rows = []
         for pid in order:
@@ -146,17 +147,29 @@ def _build(eventdata, classes, heat_map, orientation, full):
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels)})
         kinds.append(ph.kind)
+    subtitle = phase_kinds_subtitle(labels, kinds) if phase_native else ""
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
             "full": full, "heading": labels["FinalResults"], "tables": tables,
-            "subtitle": phase_kinds_subtitle(labels, kinds)}
+            "subtitle": subtitle}
 
 
+# New phase-native reports (PHASES §5.1 step 4 / §10-E): the DNQ tail + phase-kind subtitle.
 def build_full_final(eventdata, classes=None, heat_map=None):
-    return _build(eventdata, classes, heat_map, "landscape", True)
+    return _build(eventdata, classes, heat_map, "landscape", True, phase_native=True)
 
 
 def build_short_final(eventdata, classes=None, heat_map=None):
-    return _build(eventdata, classes, heat_map, "portrait", False)
+    return _build(eventdata, classes, heat_map, "portrait", False, phase_native=True)
+
+
+# Legacy byte-faithful reports: kept as the reference for comparison against the legacy
+# Python-2 core (no subtitle, no DNQ tail). Same implementation, phase_native off.
+def build_full_final_legacy(eventdata, classes=None, heat_map=None):
+    return _build(eventdata, classes, heat_map, "landscape", True, phase_native=False)
+
+
+def build_short_final_legacy(eventdata, classes=None, heat_map=None):
+    return _build(eventdata, classes, heat_map, "portrait", False, phase_native=False)
 
 
 def _table_html(t, labels, full):
@@ -227,6 +240,11 @@ def short_final_html(model):
     return _results_html(model)
 
 
+# Legacy reports share the same HTML (a legacy model has subtitle="" -> no subtitle line).
+full_final_legacy_html = full_final_html
+short_final_legacy_html = short_final_html
+
+
 def render_full_final(eventdata, out_path, classes=None, heat_map=None):
     model = build_full_final(eventdata, classes, heat_map)
     html = full_final_html(model)
@@ -237,5 +255,19 @@ def render_full_final(eventdata, out_path, classes=None, heat_map=None):
 def render_short_final(eventdata, out_path, classes=None, heat_map=None):
     model = build_short_final(eventdata, classes, heat_map)
     html = short_final_html(model)
+    render_pdf(html, out_path)
+    return model, html
+
+
+def render_full_final_legacy(eventdata, out_path, classes=None, heat_map=None):
+    model = build_full_final_legacy(eventdata, classes, heat_map)
+    html = full_final_legacy_html(model)
+    render_pdf(html, out_path)
+    return model, html
+
+
+def render_short_final_legacy(eventdata, out_path, classes=None, heat_map=None):
+    model = build_short_final_legacy(eventdata, classes, heat_map)
+    html = short_final_legacy_html(model)
     render_pdf(html, out_path)
     return model, html

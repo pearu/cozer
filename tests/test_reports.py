@@ -192,6 +192,16 @@ def test_final_report_subtitle_localized_and_timetrial():
     assert build_short_final(et)["subtitle"] == "Finaal"
 
 
+def test_legacy_final_report_is_byte_faithful_no_subtitle_no_dnq():
+    from cozer.reports.final import build_full_final_legacy
+    ed = _qual_finals_event(_finals_heat(["10", "30", "20"]))
+    model = build_full_final_legacy(ed)
+    assert model["subtitle"] == ""                             # legacy: no phase-kind subtitle
+    t = _finals_table(model)
+    assert "DNQ" not in [r["best"] for r in t["rows"]]         # legacy: no DNQ tail
+    assert "40" not in [r["id"] for r in t["rows"]]            # DNQ boat not injected
+
+
 def test_final_report_no_dnq_tail_without_qualification():
     # a plain circuit class (no /Q sibling) is unchanged -- no DNQ rows
     info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}

@@ -7,6 +7,8 @@ The same HTML templates are intended to feed the online/live view later
 from cozer.reports.final import (
     build_full_final, full_final_html, render_full_final,
     build_short_final, short_final_html, render_short_final,
+    build_full_final_legacy, full_final_legacy_html, render_full_final_legacy,
+    build_short_final_legacy, short_final_legacy_html, render_short_final_legacy,
 )
 from cozer.reports.participants import (
     build_participants, participants_html, render_participants,
@@ -29,6 +31,8 @@ from cozer.reports.letters import (
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
     "build_short_final", "short_final_html", "render_short_final",
+    "build_full_final_legacy", "full_final_legacy_html", "render_full_final_legacy",
+    "build_short_final_legacy", "short_final_legacy_html", "render_short_final_legacy",
     "build_participants", "participants_html", "render_participants",
     "build_checklist", "checklist_html", "render_checklist",
     "build_intermediate", "intermediate_html", "render_intermediate",

@@ -30,7 +30,7 @@ def test_window_builds_and_populates():
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
     assert w.report_tree.topLevelItemCount() == len(get_classes(ed))  # class/heat tree populated
-    assert w.report_combo.count() == 9                     # all reports offered
+    assert w.report_combo.count() == 11                    # all reports offered (incl. 2 legacy Final)
 
 
 def test_event_field_edits_update_eventdata():

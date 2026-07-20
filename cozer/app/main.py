@@ -67,6 +67,8 @@ _REPORTS = [
     ("Intermediate", "render_intermediate", True, True),
     ("Full Final", "render_full_final", True, True),
     ("Short Final", "render_short_final", True, True),
+    ("Full Final (legacy)", "render_full_final_legacy", True, True),
+    ("Short Final (legacy)", "render_short_final_legacy", True, True),
     ("Endurance Full Final", "render_endurance_final", True, True),
     ("Check List", "render_checklist", True, False),
     ("Laps Protocol", "render_laps_protocol", True, True),

@@ -51,6 +51,6 @@ def test_all_reports_build(name, path):
 
 
 def test_sweep_covers_all_events_and_reports():
-    """Guard the guard: the sweep must actually see events and all nine reports."""
+    """Guard the guard: the sweep must actually see events and every report."""
     assert _EVENTS, "no legacy .coz events found -- sweep would pass vacuously"
-    assert len(_REPORTS) == 9, len(_REPORTS)
+    assert len(_REPORTS) == 11, len(_REPORTS)   # 9 + legacy Full/Short Final
