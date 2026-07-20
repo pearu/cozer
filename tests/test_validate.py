@@ -76,10 +76,12 @@ def test_endurance_heat_not_flagged_incomplete():
     assert "incomplete-heat" not in _codes(check_results(ed))
 
 
-def test_qualification_heat_skipped():
+def test_qualification_heat_gets_circuit_machinery():
+    # §4.1: a qheat is a mass start analyzed like a circuit heat -> a stopped qheat below
+    # the restart threshold now WARNS (no longer skipped as it was pre-§4.1).
     ed = _stopped_heat(10, _SUB70, classname="C/Q")
     ed["record"]["C/Q"] = {"1q": ed["record"]["C/Q"].pop("1")}
-    assert check_results(ed) == []                          # q heats: scored differently, not flagged
+    assert "incomplete-heat" in _codes(check_results(ed))
 
 
 def test_empty_scoring_system_warns():
@@ -150,10 +152,29 @@ def test_check_results_flags_circuit_misclick():
     assert "misclick" in _codes(check_results(ed))
 
 
-def test_check_results_excludes_time_trial_kind():
+def test_time_trial_gets_physics_only_misclick():
+    # §4.1: a time trial IS checked for a too-fast (physically impossible) lap -- it would
+    # corrupt the best-lap metric -- but not the median-based missed-click (solo best-lap run).
     ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}, classname="C/T")
     assert race_kind(ed, "C/T") == "timetrial"
-    assert "misclick" not in _codes(check_results(ed))              # solo runs -> no wrong-boat click
+    codes = _codes(check_results(ed))
+    assert "misclick" in codes                                     # too-fast lap flagged (physics)
+    assert "missed-click" not in codes                             # no median check for a solo run
+
+
+def test_time_trial_skips_median_missed_click():
+    # a ~2x-median lap a circuit heat flags as a missed click is NOT flagged for a time trial
+    marks = {"7": [(1, 40.0), (1, 40.0), (1, 40.0), (1, 40.0), (1, 90.0)]}
+    assert "missed-click" in _codes(check_results(_race_event(marks)))                        # circuit
+    assert "missed-click" not in _codes(check_results(_race_event(marks, classname="C/T")))   # time trial
+
+
+def test_qualification_heat_gets_misclick():
+    # §4.1: a qheat is a mass start -> the fast mis-click check applies (unlike a time trial,
+    # it can also be a wrong-boat click, and the full missed-click check runs too)
+    ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}, classname="C/Q")
+    assert race_kind(ed, "C/Q") == "qualification"
+    assert "misclick" in _codes(check_results(ed))
 
 
 def test_per_class_speed_hint_raises_the_bar():

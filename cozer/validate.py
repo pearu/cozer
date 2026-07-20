@@ -82,44 +82,49 @@ def check_results(eventdata):
             findings.append(Finding("warning", None, None, "empty-scoring",
                                     "scoring system is empty — every result scores 0 points"))
 
-        # Per-kind dispatch runs on the phase model (PHASES.md §8 step 2): a class's
-        # kind and pattern come from its Phase, not from re-inferring them here via the
-        # class/heat suffix. phase_of maps each legacy class name to its Phase; the
-        # legacy record dict is still iterated (same class-then-heat order) so findings
-        # stay byte-identical. Skipping a time-trial/qualification *phase* replaces the
-        # old per-heat ``h[-1] in ('q','t')`` skip -- identical on real data (a /T,/Q
-        # class's heats all carry the suffix); a hint-kinded class with a plain heat id
-        # can't occur in the legacy corpus.
+        # Per-kind validation dispatch on the phase model (PHASES.md §4 / §4.1): a class's
+        # kind + pattern come from its Phase, not from re-inferring the class/heat suffix.
+        # phase_of maps each legacy class name to its Phase; the legacy record dict is still
+        # iterated (class-then-heat order) for stable output. The kinds diverge:
         #
-        # TEMPORARY equivalence, NOT the §4 end state: this lumps timetrial and
-        # qualification into one skip only to stay byte-identical with legacy. Per
-        # PHASES.md §4 they diverge -- timetrial gets a *light* (physics-only) mis-click
-        # check, and qualification is a real mass-start kind (fast+slow mis-click). When
-        # the §4.1 code ripples land, qualification comes OUT of this skip and timetrial
-        # gets the light check.
+        #  - TIME-TRIAL (and training, which folds into it): a SOLO run scored by BEST LAP.
+        #    A too-fast lap is still a double-tap/spurious crossing that would corrupt the
+        #    best lap, so a PHYSICS-ONLY mis-click check applies -- but there is no pack
+        #    (no wrong-boat case), the median missed-click check has no useful distribution
+        #    on a best-lap run, and there is no leader, so no restart / place-gap checks.
+        #  - QUALIFICATION / CIRCUIT / ENDURANCE: a real MASS START. A qheat is analyzed
+        #    like a circuit heat (§4.1), so all of them get the full machinery -- fast +
+        #    missed mis-click (endurance uses the narrow missed band) plus the restart and
+        #    place-gap checks below.
         phase_of = class_phase_map(eventdata)
 
         classes = [c for c in get_classes(eventdata) if c in record]
         for cl in classes:
             ph = phase_of.get(cl)
-            if ph is None or ph.kind in ("timetrial", "qualification"):
-                continue                            # scored differently, not click-checked
+            if ph is None:
+                continue
             heats = record.get(cl) or {}
             for h in sorted(heats):
                 info, rec = heats[h]
 
-                # Mis-click detection: a boat whose EFFECTIVE lap (gettimes absorbs a
-                # disabled/already-corrected click) is faster than physically possible
-                # (or, for a missed click, ~2x its median) likely got a spurious/absent
-                # crossing. Runs independent of analyze/placements (a heat where everyone
-                # DNF'd can still have a click error). Report for Edit-Records review;
-                # scoring is unchanged. Only mass-start racing -- a time-trial or
-                # qualifier runs solo, so no pack and no wrong-boat click.
-                if ph.kind in ("circuit", "endurance"):
+                if ph.kind in ("timetrial", "training"):
                     min_lap = _pattern_min_lap_time(ph.pattern)
                     if min_lap:
                         findings.extend(_misclick_findings(
-                            cl, h, rec, min_lap, ph.kind == "endurance"))
+                            cl, h, rec, min_lap, False, physics_only=True))
+                    continue                        # best-lap scoring: no restart / place-gap
+                if ph.kind not in ("circuit", "endurance", "qualification"):
+                    continue                        # unknown kind: no click checks
+
+                # Mis-click detection: a boat whose EFFECTIVE lap (gettimes absorbs a
+                # disabled/already-corrected click) is faster than physically possible (or,
+                # for a missed click, ~2x its median) likely got a spurious/absent crossing.
+                # Runs independent of analyze/placements (a heat where everyone DNF'd can
+                # still have a click error). Report for Edit-Records review; scoring unchanged.
+                min_lap = _pattern_min_lap_time(ph.pattern)
+                if min_lap:
+                    findings.extend(_misclick_findings(
+                        cl, h, rec, min_lap, ph.kind == "endurance"))
 
                 try:
                     res = analyze(h, heats[h], ss, rulecodes)
@@ -182,7 +187,7 @@ def _pattern_min_lap_time(pattern):
     return min(lengths) / speed_ms if lengths and speed_ms > 0 else None
 
 
-def _misclick_findings(cl, h, rec, min_lap, endurance):
+def _misclick_findings(cl, h, rec, min_lap, endurance, physics_only=False):
     out = []
     for pid in sorted(rec, key=str):
         laps = gettimes(rec[pid])
@@ -193,6 +198,8 @@ def _misclick_findings(cl, h, rec, min_lap, endurance):
                 "boat %s has %d lap(s) faster than physically possible for this class (< %.0fs, "
                 "%s) — likely a mis-click (wrong boat / double tap when boats cross together); "
                 "review and correct in Edit Records" % (pid, len(fast), min_lap, fast)))
+        if physics_only:
+            continue        # time-trial: best-lap run has no useful missed-click distribution
         # Missed click: a lap ~2x the boat's median. Circuit (no pits) flags any lap
         # well above typical; endurance (pits are huge legit outliers) only a narrow band.
         if len(laps) >= _MISSED_CLICK_MIN_LAPS:
