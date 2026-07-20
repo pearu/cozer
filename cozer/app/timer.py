@@ -22,7 +22,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
+    QApplication, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -262,7 +262,6 @@ class TimerPanel(QWidget):
         self._ladder_boats = {}     # (cl, h, pid) -> ladder QPushButton
         self._ladder_layouts = {}   # (cl, h) -> QVBoxLayout of the ladder
         self._grids = {}            # (cl, h) -> GridButtons
-        self._autosave = None
 
         v = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -276,9 +275,7 @@ class TimerPanel(QWidget):
         self.stop_btn.setEnabled(False)
         self.resume_btn = QPushButton("Resume")
         self.resume_btn.clicked.connect(self.on_resume)
-        self.autosave_cb = QCheckBox("Auto-save")
-        self.autosave_cb.toggled.connect(self._toggle_autosave)
-        for w in (self.start_btn, self.stop_btn, self.resume_btn, self.autosave_cb):
+        for w in (self.start_btn, self.stop_btn, self.resume_btn):
             top.addWidget(w)
         top.addStretch()
         v.addLayout(top)
@@ -617,16 +614,3 @@ class TimerPanel(QWidget):
         self.race_combo.setEnabled(True)
         self.status.setText("Stopped")
 
-    # ---- autosave ----
-    def _toggle_autosave(self, on):
-        if on:
-            self._autosave = QTimer(self)
-            self._autosave.timeout.connect(self._do_autosave)
-            self._autosave.start(30000)
-        elif self._autosave is not None:
-            self._autosave.stop()
-            self._autosave = None
-
-    def _do_autosave(self):     # pragma: no cover - periodic timer callback
-        if self.window.store is not None:
-            self.window.on_save()

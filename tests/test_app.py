@@ -1307,8 +1307,10 @@ def test_timer_reload_stop_autosave(tmp_path, monkeypatch):
     assert tp._started
     tp.on_stop()
     assert not tp._started
-    tp.autosave_cb.setChecked(True)
-    tp.autosave_cb.setChecked(False)             # exercise autosave toggle both ways
+    w._autosave_action.setChecked(True)          # auto-save now lives on the File menu (window-wide)
+    assert w._autosave is not None
+    w._autosave_action.setChecked(False)         # exercise autosave toggle both ways
+    assert w._autosave is None
 
 
 def _recorded_event():
@@ -1630,22 +1632,25 @@ def test_report_exception_ignores_keyboardinterrupt(tmp_path, monkeypatch):
     assert cr.list_pending() == []
 
 
-def test_help_menu_reflects_signin_state(tmp_path, monkeypatch):
+def test_menu_corner_reflects_signin_state(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)
     _app()
     import cozer.app.crashreport as cr
     w = MainWindow(_timer_event())
-    w._refresh_help_menu()
-    texts = [a.text() for a in w._help_menu.actions()]
-    assert any("Sign in to GitHub" in t for t in texts)      # signed out -> offer sign-in
+    w._refresh_auth_corner()
+    assert "Sign in to GitHub" in w._auth_btn.text()         # signed out -> offer sign-in
     cr.save_config({"token": "gho_x", "login": "pearu"})
-    w._refresh_help_menu()
-    texts = [a.text() for a in w._help_menu.actions()]
-    assert any("Signed in to GitHub as pearu" in t for t in texts)
-    assert any("out of GitHub" in t for t in texts)         # "Sign &out of GitHub" (mnemonic &)
-    w._on_signout()
-    assert cr.load_config().get("token") is None            # sign-out clears the token
+    w._refresh_auth_corner()
+    assert "Signed in as pearu" in w._auth_btn.text()        # signed in -> show who
+    w._on_auth_toggle()                                      # the one button toggles -> sign out
+    assert cr.load_config().get("token") is None             # sign-out clears the token
+    w._refresh_auth_corner()
+    assert "Sign in to GitHub" in w._auth_btn.text()         # back to signed-out label
+    # the Help menu now carries genuine help actions (rulebook + About), not the account controls
+    htexts = [a.text() for a in w._help_menu.actions() if a.text()]
+    assert any("Circuit Rules" in t for t in htexts) and any("About" in t for t in htexts)
+    assert not any("Sign in" in t or "Signed in" in t for t in htexts)
 
 
 def test_report_bug_queues_when_offline(tmp_path, monkeypatch):

@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
     QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QTreeWidget,
+    QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QToolButton, QTreeWidget,
     QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -63,6 +63,11 @@ DEFAULT_EVENT = {
 
 _EVENT_FIELDS = [("title", "Title"), ("venue", "Venue"), ("date", "Date"),
                  ("officer", "Officer of the Day"), ("secretary", "Secretary General")]
+
+# External links surfaced from the Help menu / About box.
+RULEBOOK_URL = "https://www.uim.sport/RuleBookReleaseList.aspx"   # all U.I.M. rule books
+PROJECT_URL = "https://github.com/%s" % crashreport.REPO          # the cozer GitHub page
+
 
 # (label, render function, takes classes=, takes heat_map=, takes options=). Resolved
 # lazily in the report handlers so importing this module doesn't pull in weasyprint (slow).
@@ -328,29 +333,89 @@ class MainWindow(QMainWindow):
                            ("&Open…", self.on_open),
                            ("&Import legacy .coz…", self.on_import),
                            ("Import &ruleset…", self.on_import_ruleset), (None, None),
-                           ("&Save", self.on_save), ("Save &As…", self.on_save_as),
-                           (None, None), ("&Quit", self.close)]:
+                           ("&Save", self.on_save), ("Save &As…", self.on_save_as)]:
             if text is None:
                 m.addSeparator()
             else:
                 m.addAction(text, slot)
+        # Auto-save periodically writes the whole event file, so it is a window-wide setting
+        # (it used to live on the Timer tab, but its effect is not timer-specific).
+        self._autosave = None
+        self._autosave_action = m.addAction("Auto-&save (every 30 s)")
+        self._autosave_action.setCheckable(True)
+        self._autosave_action.toggled.connect(self._toggle_autosave)
+        m.addSeparator()
+        m.addAction("&Quit", self.close)
+        # Help menu = genuine help actions (the account/bug controls live in the menu-bar
+        # corner instead, see _build_menu_corner).
         self._help_menu = self.menuBar().addMenu("&Help")
-        self._help_menu.aboutToShow.connect(self._refresh_help_menu)
-        self._refresh_help_menu()
+        self._help_menu.addAction("U.I.M. &Circuit Rules (rule books)…",
+                                  lambda: open_in_viewer(RULEBOOK_URL))
+        guide = self._help_menu.addAction("&Usage guide (coming soon)")
+        guide.setEnabled(False)                          # planned; no target yet
+        self._help_menu.addSeparator()
+        self._help_menu.addAction("&About cozer…", self._on_about)
+        # Right-aligned corner: bug report + GitHub account state/toggle. Held on self so the
+        # widget (and its buttons) is not garbage-collected out from under the menu bar.
+        self._menu_corner = self._build_menu_corner()
+        self.menuBar().setCornerWidget(self._menu_corner, Qt.TopRightCorner)
+        self._refresh_auth_corner()
 
-    def _refresh_help_menu(self):
-        """Reflect GitHub sign-in state: show who is signed in + offer sign-out,
-        otherwise offer sign-in."""
-        self._help_menu.clear()
+    def _build_menu_corner(self):
+        """A widget pinned to the right end of the menu bar carrying the two account-scoped
+        actions: 'Report a bug…' and a single GitHub button whose label reflects — and whose
+        click toggles — the sign-in state."""
+        corner = QWidget()
+        row = QHBoxLayout(corner)
+        row.setContentsMargins(0, 0, 6, 0)
+        row.setSpacing(2)
+        self._bug_btn = QToolButton()
+        self._bug_btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self._bug_btn.setAutoRaise(True)
+        self._bug_btn.setText("Report a bug…")
+        self._bug_btn.setToolTip("File a bug report on GitHub (the current event is attached).")
+        self._bug_btn.clicked.connect(self._on_report_bug)
+        row.addWidget(self._bug_btn)
+        self._auth_btn = QToolButton()
+        self._auth_btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self._auth_btn.setAutoRaise(True)
+        self._auth_btn.clicked.connect(self._on_auth_toggle)
+        row.addWidget(self._auth_btn)
+        return corner
+
+    def _refresh_auth_corner(self):
+        """Reflect GitHub sign-in state on the corner button: signed out -> 'Sign in to
+        GitHub'; signed in -> 'Signed in as <login>' (clicking signs out)."""
         cfg = crashreport.load_config()
         if cfg.get("token"):
             who = cfg.get("login") or "GitHub"
-            act = self._help_menu.addAction("Signed in to GitHub as %s" % who)
-            act.setEnabled(False)
-            self._help_menu.addAction("Sign &out of GitHub", self._on_signout)
+            self._auth_btn.setText("✓ Signed in as %s" % who)
+            self._auth_btn.setToolTip("Signed in to GitHub as %s — click to sign out." % who)
         else:
-            self._help_menu.addAction("&Sign in to GitHub…", self._on_signin)
-        self._help_menu.addAction("&Report a bug…", self._on_report_bug)
+            self._auth_btn.setText("Sign in to GitHub…")
+            self._auth_btn.setToolTip("Sign in to GitHub to file bug reports and auto-submit "
+                                      "crash reports.")
+
+    def _on_auth_toggle(self):
+        """The one account button: sign out if signed in, otherwise start sign-in."""
+        if crashreport.load_config().get("token"):
+            self._on_signout()
+        else:
+            self._on_signin()
+
+    # ---- auto-save (window-wide: saves the whole event periodically) ----
+    def _toggle_autosave(self, on):
+        if on:
+            self._autosave = QTimer(self)
+            self._autosave.timeout.connect(self._do_autosave)
+            self._autosave.start(30000)
+        elif self._autosave is not None:
+            self._autosave.stop()
+            self._autosave = None
+
+    def _do_autosave(self):     # pragma: no cover - periodic timer callback
+        if self.store is not None:
+            self.on_save()
 
     def on_new(self):
         if not self.editor_panel.maybe_flush():
@@ -692,6 +757,7 @@ class MainWindow(QMainWindow):
                 cfg["login"] = None
             crashreport.save_config(cfg)
             n = len(crashreport.Reporter(config=cfg).submit_pending())
+            self._refresh_auth_corner()
             self.log("Signed in to GitHub%s — submitted %d queued report(s)."
                      % (" as %s" % cfg["login"] if cfg.get("login") else "", n))
         else:
@@ -702,7 +768,39 @@ class MainWindow(QMainWindow):
         cfg["token"] = None
         cfg["login"] = None
         crashreport.save_config(cfg)
+        self._refresh_auth_corner()
         self.log("Signed out of GitHub")
+
+    def _on_about(self):
+        """The About box (cf. legacy Cozer): tagline, version, project link, author."""
+        from cozer import __version__
+        html = (
+            "<h2 style='margin-bottom:2px'>COZER %s</h2>"
+            "<p style='margin-top:0'><i>The COmpetition organiZER</i></p>"
+            "<p>A program for organizing competitive powerboat events under the latest "
+            "U.I.M. Circuit Rules: participant registration, racing programs, time keeping, "
+            "and printing reports and letters.</p>"
+            "<p>Author: <b>Pearu Peterson</b><br>"
+            "Project: <a href='%s'>%s</a></p>"
+            "<p style='color:gray'>Copyright © 2000–2026 Pearu Peterson.</p>"
+        ) % (__version__, PROJECT_URL, PROJECT_URL)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("About cozer")
+        lay = QVBoxLayout(dlg)
+        lbl = QLabel(html)
+        lbl.setTextFormat(Qt.RichText)
+        lbl.setWordWrap(True)
+        lbl.setOpenExternalLinks(False)                  # route clicks through the clean-env opener
+        lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        lbl.linkActivated.connect(open_in_viewer)
+        lay.addWidget(lbl)
+        row = QHBoxLayout()
+        row.addStretch()
+        ok = QPushButton("OK")
+        ok.clicked.connect(dlg.accept)
+        row.addWidget(ok)
+        lay.addLayout(row)
+        dlg.exec()
 
     def _on_report_bug(self):     # pragma: no cover - modal input dialog
         text, ok = QInputDialog.getMultiLineText(
