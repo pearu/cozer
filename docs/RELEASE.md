@@ -35,17 +35,17 @@
 
 ## 3. Roadmap (sequenced)
 
-### Phase 0 — prep (not blocked on push; can start now)
-- **Single-source the version.** Kill the 3-way drift: a `tools/bump_version.py` (or make
-  `construct.yaml` read the version from `cozer.__version__` at build time, and stop pinning the
-  wheel filename — glob it). One command sets the version everywhere.
-- **In-app update *check* module** `cozer/app/update.py` (read-only): `latest_release()` via
-  `crashreport._http` → `GET /repos/pearu/cozer/releases/latest`; a PEP 440 version compare;
-  `install_kind()` (source / wheel / windows-installer, e.g. via the `cozer-launch.pyw` marker the
-  installer drops in `sys.prefix`); returns a result (current, latest, newer?, release notes,
-  assets). Unit-tested with a fake transport (like the crashreport tests). **No apply yet.**
-- **Help ▸ "Check for updates…"** menu item that runs the check and shows the result
-  (up-to-date / update available + notes + link). Manual only at first.
+### Phase 0 — prep (not blocked on push) — ✅ DONE
+- ✅ **Single-source the version** (`e87439f`). `cozer/__init__.py` `__version__` is the one source:
+  `pyproject.toml` reads it via `dynamic=["version"]`; `post_install.bat` globs `cozer-*.whl`;
+  `tools/bump_version.py` sets the remaining `construct.yaml` literals (version + wheel name) in one
+  guarded command. (Was a 4-way drift: pyproject / `__init__` / construct.yaml / post_install.bat.)
+- ✅ **In-app update *check* module** `cozer/app/update.py` (`3ab772c`, read-only): `latest_release()`
+  via `crashreport._http` → `releases/latest`; PEP 440 compare (`packaging`, or a pre-release-aware
+  fallback); `install_kind()` (source / wheel / windows-installer via the `cozer-launch.pyw` marker);
+  `check()` → `{current, kind, latest, available}`. Fake-transport unit tests.
+- ✅ **Help ▸ "Check for updates…"** (`3ab772c`): reports up-to-date / offline / update-available
+  (release notes + link to the release page). Manual; the apply is Phase 2.
 
 ### Phase 1 — first release (after reviewer sign-off → push)
 1. Reviewer signs off → **push `main`** (closes #15, #19).
@@ -84,3 +84,6 @@ The adaptive action, driven by `install_kind()` + what the release provides:
 ## Change log
 - **2026-07-21** — Plan created; owner decisions D-REL-1..3 recorded (adaptive action; `3.0.0rc1`;
   push after reviewer sign-off).
+- **2026-07-21** — **Phase 0 done** (`3ab772c`, `e87439f`): version single-sourced; `update.py`
+  check core + Help ▸ "Check for updates…" (status only). 604 green. Reviewer signed off on the
+  posting-metadata work (86th coord msg) → **Phase 1 push is now unblocked** (owner to trigger).
