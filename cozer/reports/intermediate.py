@@ -8,8 +8,8 @@ from cozer.phases import class_phase_map, heat_number, phase_heat_map
 from cozer.qualification import classify_qheat, qheat_qualify_count
 from cozer.racepattern import get_classes
 from cozer.reports.common import (
-    esc, display, get_fullname, heat_label, participants_index, sheats_for as _sheats,
-    meta_of, document_html,
+    esc, display, get_fullname, heat_label, participants_index, nationalities_index,
+    show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
 )
 from cozer.reports.final import _result_text, _legend_html
 from cozer.reports.labels import get_labels
@@ -23,6 +23,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
     if classes is None:
         classes = get_classes(eventdata)
     parts = participants_index(eventdata)
+    nats = nationalities_index(eventdata)
     tables = []
     for cl in classes:
         ph = phase_of.get(cl)
@@ -53,7 +54,8 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
             r = res[curheat][pid]
             scored = r["place"] > 0
             row = {"place": str(r["place"]) if scored else "", "name": names[0].strip(),
-                   "extra": [n.strip() for n in names[1:]], "from": club, "id": str(pid)}
+                   "extra": [n.strip() for n in names[1:]], "from": club,
+                   "nat": nats.get((cl, str(pid)), ""), "id": str(pid)}
             if istt:
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
@@ -75,56 +77,53 @@ def build_intermediate(eventdata, classes=None, heat_map=None):
                        "isqual": isqual, "qcount": qcount, "starttime": starttime,
                        "rows": rows, "legend": _legend_html(legend, labels)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
-            "heading": labels["IntermediateResults"], "tables": tables}
+            "heading": labels["IntermediateResults"], "tables": tables,
+            "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
-def _header_and_cols(L, multi, istt, isqual=False):
+def _header_and_cols(L, multi, istt, isqual=False, show_from=True, show_nat=False):
+    # leading columns Place, Name, [From], [Nationality], No -- then a mode-specific tail. From
+    # and Nationality are optional (shown only when they vary across the event); Name (width None)
+    # absorbs the leftover width.
+    lead = [(7, L["Place"], "num"), (None, L["Name"], "")]
+    if show_from:
+        lead.append((14, L["From"], ""))
+    if show_nat:
+        lead.append((8, L["Nationality"], "num"))
+    lead.append((7, L["No"], "num"))
     if istt:
-        cols = ['<col style="width:8%">', '<col style="width:44%">', '<col style="width:22%">',
-                '<col style="width:10%">', '<col style="width:16%">']
-        head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                '<th class="num">%s</th></tr>'
-                % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]), esc(L["LapTime"])))
-        return head, cols, 5
-    if isqual:                                          # Place, Name, From, No, Result, Q/DNQ
-        cols = ['<col style="width:7%">', '<col style="width:37%">', '<col style="width:14%">',
-                '<col style="width:8%">', '<col style="width:20%">', '<col style="width:14%">']
-        head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                '<th class="num">%s</th><th class="num">%s</th></tr>'
-                % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
-                   esc(L["Res"]), esc(L["Qualify"])))
-        return head, cols, 6
-    if multi:
-        # Place, Name, From, No, cur-Res, cur-Pts, total-Res, total-Pts — the summary
-        # (total) Res/Pts need the same room as the current-heat ones to avoid wrapping.
-        cols = ['<col style="width:6%">', '<col style="width:27%">', '<col style="width:12%">',
-                '<col style="width:7%">', '<col style="width:16%">', '<col style="width:8%">',
-                '<col style="width:16%">', '<col style="width:8%">']
-        head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-                '<th class="num">%s</th><th class="num">%s</th>'
-                '<th class="num">%s</th><th class="num">%s</th></tr>'
-                % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
-                   esc(L["Res"]), esc(L["Pts"]), esc(L["Res"]), esc(L["Pts"])))
-        return head, cols, 8
-    cols = ['<col style="width:7%">', '<col style="width:38%">', '<col style="width:15%">',
-            '<col style="width:8%">', '<col style="width:20%">', '<col style="width:12%">']
-    head = ('<tr><th class="num">%s</th><th>%s</th><th>%s</th><th class="num">%s</th>'
-            '<th class="num">%s</th><th class="num">%s</th></tr>'
-            % (esc(L["Place"]), esc(L["Name"]), esc(L["From"]), esc(L["No"]),
-               esc(L["Res"]), esc(L["Pts"])))
-    return head, cols, 6
+        tail = [(16, L["LapTime"], "num")]
+    elif isqual:
+        tail = [(20, L["Res"], "num"), (14, L["Qualify"], "num")]
+    elif multi:                                         # cur-Res, cur-Pts, total-Res, total-Pts
+        tail = [(16, L["Res"], "num"), (8, L["Pts"], "num"), (16, L["Res"], "num"), (8, L["Pts"], "num")]
+    else:
+        tail = [(20, L["Res"], "num"), (12, L["Pts"], "num")]
+    allcols = lead + tail
+    used = sum(w for w, _, _ in allcols if w is not None)
+    cols = ['<col style="width:%d%%">' % (w if w is not None else max(18, 100 - used))
+            for w, _, _ in allcols]
+    head = "<tr>%s</tr>" % "".join(
+        ('<th class="num">%s</th>' % esc(h)) if c == "num" else ('<th>%s</th>' % esc(h))
+        for _, h, c in allcols)
+    return head, cols, len(allcols)
 
 
 def intermediate_html(model):
     L = model["labels"]
     body = []
+    show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     for t in model["tables"]:
         multi, istt, isqual = t["multi"], t["istt"], t.get("isqual", False)
-        head, cols, ncols = _header_and_cols(L, multi, istt, isqual)
+        head, cols, ncols = _header_and_cols(L, multi, istt, isqual, show_f, show_n)
         rows = []
         for r in t["rows"]:
-            cells = ('<td class="num">%s</td><td class="name">%s</td><td>%s</td><td class="num">%s</td>'
-                     % (esc(r["place"]), display(r["name"]), display(r["from"]), esc(r["id"])))
+            cells = '<td class="num">%s</td><td class="name">%s</td>' % (esc(r["place"]), display(r["name"]))
+            if show_f:
+                cells += '<td>%s</td>' % display(r["from"])
+            if show_n:
+                cells += '<td class="num">%s</td>' % esc(r["nat"])
+            cells += '<td class="num">%s</td>' % esc(r["id"])
             if istt:
                 cells += '<td class="num">%s</td>' % esc(r["result"])
             elif isqual:
