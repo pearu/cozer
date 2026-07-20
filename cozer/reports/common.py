@@ -121,15 +121,20 @@ def meta_of(eventdata):
             for k in ("title", "venue", "date", "officer", "secretary", "uim_commissioner")}
 
 
-def _posting_block(labels, meta, posted_date):
-    """The §209 posting footer for a results sheet: a "Posted on: <date> __:__" line (``date`` is
-    the day the document is generated; the time is left blank for the poster to hand-write in pen —
-    the §209 *actual time of posting*, which starts the protest clock) plus ruled signature lines
-    for each *assigned* signer — the OOD/Race Director (or delegate, §209/p37) and the UIM Sports
-    Commissioner (co-signs before posting, p30 item 14). A signer with no name is omitted. Inline-
-    styled so it never touches the shared TABLE_CSS (byte-identical for the frozen legacy reports)."""
-    posted = ('<div style="margin-top:3.2em;font-size:9.5pt">%s: %s &nbsp;&nbsp;__:__</div>'
-              % (esc(labels["PostedOn"]), esc(posted_date)))
+def _posted_on(labels, posted_date):
+    """The top-right "Posted on: <date> __:__" line: ``date`` is the day the document is generated;
+    the time is left blank (larger, for hand-writing in pen) — the §209 *actual time of posting*,
+    which starts the protest clock (§403)."""
+    return ('<div style="text-align:right;font-size:10pt;margin-bottom:.15em">%s: %s &nbsp;'
+            '<span style="font-size:14pt">__:__</span></div>'
+            % (esc(labels["PostedOn"]), esc(posted_date)))
+
+
+def _posting_block(labels, meta):
+    """The §209 signature block for a results sheet: ruled lines for each *assigned* signer — the
+    OOD/Race Director (or delegate, §209/p37) and the UIM Sports Commissioner (co-signs before
+    posting, p30 item 14). A signer with no name is omitted; if neither is set the block is empty.
+    Inline-styled so it never touches the shared TABLE_CSS (byte-identical for the frozen legacy)."""
     cells = []
     for role, name in ((labels["OfficeroftheDay"], meta.get("officer", "")),
                        (labels["UIMCommissioner"], meta.get("uim_commissioner", ""))):
@@ -140,14 +145,13 @@ def _posting_block(labels, meta, posted_date):
                      '<div style="border-top:1px solid #000;padding-top:2px;font-size:9pt">%s</div>'
                      '<div style="font-size:8pt;color:#444">%s</div></td>'
                      % (display(name), esc(role)))
-    sigs = ""
-    if cells:
-        filler = ('<td style="width:12%;border:0"></td>' if len(cells) == 2
-                  else '<td style="width:56%;border:0"></td>')
-        inner = cells[0] + filler + (cells[1] if len(cells) == 2 else "")
-        sigs = ('<table style="width:100%%;border:0;border-collapse:collapse">'
-                '<tr>%s</tr></table>' % inner)
-    return '<div class="posting" style="break-inside:avoid">%s%s</div>' % (posted, sigs)
+    if not cells:
+        return ""
+    filler = ('<td style="width:12%;border:0"></td>' if len(cells) == 2
+              else '<td style="width:56%;border:0"></td>')
+    inner = cells[0] + filler + (cells[1] if len(cells) == 2 else "")
+    return ('<table style="width:100%%;border:0;border-collapse:collapse;break-inside:avoid">'
+            '<tr>%s</tr></table>' % inner)
 
 
 def document_html(orientation, labels, meta, heading, body_parts, subtitle="", posting=False):
@@ -170,6 +174,8 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle="", p
     css = page_css(orientation, footer_left=footer_left, footer_center=labels["Page"],
                    footer_right=footer_right)
     parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
+    if posting:      # top-right: "Posted on: <generation date> __:__" to hand-complete (owner)
+        parts.append(_posted_on(labels, now.strftime("%Y-%m-%d")))
     parts.append('<h1 class="event-title">%s</h1>' % display(meta["title"]))
     parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
                  % (display(meta["venue"]), display(meta["date"])))
@@ -177,6 +183,8 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle="", p
     if subtitle:
         parts.append('<div class="report-subtitle">%s</div>' % display(subtitle))
     parts.extend(body_parts)
-    if posting:      # "Posted on" carries the generation date (owner); time left blank for pen
-        parts.append(_posting_block(labels, meta, now.strftime("%Y-%m-%d")))
+    if posting:      # signature block at the foot (only for signers that have a name)
+        block = _posting_block(labels, meta)
+        if block:
+            parts.append(block)
     return "\n".join(parts)
