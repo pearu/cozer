@@ -40,7 +40,7 @@ LABELS = {
     },
     "Estonian": {
         "OfficeroftheDay": "Peakohtunik", "SecretaryoftheRace": "Võistluste sekretär",
-        "UIMCommissioner": "UIM spordikomissar", "PostedAt": "Postitatud", "PrintedOn": "Prinditud",   # NOTE: owner to verify
+        "UIMCommissioner": "UIM spordikomissar", "PostedAt": "Postitatud", "PrintedOn": "Prinditud",   # ET verified by owner
         "Page": "Leht", "Registeredcompetitors": "Registreeritud võistlejad",
         "IntermediateResults": "Vahetulemused", "FinalResults": "Tulemused",
         "DriversMeetingChecklist": "Võistlejate koosoleku kontrolltabel",
