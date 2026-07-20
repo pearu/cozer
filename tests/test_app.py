@@ -415,6 +415,23 @@ def test_delete_classname_blocked_when_instantiated(monkeypatch):
     assert w._classname_in_use("GT") is None
 
 
+def test_classname_guard_and_races_dropdown_on_native_model():
+    # Regression (3c-2): the native {name, phases} model must not crash the catalog-delete
+    # guard or the Races-tab class dropdown -- both used to read classes as legacy `c[1]` rows.
+    _app()
+    from cozer.native import to_native
+    ed = to_native({"scoringsystem": [10], "rules": [], "record": {}, "participants": [],
+                    "classes": [["", "GT15/T", "1*(1000):1"], ["", "GT15", "4*(1400):3"],
+                                ["", "OSY-400", "4*(1400):3"]], "races": []})
+    ed["races"] = [[["", "OSY-400", "1"]]]              # legacy race rows (the in-memory shape)
+    w = MainWindow(ed)
+    assert w._classname_in_use("GT15")                  # set up as an event class (native shape)
+    assert w._classname_in_use("OSY-400")               # and a race uses it
+    assert w._classname_in_use("NOPE") is None
+    got = w.races_tab._defined_classes()                # dropdown enumerates synthesized names
+    assert {"GT15", "GT15/T", "OSY-400"} <= set(got)
+
+
 def test_races_tab():
     _app()
     ed = read_legacy_coz(EVENT)

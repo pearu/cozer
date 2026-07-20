@@ -571,9 +571,12 @@ class MainWindow(QMainWindow):
 
     def _classname_in_use(self, name):
         """Reason a class name can't be removed from the catalog — it is set up as
-        an event class, or a participant or race uses it — else None."""
+        an event class, or a participant or race uses it — else None. Reads both the
+        native ({name, phases}) and legacy (suffixed rows) shapes."""
+        from cozer.classes import getclass
         for c in self.eventdata.get("classes", []):
-            if len(c) > 1 and c[1] == name:
+            cn = c.get("name") if isinstance(c, dict) else (c[1] if len(c) > 1 else "")
+            if getclass(cn) == name:
                 return "it is set up as a class in this event (remove it under " \
                        "Classes & Participants first)"
         for p in self.eventdata.get("participants", []):
@@ -581,7 +584,8 @@ class MainWindow(QMainWindow):
                 return "a participant is entered in class %r" % name
         for race in self.eventdata.get("races", []):
             for row in race:
-                if len(row) > 1 and row[1] == name:
+                rn = row.get("name") if isinstance(row, dict) else (row[1] if len(row) > 1 else "")
+                if getclass(rn) == name:
                     return "a race uses class %r" % name
         return None
 

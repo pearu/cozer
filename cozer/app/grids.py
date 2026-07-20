@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cozer.racepattern import get_heats
+from cozer.racepattern import get_classes, get_heats
 
 
 def race_label(index, race):
@@ -353,8 +353,9 @@ class RacesTab(QWidget):
         self.grid.model.rowsRemoved.connect(self._update_current_label)
 
     def _defined_classes(self):
-        return [c[1] for c in self.window.eventdata.get("classes", [])
-                if len(c) > 1 and c[1]]
+        # the Races grid addresses heats by synthesized class name (incl. /T,/Q phase),
+        # which is exactly get_classes on either the native or legacy model.
+        return get_classes(self.window.eventdata)
 
     def _next_heats(self, cl):
         """Valid next heats for class ``cl`` at the selected race (from get_heats;
