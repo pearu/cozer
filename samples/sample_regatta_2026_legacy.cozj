@@ -1,0 +1,611 @@
+{
+ "classes": [
+  [
+   "",
+   "GT15/T",
+   "1*(1100+25*1100):1"
+  ],
+  [
+   "",
+   "GT15",
+   "2*(1100+4*1100):2"
+  ],
+  [
+   "",
+   "F 500/T",
+   "1*(1000+3*1500):1"
+  ],
+  [
+   "",
+   "F 500/Q",
+   "3*(1000+4*1500):3!qualification[4,4,4]"
+  ],
+  [
+   "",
+   "F 500",
+   "3*(1000+7*1500):3"
+  ]
+ ],
+ "configure": {
+  "id_but_size": 40,
+  "id_but_textsize": 14,
+  "language": "English"
+ },
+ "date": "2026-08-15",
+ "officer": "Madis Kalder",
+ "participants": [
+  [
+   "",
+   "Paul Richard",
+   "Laur",
+   "EST",
+   "GT15",
+   "1"
+  ],
+  [
+   "",
+   "Alfred",
+   "Raadik",
+   "EST",
+   "GT15",
+   "9"
+  ],
+  [
+   "",
+   "Hera",
+   "Biete",
+   "LAT",
+   "GT15",
+   "19"
+  ],
+  [
+   "",
+   "Oliver",
+   "Lääne",
+   "EST",
+   "GT15",
+   "33"
+  ],
+  [
+   "",
+   "Robin",
+   "Lääne",
+   "EST",
+   "GT15",
+   "38"
+  ],
+  [
+   "",
+   "Ardis",
+   "Slakteris",
+   "LAT",
+   "GT15",
+   "51"
+  ],
+  [
+   "",
+   "Toni",
+   "Kade",
+   "FIN",
+   "GT15",
+   "54"
+  ],
+  [
+   "",
+   "Jaroslav",
+   "Bassov",
+   "EST",
+   "GT15",
+   "65"
+  ],
+  [
+   "",
+   "Reinis",
+   "Sturis",
+   "LAT",
+   "GT15",
+   "85"
+  ],
+  [
+   "",
+   "Adele",
+   "Servin",
+   "FIN",
+   "F 500",
+   "1"
+  ],
+  [
+   "",
+   "Adrian",
+   "Ostby",
+   "NOR",
+   "F 500",
+   "3"
+  ],
+  [
+   "",
+   "Ahto",
+   "Aaslav-Kaasik",
+   "EST",
+   "F 500",
+   "4"
+  ],
+  [
+   "",
+   "Ain",
+   "Kõrts",
+   "EST",
+   "F 500",
+   "7"
+  ],
+  [
+   "",
+   "Aivar",
+   "Kitzel",
+   "EST",
+   "F 500",
+   "9"
+  ],
+  [
+   "",
+   "Aivars",
+   "Lenerts",
+   "LAT",
+   "F 500",
+   "11"
+  ],
+  [
+   "",
+   "Aivars",
+   "Paplavskis",
+   "LAT",
+   "F 500",
+   "14"
+  ],
+  [
+   "",
+   "Akos",
+   "Kasza",
+   "HUN",
+   "F 500",
+   "17"
+  ],
+  [
+   "",
+   "Akos",
+   "Kaszas",
+   "HUN",
+   "F 500",
+   "21"
+  ],
+  [
+   "",
+   "Alar",
+   "Noormaa",
+   "EST",
+   "F 500",
+   "24"
+  ],
+  [
+   "",
+   "Alfred",
+   "Raadik",
+   "EST",
+   "F 500",
+   "27"
+  ],
+  [
+   "",
+   "Alissa",
+   "Servin",
+   "FIN",
+   "F 500",
+   "33"
+  ],
+  [
+   "",
+   "Andrei",
+   "Bernitsine",
+   "RUS",
+   "F 500",
+   "41"
+  ],
+  [
+   "",
+   "Andrei",
+   "Panjuchkin",
+   "RUS",
+   "F 500",
+   "47"
+  ],
+  [
+   "",
+   "Ardis",
+   "Slakteris",
+   "LAT",
+   "F 500",
+   "55"
+  ],
+  [
+   "",
+   "Arvydas",
+   "Dranseika",
+   "LTU",
+   "F 500",
+   "63"
+  ],
+  [
+   "",
+   "Attila",
+   "Havas",
+   "HUN",
+   "F 500",
+   "70"
+  ],
+  [
+   "",
+   "Bartosz",
+   "Rochowiak",
+   "POL",
+   "F 500",
+   "88"
+  ]
+ ],
+ "prevorder": {},
+ "races": [],
+ "record": {},
+ "rules": [
+  [
+   "",
+   "Q",
+   " ",
+   "Qualification"
+  ],
+  [
+   "",
+   "DNQ",
+   " ",
+   "No qualification"
+  ],
+  [
+   "",
+   "DNF",
+   " ",
+   "Did not finish"
+  ],
+  [
+   "",
+   "DNS",
+   " ",
+   "Did not start"
+  ],
+  [
+   "",
+   "DSQ",
+   "205.02.02",
+   "Alcohol test above the limit (zero tolerance)"
+  ],
+  [
+   "",
+   "DSQ",
+   "205.10",
+   "No propeller guard fitted"
+  ],
+  [
+   "",
+   "DSQ",
+   "205.12",
+   "Lifting a boat with a person aboard"
+  ],
+  [
+   "",
+   "DSQ",
+   "206.03",
+   "Absence of race number or part of that"
+  ],
+  [
+   "",
+   "YC",
+   "406.05",
+   "Yellow card for dangerous driving"
+  ],
+  [
+   "",
+   "RC",
+   "406.05",
+   "Red card for extreme or blatant dangerous driving"
+  ],
+  [
+   "",
+   "BC",
+   "406.05",
+   "Blue card for offensive/unsportsmanlike behaviour"
+  ],
+  [
+   "",
+   "DSQ",
+   "406.06",
+   "Disqualification (deleted from heat/race results)"
+  ],
+  [
+   "",
+   "DSQ",
+   "502",
+   "Outside assistance on the race course"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.01.2",
+   "Ignoring Technical Officer instructions"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.01.2",
+   "A breach of the technical rules"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.01.2",
+   "Refusing boat/motor inspection after a heat or race"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.01.2",
+   "Unauthorized leaving of the site before scrutineering"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.03",
+   "Refusing the ECU/CDI swap for a standard unit"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.04.1",
+   "Changing engine or hull before technical inspection"
+  ],
+  [
+   "",
+   "DSQ",
+   "503.04.1",
+   "Visiting pits during the move to parc fermé"
+  ],
+  [
+   "",
+   "DSQ",
+   "504.03",
+   "Non-conforming automatic throttle shut-off"
+  ],
+  [
+   "",
+   "DSQ",
+   "508.09",
+   "Illegal fuel (timed trials, heats or races)"
+  ],
+  [
+   "",
+   "DSQ",
+   "508.09",
+   "Further infringement of the fuel rules"
+  ],
+  [
+   "",
+   "DSQ",
+   "306.06",
+   "Infringement of the Rules of the Road before the start"
+  ],
+  [
+   "",
+   "DSQ",
+   "306.08",
+   "Approaching the starting line other than at a right angle"
+  ],
+  [
+   "",
+   "DSQ",
+   "306.09",
+   "Starting before time"
+  ],
+  [
+   "",
+   "DSQ",
+   "306.09",
+   "Crossing the starting line during the five minutes"
+  ],
+  [
+   "",
+   "DNR",
+   "306.09",
+   "Leading boat starting before time (restart)"
+  ],
+  [
+   "",
+   "LP2",
+   "307.01",
+   "Not holding the boat at the jetty (lose two positions)"
+  ],
+  [
+   "",
+   "DSQ",
+   "307.02",
+   "Manoeuvre causing an accident at the start"
+  ],
+  [
+   "",
+   "PL",
+   "307.02",
+   "Blocking or cutting for advantage at the first turn"
+  ],
+  [
+   "",
+   "LP2",
+   "307.02",
+   "Not keeping the lane to the first turn (lose two positions)"
+  ],
+  [
+   "",
+   "DSQ",
+   "307.04",
+   "Engine running during the last 30 seconds"
+  ],
+  [
+   "",
+   "DSQ",
+   "307.04",
+   "Leaving the jetty under own power too early"
+  ],
+  [
+   "",
+   "PL",
+   "307.04",
+   "Pushing or lifting a boat with electric starter"
+  ],
+  [
+   "",
+   "LL",
+   "307.04",
+   "Jump start with the red light on"
+  ],
+  [
+   "",
+   "LL",
+   "307.04",
+   "Rotating the engine before the red lights go off"
+  ],
+  [
+   "",
+   "DSQ",
+   "307.04",
+   "Crew member swimming or wading out to a boat"
+  ],
+  [
+   "",
+   "ACC",
+   "311.01.4",
+   "Caused a stoppage (not scored, no restart)"
+  ],
+  [
+   "",
+   "PL",
+   "311.01.5",
+   "Penalty carried forward to the restart"
+  ],
+  [
+   "",
+   "DNR",
+   "311.01.6",
+   "Disqualified in the previous start (no restart)"
+  ],
+  [
+   "",
+   "DNR",
+   "311.01.8",
+   "Did not reach the jetty (electric-start restart)"
+  ],
+  [
+   "",
+   "DSQ",
+   "312.10",
+   "Driving in the wrong direction (severe)"
+  ],
+  [
+   "",
+   "PL",
+   "312.10",
+   "Driving in the wrong direction (one lap penalty)"
+  ],
+  [
+   "",
+   "DSQ",
+   "312.13",
+   "Lapped driver failing to give way when overtaken"
+  ],
+  [
+   "",
+   "LL",
+   "312.15",
+   "Failure to take the mandatory long lap"
+  ],
+  [
+   "",
+   "LL",
+   "313.01",
+   "Rounding a mark in the wrong way"
+  ],
+  [
+   "",
+   "DSQ",
+   "313.01",
+   "Repeated rounding of a mark"
+  ],
+  [
+   "",
+   "PL",
+   "313.02",
+   "Damaging or destroying the first buoy"
+  ],
+  [
+   "",
+   "DSQ",
+   "313.02",
+   "Damaging/destroying/dislodging the second or single buoy"
+  ],
+  [
+   "",
+   "DSQ",
+   "314",
+   "Fouling competing boats"
+  ],
+  [
+   "",
+   "DSQ",
+   "316.02",
+   "After finishing, cutting across the course (zero points)"
+  ],
+  [
+   "",
+   "DSQ",
+   "317.08",
+   "Boat or motor illegal (post-race inspection)"
+  ]
+ ],
+ "savechecked": {},
+ "scoringsystem": [
+  400,
+  300,
+  225,
+  169,
+  127,
+  95,
+  71,
+  53,
+  40,
+  30,
+  22,
+  17,
+  13,
+  9,
+  7,
+  5,
+  4,
+  3,
+  2,
+  1,
+  0
+ ],
+ "secretary": "Tiia Aasaru",
+ "sheats": {
+  "F 500": 3,
+  "F 500/Q": 3,
+  "F 500/T": 1,
+  "GT15": 2,
+  "GT15/T": 1
+ },
+ "title": "Sample Regatta 2026 (GT15 & F 500)",
+ "venue": "Lake Harku, Tallinn, Estonia"
+}
