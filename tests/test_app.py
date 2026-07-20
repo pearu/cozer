@@ -460,6 +460,15 @@ def test_nationality_field_and_show_helper():
     noclub = {"participants": [["", "A", "One", "", "GT", "1", "EST"],
                                ["", "B", "Two", "", "GT", "2", "FIN"]]}
     assert not show_from(noclub) and show_nationality(noclub)
+    # only one participant's nationality/club filled, the rest blank -> still shown (the filled
+    # row is distinguished from the blanks; empty counts as its own value)
+    partial = {"participants": [["", "A", "One", "Tallinn", "GT", "1", "EST"],
+                                ["", "B", "Two", "", "GT", "2", ""]]}
+    assert show_nationality(partial) and show_from(partial)
+    # all blank -> hidden
+    allblank = {"participants": [["", "A", "One", "", "GT", "1", ""],
+                                 ["", "B", "Two", "", "GT", "2", ""]]}
+    assert not show_nationality(allblank) and not show_from(allblank)
     # the Participants GUI model exposes an editable Nationality column at participant index 6
     m = ParticipantClassModel(ed["participants"], "GT")
     assert "Nationality" in [c[1] for c in m.COLS]

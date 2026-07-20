@@ -65,10 +65,12 @@ def nationalities_index(eventdata):
 
 
 def _has_distinct(values):
-    """True if ``values`` hold more than one distinct non-empty entry — the general condition for
-    showing an optional report column. An all-empty or uniform (single-valued) column is hidden:
-    it distinguishes nothing and would only waste space (owner's rule for From/club + Nationality)."""
-    return len({(v or "").strip() for v in values} - {""}) > 1
+    """True if ``values`` are not all the same — the condition for showing an optional report
+    column. Empty counts as its own value, so an all-empty column and a uniform column (every row
+    identical, e.g. a national event's all-``EST``) are both hidden — they distinguish nothing —
+    but a column where some rows are filled and others blank IS shown (the filled rows carry
+    information worth printing). (owner's rule for From/club + Nationality.)"""
+    return len({(v or "").strip() for v in values}) > 1
 
 
 def show_from(eventdata):
