@@ -1122,8 +1122,8 @@ def test_editor_panel_buffers_edits_until_save(tmp_path, monkeypatch):
     assert ep._dirty is False
     assert rec[0]["racetime"] == 88.0                          # now committed
     assert any(m[0] == 2 for m in rec[1]["1"])
-    import json as _json
-    saved = _json.load(open(str(tmp_path / "e.cozj")))
+    from cozer import store as _store                          # load via the real path (native on disk)
+    saved = _store.load_event(open(str(tmp_path / "e.cozj"), encoding="utf-8").read())
     assert saved["record"]["GT"]["1"][0]["racetime"] == 88.0    # durably snapshotted
 
 

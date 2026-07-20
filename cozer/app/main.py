@@ -32,7 +32,7 @@ from cozer.app.grids import (
 )
 from cozer.app.timer import TimerPanel
 from cozer.racepattern import get_classes
-from cozer.store import EventStore, loads, read_legacy_coz
+from cozer.store import EventStore, load_event, read_legacy_coz
 from cozer import validate
 
 # App-wide light color scheme; editable inputs get the legacy tan tint (edit_bg).
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow):
                 source = read_legacy_coz(path)
             else:
                 with open(path, encoding="utf-8") as f:
-                    source = loads(f.read())
+                    source = load_event(f.read())
         except Exception as e:      # pragma: no cover - surfaced, never crashes
             QMessageBox.critical(self, "Import error", "%s: %s" % (type(e).__name__, e))
             return
@@ -418,7 +418,7 @@ class MainWindow(QMainWindow):
         for p in paths:
             try:
                 data = (read_legacy_coz(p) if p.lower().endswith(".coz")
-                        else loads(open(p, encoding="utf-8").read()))
+                        else load_event(open(p, encoding="utf-8").read()))
             except Exception as e:      # pragma: no cover - reported, never crashes
                 self._report_accum("cannot read %s: %s" % (p, e))
                 continue

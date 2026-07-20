@@ -40,6 +40,21 @@ def test_native_round_trips_the_corpus(path):
     # classes are content-preserving but order-CANONICALIZED (base-grouped) -- compare as a
     # name -> (col0, pattern) map; the explicit order behaviour is locked below.
     assert _cls_map(rt["classes"]) == _cls_map(ed["classes"])
+    for k in ("sheats", "savechecked"):              # suffix-keyed caches round-trip exactly
+        assert rt.get(k) == ed.get(k)
+
+
+@pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
+def test_native_has_no_class_suffixes(path):
+    from cozer.classes import getclass
+    nat = to_native(read_legacy_coz(path))
+    for c in nat.get("classes", []):                 # class names are bases (no /T,/Q)
+        assert getclass(c["name"]) == c["name"], c["name"]
+    for base in nat.get("record", {}):               # record keys are bases
+        assert getclass(base) == base, base
+    for key in ("sheats", "savechecked"):            # class-keyed caches are bases
+        for base in nat.get(key, {}):
+            assert getclass(base) == base, (key, base)
 
 
 def test_native_sees_the_corpus():
@@ -96,6 +111,20 @@ def test_native_carries_a_schema_version():
     assert is_native(nat) and not is_native(ed)          # legacy/untagged reads as v1
     assert schema_of(ed) == 1
     assert "schema" not in from_native(nat)              # the suffixed shape carries no tag
+
+
+def test_dump_event_writes_suffix_free_and_round_trips():
+    from cozer.store import dump_event, load_event
+    ed = {"classes": [["", "F 500/Q", "3*(1000):1!qualification[4,4,4]"], ["", "F 500", "4*(1400):3"]],
+          "record": {"F 500/Q": {"1q": [{"course": [1000]}, {"10": [[1, 20.0]]}]},
+                     "F 500": {"1": [{"course": [1400]}, {"10": [[1, 30.0]]}]}},
+          "races": [[["", "F 500/Q", "1q"], ["", "F 500", "1"]]], "participants": []}
+    text = dump_event(ed)
+    assert '"schema"' in text                              # tagged native (self-describing)
+    assert "/Q" not in text and "/T" not in text           # no class-name suffixes on disk
+    assert '"1q"' not in text                               # no heat-id suffixes on disk
+    rt = load_event(text)
+    assert rt["record"] == ed["record"]                    # record byte-identical through the store
 
 
 def test_native_passes_other_keys_through():

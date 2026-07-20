@@ -74,6 +74,28 @@ def _strip_qual(pattern):
     return _QUAL_TOKEN.sub("", pattern or "").strip()
 
 
+# Top-level ``{class_name: value}`` caches that are keyed by a (suffixed) class name and so
+# also carry suffixes — converted to ``{base: {kind: value}}`` like the record.
+_CLASS_KEYED = ("sheats", "savechecked")
+
+
+def _classkeyed_to_native(eventdata, field):
+    """``{suffixed_class: value}`` → ``{base: {kind: value}}``."""
+    out = {}
+    for cl, val in (field or {}).items():
+        out.setdefault(getclass(cl), {})[race_kind(eventdata, cl)] = val
+    return out
+
+
+def _classkeyed_from_native(field):
+    """``{base: {kind: value}}`` → ``{suffixed_class: value}``."""
+    out = {}
+    for base, kinds in (field or {}).items():
+        for kind, val in (kinds or {}).items():
+            out[_class_name(base, kind)] = val
+    return out
+
+
 def _phase_of(eventdata, name):
     """The native phase dict for a legacy class ``name`` — kind, pattern (qualification
     count split out into ``qualifiers``)."""
@@ -104,7 +126,8 @@ def to_native(eventdata):
         if len(row) > 0 and row[0]:               # preserve the vestigial legacy col-0 verbatim
             ph["legacy0"] = row[0]
         by_base[base].append(ph)
-    out["classes"] = [{"name": b, "phases": by_base[b]} for b in bases]
+    if "classes" in eventdata:                    # preserve key presence (don't invent empties)
+        out["classes"] = [{"name": b, "phases": by_base[b]} for b in bases]
 
     nrec = {}                                     # record[base][kind][number] = [records...]
     for cl, heats in (eventdata.get("record") or {}).items():
@@ -113,7 +136,8 @@ def to_native(eventdata):
         for h in sorted(heats, key=_parse_heat):  # (number, occurrence) — restart follows original
             num, _occ = _parse_heat(h)
             kd.setdefault(str(num), []).append(heats[h])
-    out["record"] = nrec
+    if "record" in eventdata:
+        out["record"] = nrec
 
     nraces = []                                   # races: suffix-free heat refs
     for race in eventdata.get("races", []) or []:
@@ -126,7 +150,12 @@ def to_native(eventdata):
             else:
                 entries.append(e)
         nraces.append(entries)
-    out["races"] = nraces
+    if "races" in eventdata:
+        out["races"] = nraces
+
+    for key in _CLASS_KEYED:                          # suffix-keyed caches -> base/kind nested
+        if key in eventdata:
+            out[key] = _classkeyed_to_native(eventdata, eventdata[key])
     return out
 
 
@@ -144,7 +173,8 @@ def from_native(native):
             if ph.get("qualifiers"):
                 pat = "%s!qualification[%s]" % (pat, ",".join(str(c) for c in ph["qualifiers"]))
             classes.append([ph.get("legacy0", ""), _class_name(base, ph["kind"]), pat])
-    out["classes"] = classes
+    if "classes" in native:
+        out["classes"] = classes
 
     record = {}
     for base, kinds in (native.get("record") or {}).items():
@@ -154,7 +184,8 @@ def from_native(native):
                 for rank, rec in enumerate(recs):
                     heats[synth_heat_id(kind, int(num), rank)] = rec
             record[_class_name(base, kind)] = heats
-    out["record"] = record
+    if "record" in native:
+        out["record"] = record
 
     races = []
     for race in native.get("races", []) or []:
@@ -166,5 +197,10 @@ def from_native(native):
             else:
                 entries.append(e)
         races.append(entries)
-    out["races"] = races
+    if "races" in native:
+        out["races"] = races
+
+    for key in _CLASS_KEYED:
+        if key in native:
+            out[key] = _classkeyed_from_native(native[key])
     return out

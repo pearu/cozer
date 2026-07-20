@@ -41,11 +41,20 @@ def _canon(x):
     return golden_io.dumps(x)
 
 
+def _report_canon(model):
+    """Report model canon that is INSENSITIVE to class-table order: the native save shape
+    regroups classes base-grouped, so a table may move but its content must not change."""
+    m = dict(model)
+    if isinstance(m.get("tables"), list):
+        m["tables"] = sorted(m["tables"], key=_canon)
+    return _canon(m)
+
+
 @pytest.mark.parametrize("name,path", _EV, ids=[e[0] for e in _EV])
 def test_roundtrip_preserves_analysis_and_reports(name, path):
     ed = store.read_legacy_coz(path)
-    rt = store.loads(store.dumps(ed))                     # legacy -> save -> reopen
-    assert store.dumps(rt) == store.dumps(store.loads(store.dumps(rt)))   # codec idempotent
+    rt = store.load_event(store.dump_event(ed))            # legacy -> save (native) -> reopen
+    assert store.dump_event(rt) == store.dump_event(store.load_event(store.dump_event(rt)))  # idempotent
 
     ss1, ss2 = ed.get("scoringsystem", []), rt.get("scoringsystem", [])
     for cl in ed.get("record", {}):
@@ -55,8 +64,8 @@ def test_roundtrip_preserves_analysis_and_reports(name, path):
             assert a1 == a2, (name, cl, h, "analyze changed under round-trip")
 
     for build in _BUILDS:
-        assert _canon(build(ed)) == _canon(build(rt)), \
-            (name, build.__name__, "report model changed under round-trip")
+        assert _report_canon(build(ed)) == _report_canon(build(rt)), \
+            (name, build.__name__, "report content changed under round-trip")
 
 
 def test_sweep_sees_events():

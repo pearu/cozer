@@ -79,6 +79,28 @@ def loads(text):
     return from_jsonable(json.loads(text))
 
 
+def dump_event(eventdata):
+    """Serialize an event for storage in the suffix-free **native** shape (``schema = 2``):
+    the on-disk ``.cozj`` carries no ``/T``/``/Q`` class or ``t``/``q``/``r`` heat suffixes.
+    ``dumps``/``loads`` stay the generic JSON codec (used for crash payloads etc.)."""
+    from cozer.native import to_native
+    return dumps(to_native(eventdata))
+
+
+def load_event(text):
+    """Load an event from storage into the (still suffixed) in-memory model. Native files
+    (``schema >= 2``) are converted back; a legacy/unversioned ``.cozj`` loads as-is. A file
+    from a NEWER cozer (schema above what we know) fails fast rather than being mangled."""
+    from cozer.native import from_native, is_native, schema_of, SCHEMA
+    data = loads(text)
+    ver = schema_of(data)
+    if ver > SCHEMA:
+        raise ValueError(
+            "event file schema %d is newer than this cozer (max %d) — upgrade cozer to open it"
+            % (ver, SCHEMA))
+    return from_native(data) if is_native(data) else data
+
+
 def read_legacy_coz(path):
     """Read a legacy ``.coz`` (Python-2 pickle) into an eventdata dict."""
     with open(path, "rb") as f:
@@ -216,7 +238,7 @@ class EventStore:
                 return cls(path, recovered)   # a snapshot interrupted mid-install, finished
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
-                eventdata = loads(f.read())
+                eventdata = load_event(f.read())
         else:
             eventdata = {} if default is None else default
         store = cls(path, eventdata)
@@ -236,7 +258,7 @@ class EventStore:
         or None if ``.new`` was unusable."""
         try:
             with open(staged, encoding="utf-8") as f:
-                eventdata = loads(f.read())
+                eventdata = load_event(f.read())
         except (ValueError, OSError):
             try:
                 os.remove(staged)
@@ -353,7 +375,7 @@ class EventStore:
         journal), so journaled ops are never replayed on top of a snapshot that
         already contains them (which duplicated laps / mis-applied edits)."""
         staged = self.path + _STAGED
-        atomic_write(staged, dumps(self.eventdata))   # new state durable before we touch the journal
+        atomic_write(staged, dump_event(self.eventdata))   # native shape; durable before touching journal
         _rotate_backups(self.path)
         with self._io_lock:                           # drop the journal atomically vs the syncer
             if self._jfh is not None:
