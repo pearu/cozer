@@ -88,25 +88,17 @@ def dump_event(eventdata):
 
 
 def load_event(text):
-    """Load an event into the in-memory model: record/classes are the suffix-free (native)
-    shape, but the race schedule is kept as legacy ``[_, class, heat]`` rows (the Races tab
-    edits those directly; the store converts them to native refs only on disk). A file from a
-    NEWER cozer (schema above what we know) fails fast rather than being mangled."""
-    from cozer.native import to_native, native_races_to_legacy, schema_of, SCHEMA
+    """Load an event into the fully suffix-free (native) in-memory model — record/classes and
+    the race schedule (``races`` = ``[{name, kind, number, occurrence}, …]``) all native. A
+    file from a NEWER cozer (schema above what we know) fails fast rather than being mangled."""
+    from cozer.native import to_native, schema_of, SCHEMA
     data = loads(text)
     ver = schema_of(data)
     if ver > SCHEMA:
         raise ValueError(
             "event file schema %d is newer than this cozer (max %d) — upgrade cozer to open it"
             % (ver, SCHEMA))
-    if ver >= SCHEMA:                                    # native file: races -> legacy rows in memory
-        if "races" in data:
-            data["races"] = native_races_to_legacy(data["races"])
-        return data
-    ed = to_native(data)                                 # upgrade a legacy .cozj (record/classes native)
-    if "races" in data:
-        ed["races"] = data["races"]                      # keep the already-legacy race rows
-    return ed
+    return data if ver >= SCHEMA else to_native(data)    # upgrade a legacy .cozj to native
 
 
 def read_legacy_coz(path):

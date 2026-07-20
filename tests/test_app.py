@@ -428,8 +428,8 @@ def test_classname_guard_and_races_dropdown_on_native_model():
     assert w._classname_in_use("GT15")                  # set up as an event class (native shape)
     assert w._classname_in_use("OSY-400")               # and a race uses it
     assert w._classname_in_use("NOPE") is None
-    got = w.races_tab._defined_classes()                # dropdown enumerates synthesized names
-    assert {"GT15", "GT15/T", "OSY-400"} <= set(got)
+    got = w.races_tab._defined_classes()                # dropdown enumerates base classes (suffix-free)
+    assert set(got) == {"GT15", "OSY-400"} and "GT15/T" not in got
 
 
 def test_races_tab():
@@ -520,21 +520,24 @@ def test_race_label_unit():
 
 def test_races_tab_label_shows_class_heat_and_updates_live():
     _app()
-    ed = {
+    from cozer.native import to_native
+    ed = to_native({
         "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
         "scoringsystem": [10],
-        "classes": [["", "GT", ""], ["", "OSY-400", ""], ["", "S-250", ""]],  # defined
-        "participants": [],
-        "races": [[["x", "GT", "1"], ["x", "OSY-400", "2"]]],
-        "rules": [], "record": {}, "configure": {},
-    }
+        "classes": [["", "GT", "3*(1000):1"], ["", "OSY-400", "3*(1000):1"],
+                    ["", "S-250", "3*(1000):1"]],
+        "participants": [], "races": [], "rules": [], "record": {}, "configure": {},
+    })
+    ed["races"] = [[{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 0},
+                    {"name": "OSY-400", "kind": "circuit", "number": 2, "occurrence": 0}]]
     w = MainWindow(ed)
     rt = w.races_tab
-    assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2"
+    assert rt.race_list.item(0).text() == "Race 1: GT 1, OSY-400 2"     # suffix-free label
     # editing a class cell to another defined class updates the list label live
     rt.race_list.setCurrentRow(0)
-    rt.grid.model.setData(rt.grid.model.index(0, 0), "S-250")
-    assert rt.race_list.item(0).text() == "Race 1: S-250 1, OSY-400 2"
+    rt.model.setData(rt.model.index(0, 0), "S-250")
+    assert rt.race_list.item(0).text() == "Race 1: S-250 1, OSY-400 2"  # class reset heat -> 1
+    assert ed["races"][0][0] == {"name": "S-250", "kind": "circuit", "number": 1, "occurrence": 0}
 
 
 def test_validate_rule_cell_pure():
@@ -544,20 +547,6 @@ def test_validate_rule_cell_pure():
     assert "already defined" in msg and blocking is False       # advisory
     assert validate_rule_cell(1, 2, "888", rows) is None        # unique
     assert validate_rule_cell(1, 1, "", rows) is None           # empty action is allowed
-
-
-def test_race_cell_validator_pure():
-    from cozer.app.grids import race_cell_validator
-    v = race_cell_validator(lambda: ["O-500", "S-250"], lambda cl: ["2", "1r", "1R"])
-    rows = [["", "O-500", "1"], ["", "", ""]]
-    msg, blocking = v(1, 1, "XYZ", rows)
-    assert "not a defined class" in msg and blocking is True    # undefined class -> hard reject
-    assert v(1, 1, "S-250", rows) is None                       # defined class ok
-    msg, blocking = v(1, 1, "O-500", rows)
-    assert "already in this race" in msg and blocking is True   # duplicate class -> hard reject
-    msg, blocking = v(0, 2, "9", rows)
-    assert "expected next heat" in msg and blocking is False    # advisory
-    assert v(0, 2, "2", rows) is None                           # a valid next heat
 
 
 def test_rules_grid_advisory_on_duplicate():
@@ -577,6 +566,7 @@ def test_rules_grid_advisory_on_duplicate():
 def test_races_grid_advisory_and_dropdowns():
     _app()
     from cozer.app.grids import RacesTab, SuggestingDelegate
+    from cozer.native import to_native
 
     class FakeWin:
         def __init__(self, ed):
@@ -586,26 +576,37 @@ def test_races_grid_advisory_and_dropdowns():
         def log(self, m):
             self.logs.append(m)
 
-    ed = {"classes": [["", "GT", "1*(3*1000):1"], ["", "OT", "1*(3*1000):1"]],
-          "races": [[["", "GT", "1"], ["", "", ""]]]}
+    ed = to_native({"classes": [["", "GT", "3*(1000):1"], ["", "GT/T", "1*(1000):1"],
+                                ["", "OT", "3*(1000):1"]], "record": {}, "races": []})
+    ed["races"] = [[{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 0},
+                    {"name": "", "kind": "", "number": 0, "occurrence": 0}]]
     win = FakeWin(ed)
     rt = RacesTab(win)
     rt.set_data(ed["races"])
     rt.race_list.setCurrentRow(0)
-    m = rt.grid.model
-    # class not defined -> HARD REJECT (racepattern/heat logic depend on it), and warned
-    assert m.setData(m.index(1, 0), "XYZ") is False and ed["races"][0][1][1] == ""
+    m = rt.model
+    # class not defined -> HARD REJECT (pattern/heat logic depend on it), and warned
+    assert m.setData(m.index(1, 0), "XYZ") is False and ed["races"][0][1]["name"] == ""
     assert any("not a defined class" in s for s in win.logs)
-    assert m.setData(m.index(1, 0), "OT") is True and ed["races"][0][1][1] == "OT"   # defined ok
-    # class column offers the defined classes and is editable (override allowed)
-    cd = rt.grid.view.itemDelegateForColumn(0)
+    # a class already in the race -> HARD REJECT
+    assert m.setData(m.index(1, 0), "GT") is False
+    assert any("already in this race" in s for s in win.logs)
+    # a defined class is accepted; setting it defaults the phase to finals + heat to 1
+    assert m.setData(m.index(1, 0), "OT") is True
+    assert ed["races"][0][1] == {"name": "OT", "kind": "circuit", "number": 1, "occurrence": 0}
+    # class column offers the BASE classes (no /T), editable (override allowed)
+    cd = rt.view.itemDelegateForColumn(0)
     assert isinstance(cd, SuggestingDelegate)
-    ce = cd.createEditor(rt.grid.view.viewport(), None, m.index(0, 0))
+    ce = cd.createEditor(rt.view.viewport(), None, m.index(0, 0))
     assert {ce.itemText(i) for i in range(ce.count())} == {"GT", "OT"} and ce.isEditable()
-    # heat column offers the valid next heats for the row's class (via get_heats)
-    hd = rt.grid.view.itemDelegateForColumn(1)
-    he = hd.createEditor(rt.grid.view.viewport(), None, m.index(0, 1))
-    assert "1" in [he.itemText(i) for i in range(he.count())]
+    # phase column offers the row-class's phases as words (GT has circuit + time trial)
+    pd = rt.view.itemDelegateForColumn(1)
+    pe = pd.createEditor(rt.view.viewport(), None, m.index(0, 1))
+    assert {pe.itemText(i) for i in range(pe.count())} == {"Circuit", "Time trial"}
+    # heat column offers the valid heat numbers for the row's (class, phase)
+    hd = rt.view.itemDelegateForColumn(2)
+    he = hd.createEditor(rt.view.viewport(), None, m.index(0, 2))
+    assert [he.itemText(i) for i in range(he.count())] == ["1", "2", "3"]   # GT circuit: 3 heats
 
 
 def test_timer_race_combo_label_has_class_heat():

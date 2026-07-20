@@ -12,18 +12,40 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cozer.racepattern import get_classes, get_heats
+from cozer.classes import getclass
+from cozer.racepattern import class_pattern, crack_race_pattern, get_classes, race_kind
+
+# Suffix-free phase presentation. Circuit (the main/final race) needs no tag; the others get
+# a short tag in compact labels and a full word in dropdowns — no `/T`,`/Q` or `t`/`q` anywhere.
+_PHASE_ORDER = ["timetrial", "qualification", "circuit", "endurance"]
+_PHASE_LABEL = {"timetrial": "Time trial", "qualification": "Qualification",
+                "circuit": "Circuit", "endurance": "Endurance"}
+_PHASE_TAG = {"timetrial": "TT", "qualification": "Q"}   # circuit/endurance: no tag
+
+
+def _entry_label(e):
+    """Compact suffix-free label for one race entry, or None if unfilled. Native entry
+    ``{name, kind, number, occurrence}`` → ``"GT15 1"`` / ``"GT15 TT1"`` / ``"GT15 1·R1"``;
+    a legacy ``[_, class, heat]`` row falls back to ``"class heat"``."""
+    if isinstance(e, dict):
+        base, kind, num = e.get("name", ""), e.get("kind", ""), e.get("number")
+        if not base or not num:
+            return None
+        tag = _PHASE_TAG.get(kind, "")
+        occ = e.get("occurrence", 0)
+        return "%s %s%d%s" % (base, tag, num, ("·R%d" % occ if occ else ""))
+    return "%s %s" % (e[1], e[2]) if len(e) > 2 and e[1] and e[2] else None
 
 
 def race_label(index, race):
-    """Human label for a race: ``"Race N: CLASS1 HEAT1, CLASS2 HEAT2, ..."``.
+    """Human label for a race: ``"Race N: GT15 1, F 500 TT1, ..."`` (suffix-free).
 
-    ``race`` is a list of ``[_, class, heat]`` rows (index-0 is the sort field);
-    rows with a blank class or heat are skipped. A race with no filled rows keeps
-    the bare ``"Race N"``. ``index`` is 0-based; the label shows ``N = index+1``.
+    ``race`` is a list of native heat-entry dicts (``{name, kind, number, occurrence}``);
+    unfilled entries are skipped and a race with none keeps the bare ``"Race N"``. ``index``
+    is 0-based; the label shows ``N = index+1``. Legacy ``[_, class, heat]`` rows still format
+    (for unit use), so this reads either shape.
     """
-    parts = ["%s %s" % (e[1], e[2]) for e in (race or [])
-             if len(e) > 2 and e[1] and e[2]]
+    parts = [lbl for lbl in (_entry_label(e) for e in (race or [])) if lbl]
     base = "Race %d" % (index + 1)
     return "%s: %s" % (base, ", ".join(parts)) if parts else base
 
@@ -60,34 +82,6 @@ def validate_rule_cell(row, field, value, rows):
             return ("Rule %s/%s is already defined (row %d)" % (action, paragraph or "-", i + 1),
                     False)
     return None
-
-
-def race_cell_validator(defined_classes, next_heats):
-    """Build a race-grid validator. ``defined_classes()`` returns the event's
-    defined class names; ``next_heats(cl)`` returns the valid *next* heats for a
-    class at this race (from get_heats — encodes ordering N before N+1 and the
-    N -> Nr -> NR restart progression).
-
-    A class that is not defined, or that already appears in the race, is
-    **hard-rejected** (a class runs one heat per race, and the pattern/heat logic
-    depend on a defined class); an out-of-order heat is **advisory** (logged, but
-    accepted — the organizer may overrule for restarts/weather)."""
-    def validate(row, field, value, rows):
-        if field == 1 and value:                      # class column
-            if value not in defined_classes():
-                return ("Class %s is not a defined class" % value, True)   # hard reject
-            for i, other in enumerate(rows):
-                if i != row and len(other) > 1 and other[1] == value:
-                    return ("Class %s is already in this race (row %d)" % (value, i + 1), True)
-        elif field == 2 and value:                    # heat column
-            cl = rows[row][1] if len(rows[row]) > 1 else ""
-            if cl and cl in defined_classes():
-                nh = next_heats(cl)
-                if nh and value not in nh:
-                    return ("Heat %s is not the expected next heat for class %s (expected %s)"
-                            % (value, cl, "/".join(nh)), False)
-        return None
-    return validate
 
 
 class SuggestingDelegate(QStyledItemDelegate):
@@ -316,6 +310,152 @@ class GridTab(QWidget):
             self.model.delete_row(idx.row())
 
 
+# --- Races tab: native, suffix-free heat scheduling ------------------------
+
+def _base_classes(eventdata):
+    """Distinct base class names, in class-list order (each base is one schedulable class)."""
+    out, seen = [], set()
+    for c in get_classes(eventdata):
+        b = getclass(c)
+        if b and b not in seen:
+            seen.add(b)
+            out.append(b)
+    return out
+
+
+def _phases_of(eventdata, base):
+    """Phase kinds defined for ``base``, in canonical order (time trial → qualification →
+    circuit → endurance)."""
+    kinds = {race_kind(eventdata, c) for c in get_classes(eventdata) if getclass(c) == base}
+    return [k for k in _PHASE_ORDER if k in kinds]
+
+
+def _synth_for(eventdata, base, kind):
+    """The synthesized (legacy) class name for ``(base, kind)`` — the addressing key the
+    pattern/heat helpers use — or None if the base has no such phase."""
+    for c in get_classes(eventdata):
+        if getclass(c) == base and race_kind(eventdata, c) == kind:
+            return c
+    return None
+
+
+def _heat_numbers(eventdata, base, kind):
+    """Valid heat numbers ``1..N`` for ``base``'s ``kind`` phase (N from its pattern)."""
+    cl = _synth_for(eventdata, base, kind)
+    pat = class_pattern(eventdata, cl) if cl else None
+    if not pat:
+        return []
+    return list(range(1, len(crack_race_pattern(pat)[0]) + 1))
+
+
+class RaceHeatsModel(QAbstractTableModel):
+    """One race's scheduled heats as native, suffix-free entries
+    (``{name, kind, number, occurrence}``), edited in place. Columns Class (base) / Phase
+    (kind) / Heat (number) — the operator never sees or types a `/T`,`/Q`,`t`,`q` suffix.
+    Setting the class resets its phase to the finals phase and heat to 1; setting the phase
+    resets the heat to 1."""
+
+    COLS = ["Class", "Phase", "Heat"]
+
+    def __init__(self, window, warn=None):
+        super().__init__()
+        self.window = window
+        self._race = []
+        self._warn = warn
+
+    @property
+    def eventdata(self):
+        return self.window.eventdata
+
+    def set_race(self, race):
+        self.beginResetModel()
+        self._race = race
+        self.endResetModel()
+
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self._race)
+
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self.COLS)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.COLS[section]
+        return None
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or role not in (Qt.DisplayRole, Qt.EditRole):
+            return None
+        e = self._race[index.row()]
+        col = index.column()
+        if col == 0:
+            return e.get("name", "")
+        if col == 1:
+            return _PHASE_LABEL.get(e.get("kind", ""), "")
+        num = e.get("number") or 0
+        if not num:
+            return ""
+        occ = e.get("occurrence", 0)
+        return "%d (restart %d)" % (num, occ) if occ else str(num)
+
+    def flags(self, index):
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+
+    def _reject(self, msg):
+        if self._warn:
+            self._warn(msg)
+        return False
+
+    def setData(self, index, value, role=Qt.EditRole):
+        if role != Qt.EditRole or not index.isValid():
+            return False
+        e = self._race[index.row()]
+        col = index.column()
+        value = (value or "").strip()
+        if col == 0:                                    # Class (base)
+            if value and value not in _base_classes(self.eventdata):
+                return self._reject("Class %s is not a defined class" % value)
+            if value and any(o is not e and o.get("name") == value for o in self._race):
+                return self._reject("Class %s is already in this race" % value)
+            e["name"] = value
+            phases = _phases_of(self.eventdata, value)
+            e["kind"] = phases[-1] if phases else ""    # default to the finals phase
+            e["number"] = 1 if e["kind"] else 0
+            e["occurrence"] = 0
+        elif col == 1:                                  # Phase (kind); value is a label
+            kind = next((k for k, lbl in _PHASE_LABEL.items() if lbl == value), value)
+            if kind and kind not in _phases_of(self.eventdata, e.get("name", "")):
+                return self._reject("%s has no %s phase" % (e.get("name", ""), value or "?"))
+            e["kind"] = kind
+            e["number"] = 1 if kind else 0
+            e["occurrence"] = 0
+        else:                                           # Heat (number)
+            try:
+                num = int(str(value).split()[0])
+            except (ValueError, IndexError):
+                return False
+            valid = _heat_numbers(self.eventdata, e.get("name", ""), e.get("kind", ""))
+            if valid and num not in valid and self._warn:  # advisory, not blocked
+                self._warn("Heat %d is out of range for %s %s (1..%d)"
+                           % (num, e.get("name", ""),
+                              _PHASE_LABEL.get(e.get("kind", ""), ""), valid[-1]))
+            e["number"] = num
+        self.dataChanged.emit(index, self.index(index.row(), len(self.COLS) - 1))
+        return True
+
+    def add_row(self):
+        n = len(self._race)
+        self.beginInsertRows(QModelIndex(), n, n)
+        self._race.append({"name": "", "kind": "", "number": 0, "occurrence": 0})
+        self.endInsertRows()
+
+    def delete_row(self, row):
+        if 0 <= row < len(self._race):
+            self.beginRemoveRows(QModelIndex(), row, row)
+            del self._race[row]
+            self.endRemoveRows()
+
+
 class RacesTab(QWidget):
     def __init__(self, window=None):
         super().__init__()
@@ -335,39 +475,57 @@ class RacesTab(QWidget):
         lb.addWidget(delete)
         left.addLayout(lb)
         h.addLayout(left, 1)
-        validate = warn = None
-        if window is not None:
-            validate = race_cell_validator(self._defined_classes, self._next_heats)
-            warn = window.log
-        self.grid = GridTab([(1, "Class"), (2, "Heat")], 3, validate=validate, warn=warn)
-        h.addWidget(self.grid, 2)
-        if window is not None:      # editable dropdowns suggest classes / valid next heats
-            self.grid.view.setItemDelegateForColumn(
-                0, SuggestingDelegate(lambda idx: self._defined_classes(), self.grid.view))
-            self.grid.view.setItemDelegateForColumn(
-                1, SuggestingDelegate(self._heat_items, self.grid.view))
-        # Keep the selected race's list label ("Race N: CLASS HEAT, ...") in sync
-        # as its class/heat cells are edited or rows added/removed.
-        self.grid.model.dataChanged.connect(self._update_current_label)
-        self.grid.model.rowsInserted.connect(self._update_current_label)
-        self.grid.model.rowsRemoved.connect(self._update_current_label)
+
+        right = QVBoxLayout()
+        warn = window.log if window is not None else None
+        self.model = RaceHeatsModel(window, warn=warn)
+        self.view = QTableView()
+        self.view.setModel(self.model)
+        self.view.horizontalHeader().setStretchLastSection(True)
+        right.addWidget(self.view)
+        if window is not None:      # cascading suffix-free dropdowns: class → phase → heat number
+            self.view.setItemDelegateForColumn(
+                0, SuggestingDelegate(lambda idx: self._defined_classes(), self.view))
+            self.view.setItemDelegateForColumn(
+                1, SuggestingDelegate(self._phase_items, self.view))
+            self.view.setItemDelegateForColumn(
+                2, SuggestingDelegate(self._heat_items, self.view))
+        rb = QHBoxLayout()
+        addr = QPushButton("Add row")
+        addr.clicked.connect(self.model.add_row)
+        delr = QPushButton("Delete row")
+        delr.clicked.connect(self._delete_row)
+        rb.addWidget(addr)
+        rb.addWidget(delr)
+        rb.addStretch()
+        right.addLayout(rb)
+        h.addLayout(right, 2)
+
+        # Keep the selected race's list label ("Race N: GT15 1, …") in sync as cells/rows change.
+        self.model.dataChanged.connect(self._update_current_label)
+        self.model.rowsInserted.connect(self._update_current_label)
+        self.model.rowsRemoved.connect(self._update_current_label)
 
     def _defined_classes(self):
-        # the Races grid addresses heats by synthesized class name (incl. /T,/Q phase),
-        # which is exactly get_classes on either the native or legacy model.
-        return get_classes(self.window.eventdata)
+        return _base_classes(self.window.eventdata)
 
-    def _next_heats(self, cl):
-        """Valid next heats for class ``cl`` at the selected race (from get_heats;
-        encodes the heat/restart ordering). Empty if unknown."""
-        try:
-            return get_heats(self.window.eventdata, self.race_list.currentRow()).get(cl, [])
-        except Exception:
-            return []
+    def _row_entry(self, index):
+        r = index.row()
+        return self.model._race[r] if 0 <= r < len(self.model._race) else {}
+
+    def _phase_items(self, index):
+        base = self._row_entry(index).get("name", "")
+        return [_PHASE_LABEL[k] for k in _phases_of(self.window.eventdata, base)] if base else []
 
     def _heat_items(self, index):
-        cl = self.grid.model.data(self.grid.model.index(index.row(), 0)) or ""
-        return self._next_heats(cl) if cl else []
+        e = self._row_entry(index)
+        return [str(n) for n in _heat_numbers(self.window.eventdata,
+                                              e.get("name", ""), e.get("kind", ""))]
+
+    def _delete_row(self):
+        idx = self.view.currentIndex()
+        if idx.isValid():
+            self.model.delete_row(idx.row())
 
     def set_data(self, races):
         self._races = races
@@ -380,7 +538,7 @@ class RacesTab(QWidget):
         if self._races:
             self.race_list.setCurrentRow(0)
         else:
-            self.grid.set_data([])
+            self.model.set_race([])
 
     def _update_current_label(self, *args):
         row = self.race_list.currentRow()
@@ -390,10 +548,10 @@ class RacesTab(QWidget):
 
     def _select(self, row):
         if 0 <= row < len(self._races):
-            self.grid.set_data(self._races[row])
+            self.model.set_race(self._races[row])
 
     def _add_race(self):
-        self._races.append([["", "", ""]])
+        self._races.append([{"name": "", "kind": "", "number": 0, "occurrence": 0}])
         self._refill()
         self.race_list.setCurrentRow(len(self._races) - 1)
 

@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from cozer._py2compat import round2
 from cozer.app.grids import race_label
 from cozer.classes import getclass
-from cozer.native import record_heat
+from cozer.native import native_races_to_legacy, record_heat
 from cozer.phases import heat_number
 from cozer.qualification import qheat_boats
 from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed, race_kind
@@ -332,7 +332,10 @@ class TimerPanel(QWidget):
         return races[i] if 0 <= i < len(races) else None
 
     def _race_heats(self, race):
-        return [(e[1], e[2]) for e in race if len(e) > 2 and e[1] and e[2]] if race else []
+        # race entries are native {name, kind, number, occurrence}; the record is addressed by
+        # the legacy (class, heat) key, so convert per-entry (record_heat re-resolves it).
+        rows = native_races_to_legacy([race])[0] if race else []
+        return [(r[1], r[2]) for r in rows if len(r) > 2 and r[1] and r[2]]
 
     def _show_race(self):
         self._heats = self._race_heats(self._selected_race())

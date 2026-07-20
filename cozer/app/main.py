@@ -405,12 +405,10 @@ class MainWindow(QMainWindow):
                 msg = "Opened %s — continuing working copy %s" % (path, cozj)
             else:
                 legacy = read_legacy_coz(path)
-                # seed the class-name vocabulary, then convert record/classes to the suffix-free
-                # native shape, keeping the race schedule as legacy rows for the Races tab
+                # seed the class-name vocabulary, then convert to the fully suffix-free native
+                # shape (record, classes, and the race schedule)
                 legacy["classnames"] = rulesetmod.classnames_of(legacy)
                 self.eventdata = to_native(legacy)
-                if "races" in legacy:
-                    self.eventdata["races"] = legacy["races"]
                 self.store = EventStore(cozj, self.eventdata)
                 self.store.snapshot()
                 msg = "Opened %s — auto-saving to %s" % (path, cozj)
