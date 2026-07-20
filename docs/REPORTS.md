@@ -142,9 +142,12 @@ per kind). All 209 common content applies per heat and in the summary.
   report shows the From *and* the Nationality column only when it holds >1 distinct non-empty
   value across the event — an all-empty or uniform column (a national event's all-`EST`, or an
   event with no clubs) is hidden. **Status: foundation done** (`a90d51f` — field + Participants
-  GUI column + `show_from`/`show_nationality`/`nationalities_index`). **TODO:** render the
-  conditional From/Nationality columns in the reports (per-report variable-column layout + a
-  proper "Nationality" label).
+  GUI column + `show_from`/`show_nationality`/`nationalities_index`). **Participants report
+  DONE**: conditional From + Nationality columns (fixes the mislabeled "Country"→club); a
+  "Nationality" label added (et = "Rahvus", owner to verify). **TODO:** the results reports
+  (finals / intermediate / qsummary). NB `final.py._table_html` is shared with the *frozen*
+  `*_legacy` reports — the conditional columns must apply to the native builders only, so guard
+  the legacy path (byte-faithful) carefully.
 - **D2 — Time-trial metric. DECIDED (owner, 2026-07-20): best-lap _time_, from the recorded
   lap-time values.** 305.04.02 is specific about time. Use the **measured lap time** — the best
   completed lap's crossing interval from the record — **directly**; do **not** compute it from
