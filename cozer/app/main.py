@@ -45,11 +45,13 @@ APP_QSS = (
     " QPushButton { padding: 4px 10px; }"
     " QGroupBox { font-weight: bold; margin-top: 6px; }"
     " QTabBar::tab { padding: 5px 12px; }"
-    # menus: define selected-item colors explicitly, else the broad QWidget
-    # background above leaves highlighted menu text invisible.
+    # menus & combo-box dropdowns: define selected/highlighted colors explicitly, else the broad
+    # QWidget background above leaves highlighted text invisible (a hovered item became unreadable).
     " QMenu { background: #f4f3ee; color: #1a1a1a; }"
     " QMenu::item:selected { background: #2b3a67; color: #ffffff; }"
     " QMenuBar::item:selected { background: #2b3a67; color: #ffffff; }"
+    " QComboBox QAbstractItemView { background: #fbf7e6; color: #1a1a1a;"
+    " selection-background-color: #2b3a67; selection-color: #ffffff; }"
 )
 
 DEFAULT_EVENT = {
