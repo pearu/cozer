@@ -341,9 +341,17 @@ class ParticipantClassModel(QAbstractTableModel):
 class NationalityDelegate(QStyledItemDelegate):
     """Combo-box editor for the Nationality column: a dropdown of the IOC 3-letter codes shown
     as ``"EST — Estonia"`` (UIM §209 allows the code or the English name), storing the bare code
-    ``"EST"``. Editable + type-ahead so the operator can type a code; the cell shows the code."""
+    ``"EST"``. Editable + type-ahead so the operator can type a code; the cell also shows the
+    ``"EST — Estonia"`` form (see displayText) so the country is readable."""
 
     _items = sorted(IOC.items())            # (code, name) sorted by code — built once
+
+    def displayText(self, value, locale):
+        """Render the stored code as ``"EST — Estonia"`` so the country is readable in the cell
+        (the model still stores the bare code). An unknown code (e.g. a legacy typo) shows as-is."""
+        s = "" if value is None else str(value)
+        name = IOC.get(s.strip().upper())
+        return "%s — %s" % (s.strip().upper(), name) if name else s
 
     def createEditor(self, parent, option, index):
         combo = QComboBox(parent)
@@ -398,12 +406,13 @@ class ClassParticipantsWidget(QWidget):
         nat_col = next((i for i, (f, _) in enumerate(self.model._cols) if f == 6), None)
         if nat_col is not None:                          # Nationality: IOC-code dropdown
             self.view.setItemDelegateForColumn(nat_col, NationalityDelegate(self.view))
-        # 'From' (club) absorbs spare width; the Nationality (a 3-char code) and the qheat1
-        # checkbox columns are sized to content -- a code or a checkbox needs no extra width.
+        # 'From' (club) absorbs spare width; the Nationality and the qheat1 checkbox columns are
+        # sized to content -- Nationality shows "CODE — Country", so this widens it enough to read
+        # the country name without wasting space on a national (single-country) event.
         hdr.setStretchLastSection(False)
         hdr.setSectionResizeMode(from_col, QHeaderView.Stretch)
         for i, (field, _label) in enumerate(self.model._cols):
-            if field == 6 or field is None:          # Nationality code / checkbox column -> narrow
+            if field == 6 or field is None:          # Nationality "CODE — Country" / checkbox column
                 hdr.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         v.addWidget(self.view)
         row = QHBoxLayout()

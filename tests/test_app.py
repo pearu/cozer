@@ -479,6 +479,9 @@ def test_nationality_dropdown_delegate_and_soft_validate():
     assert "EST — Estonia" in texts and "LTU — Lithuania" in texts   # code + English name (§209)
     assert not any(t.startswith("LIT ") for t in texts)              # the corpus typo isn't offered
     assert combo.itemData(combo.findText("EST — Estonia")) == "EST"  # stores the bare code
+    # the cell renders the readable "CODE — Country" form (an unknown code shows as-is)
+    assert d.displayText("EST", None) == "EST — Estonia"
+    assert d.displayText("LIT", None) == "LIT" and d.displayText("", None) == ""
 
     warns = []
     m = ParticipantClassModel([["", "A", "", "", "GT", "1", ""]], "GT", warn=warns.append)
