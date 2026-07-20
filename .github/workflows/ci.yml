@@ -41,7 +41,7 @@ jobs:
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -ra          # writes .coverage (pytest-cov via pyproject addopts)
+        run: pytest -ra -n auto  # parallel (pytest-xdist); writes .coverage (pytest-cov via pyproject addopts)
 
       # Coverage badge (README) + PR comment with diff coverage. Runs once, on the
       # Linux matrix leg only (Docker action; reuses that leg's .coverage). On main

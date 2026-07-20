@@ -10,5 +10,6 @@ dependencies:
   - pymupdf       # PDF text extraction for report equivalence tests
   - pytest
   - pytest-cov    # coverage reporting for the new cozer package
+  - pytest-xdist  # parallel test runs (-n) — ~4-6x faster full suite (see tools/test.sh)
   - hypothesis    # property-based edge cases for core equivalence
   - pip
