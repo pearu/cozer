@@ -1348,6 +1348,12 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
     assert snaps["order"] == ["7", "3"] and snaps["cl"] == "F 500"        # order+class passed to snapshot
     assert cr.load_config().get("live_gist_id") == "GID123"              # created gist id persisted
     assert not tp._publishing                                            # cleared when done
+    # the viewer link is surfaced, derived from crashreport.REPO + the gist id
+    assert not tp.viewer_row.isHidden()
+    assert tp._viewer_url == "https://pearu.github.io/cozer/live-viewer.html?gist=GID123"
+    from PySide6.QtWidgets import QApplication
+    tp._copy_viewer_url()
+    assert QApplication.clipboard().text() == tp._viewer_url             # "Copy URL" -> clipboard
 
     # failure is guarded: status note, no save, no crash (timing never affected)
     monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))

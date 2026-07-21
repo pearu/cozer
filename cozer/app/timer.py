@@ -297,6 +297,27 @@ class TimerPanel(QWidget):
         top.addWidget(self.broadcast_cb)
         v.addLayout(top)
 
+        # Live-viewer link (Phase 7, LIVE.md §6): shown once a broadcast gist exists so the operator
+        # points the venue screens at it. Clickable (opens in the browser) + a Copy button. The base
+        # URL follows the repo's GitHub Pages site; the gist id is the persisted live_gist_id.
+        self._viewer_url = ""
+        self.viewer_row = QWidget()
+        _vr = QHBoxLayout(self.viewer_row)
+        _vr.setContentsMargins(0, 0, 0, 0)
+        _vr.addWidget(QLabel("Live viewer:"))
+        self.viewer_link = QLabel()
+        self.viewer_link.setTextFormat(Qt.RichText)
+        self.viewer_link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.viewer_link.setOpenExternalLinks(False)          # route clicks through the clean-env opener
+        self.viewer_link.linkActivated.connect(self._open_viewer)
+        _vr.addWidget(self.viewer_link, 1)
+        _copy = QPushButton("Copy URL")
+        _copy.clicked.connect(self._copy_viewer_url)
+        _vr.addWidget(_copy)
+        self.viewer_row.hide()
+        v.addWidget(self.viewer_row)
+        self._update_viewer_url()                             # show now if a gist exists from before
+
         # Mis-pick guard (§5.2): always show exactly what the selected race will record —
         # class · phase · heat · restart — so a wrong pick (wrong class/phase/restart) is
         # obvious before Start commits it.
@@ -684,7 +705,7 @@ class TimerPanel(QWidget):
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_broadcast_done(self, gid):
-        """(GUI thread) Publish finished: persist a newly-created gist id and show the feed URL."""
+        """(GUI thread) Publish finished: persist a newly-created gist id, then refresh the viewer link."""
         self._publishing = False
         if gid is False:
             self.status.setText("Couldn't publish the live order (will retry on the next crossing).")
@@ -694,8 +715,33 @@ class TimerPanel(QWidget):
         if gid and cfg.get("live_gist_id") != gid:
             cfg["live_gist_id"] = gid
             crashreport.save_config(cfg)
+        self._update_viewer_url()
         if gid:
-            self.status.setText("Live order published — feed gist: https://gist.github.com/%s" % gid)
+            self.status.setText("Live order published — the Live viewer link is shown above.")
+
+    def _update_viewer_url(self):
+        """Show/refresh the copyable + clickable live-viewer link once a broadcast gist exists
+        (LIVE.md §6). The base follows the repo's GitHub Pages site (from ``crashreport.REPO``); the
+        gist id is the persisted ``live_gist_id``. Hidden until the first broadcast creates a gist."""
+        from cozer.app import crashreport
+        gid = crashreport.load_config().get("live_gist_id")
+        if gid:
+            owner, _, repo = crashreport.REPO.partition("/")
+            self._viewer_url = "https://%s.github.io/%s/live-viewer.html?gist=%s" % (owner, repo, gid)
+            self.viewer_link.setText('<a href="%s">%s</a>' % (self._viewer_url, self._viewer_url))
+            self.viewer_row.show()
+        else:
+            self._viewer_url = ""
+            self.viewer_row.hide()
+
+    def _copy_viewer_url(self):
+        if self._viewer_url:
+            QApplication.clipboard().setText(self._viewer_url)
+            self.status.setText("Live viewer URL copied — paste it into the display screens' browser.")
+
+    def _open_viewer(self, url):
+        from cozer.app.main import open_in_viewer   # clean-env opener (lazy: main imports timer)
+        open_in_viewer(url)
 
     def on_stop(self):
         self._started = False
