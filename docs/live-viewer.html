@@ -120,9 +120,10 @@
   //   &user=<login> -> the RAW gist file (no token, not rate-limited) — the default for a screen;
   //   neither       -> unauthenticated API, polled slowly (a 403 shows a hint to add &user/&token).
   var user = params.get("user"), cb = 0, haveData = false;
-  // Poll interval: default 3 s, overridden by the feed's view.poll_s (set in cozer). The anonymous
-  // API path stays slow (60 s) to respect GitHub's 60/hr unauth limit; token/raw paths use poll_s.
-  var pollMs = (token || user) ? 3000 : 60000;
+  // Poll interval: token/&user paths use view.poll_s (default 3 s). With neither, we do ONE api call,
+  // learn the gist owner's login from it, then self-switch to the raw path at poll_s — so a plain
+  // ?gist=<id> URL polls fast without hitting the 60/hr anon-API limit. 8 s only while still learning.
+  var pollMs = (token || user) ? 3000 : 8000;
   function status(msg){
     ol.className = "pre";
     ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:700;'
@@ -138,7 +139,7 @@
       var r = await fetch(url, {headers:h, cache:"no-store"});
       if(!r.ok){
         if(!haveData) status(r.status===403
-          ? "GitHub rate limit — open the URL with &user=<github-login> (or &token=<token>)"
+          ? "GitHub rate limit — retrying; add &user=<github-login> to poll the raw feed"
           : "Waiting for the feed… ("+r.status+")");
         return;
       }
@@ -146,10 +147,11 @@
       if(raw){ feed = await r.json(); }
       else { var g = await r.json(), f = g.files && g.files["order.json"];
              if(!(f && f.content)){ if(!haveData) status("Gist has no order.json"); return; }
-             feed = JSON.parse(f.content); }
+             feed = JSON.parse(f.content);
+             if(!token && !user && g.owner && g.owner.login) user = g.owner.login; }  // learn owner -> raw next poll
       applyFeed(feed); haveData = true;
       var ps = feed.view && feed.view.poll_s;             // cozer-set poll interval (seconds)
-      if(token || user) pollMs = (ps > 0) ? ps * 1000 : 3000;   // anon path stays at 60 s
+      if(token || user) pollMs = (ps > 0) ? ps * 1000 : 3000;   // fast once token/&user/learned-owner
     }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
