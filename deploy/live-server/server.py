@@ -78,17 +78,18 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- GET: viewers read the latest snapshot -----------------------------------------------------
     def do_GET(self):
-        if self.path == "/healthz":
+        path = self.path.split("?", 1)[0]         # self.path includes the query (e.g. /?channel=X)
+        if path == "/healthz":
             return self._send(200, b"ok", "text/plain")
-        if self.path in ("/", "/index.html", "/live-viewer.html"):     # the viewer overlay
+        if path in ("/", "/index.html", "/live-viewer.html"):          # the viewer overlay
             return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
-        if self.path == "/favicon.ico":
+        if path == "/favicon.ico":
             return self._send(204)
-        mflag = FLAG_RE.match(self.path)
+        mflag = FLAG_RE.match(path)
         if mflag:                                                      # a bundled flag SVG
             return self._serve_static("flags/" + mflag.group(1), "image/svg+xml",
                                       cache="public, max-age=86400")
-        m = re.match(r"^/live/([^/]+)\.json$", self.path)
+        m = re.match(r"^/live/([^/]+)\.json$", path)
         if not m:
             return self._json(404, {"error": "not found"})
         channel = m.group(1)
@@ -116,7 +117,7 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
             return self._json(413, {"error": "bad or too-large body"})
         body = self.rfile.read(n) if n else b""
-        m = re.match(r"^/publish/([^/]+)$", self.path)
+        m = re.match(r"^/publish/([^/]+)$", self.path.split("?", 1)[0])
         if not m:
             return self._json(404, {"error": "not found"})
         channel = m.group(1)
