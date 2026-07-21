@@ -347,6 +347,14 @@ class TimerPanel(QWidget):
         for i, race in enumerate(self.eventdata.get("races", [])):
             self.race_combo.addItem(race_label(i, race))
         self.race_combo.blockSignals(False)
+        # Race labels are long (multi-class, e.g. "Race 1: F-125 3, F-250 3, F-500 3"); widen the
+        # drop-down popup to fit the widest one (+ scrollbar/margin) so the operator can tell the
+        # races apart -- otherwise Qt elides them ("Race...00 1") in the narrow popup (issue #22).
+        if self.race_combo.count():
+            fm = self.race_combo.view().fontMetrics()
+            widest = max(fm.horizontalAdvance(self.race_combo.itemText(i))
+                         for i in range(self.race_combo.count()))
+            self.race_combo.view().setMinimumWidth(widest + 40)
         self.on_stop()
         self._show_race()
 

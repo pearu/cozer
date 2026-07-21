@@ -1414,6 +1414,19 @@ def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
     assert built.get("ident") and built["ident"] != threading.get_ident()   # built off the GUI thread
 
 
+def test_timer_race_combo_popup_fits_labels():
+    # issue #22: the Race dropdown must be wide enough to show the full (long, multi-class) race
+    # labels rather than eliding them ("Race...00 1"), so the operator can tell races apart.
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+    assert tp.race_combo.count() >= 1
+    view = tp.race_combo.view()
+    fm = view.fontMetrics()
+    widest = max(fm.horizontalAdvance(tp.race_combo.itemText(i))
+                 for i in range(tp.race_combo.count()))
+    assert view.minimumWidth() >= widest        # popup fits the longest label (no elision)
+
+
 def test_timer_record_before_start_is_noop():
     _app()
     w = MainWindow(_timer_event())
