@@ -61,7 +61,7 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 {
   "class": "F 500", "phase": "circuit", "heat": "2",
   "updated": "2026-08-15T14:32:05Z", "unofficial": true, "live": true, "started": true,
-  "view": {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 3},
+  "view": {"max_rows": 24, "poll_s": 3, "page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6},
   "order": [
     {"pos": 1, "boat": "7",  "surname": "Tamm",  "nat": "EST", "laps": 2, "time": 40.0},
     {"pos": 2, "boat": "14", "surname": "Ozols", "nat": "LAT", "laps": 2, "time": 41.5}
@@ -84,8 +84,9 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
   time of the boat one place ahead (or `+N L` when a lap down). Absent for a not-yet-started boat.
 - **`view`** carries the **operator-configured display parameters, set *in cozer***: `page_size`
   (rows per screen — the number of splits is ⌈field ÷ page_size⌉), the dwell times
-  (`top_dwell_s`, `page_dwell_s`), and **`poll_s`** (viewer poll interval, seconds; default 3). The
-  viewer obeys these and holds no view constants; absent or `page_size: 0` ⇒ show the whole field.
+  (`top_dwell_s`, `page_dwell_s`), **`poll_s`** (viewer poll interval, seconds; default 3), and
+  **`max_rows`** (show only the top-N drivers; default 24, `0` ⇒ all). The viewer obeys these and
+  holds no view constants of its own.
 
 ## 5. cozer side (publisher + Timer)
 
