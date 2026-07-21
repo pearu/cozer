@@ -1458,6 +1458,20 @@ def test_timer_broadcast_via_server(tmp_path, monkeypatch):
     assert cr.load_config().get("live_gist_id") is None                        # nothing gist-related stored
 
 
+def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
+    # the Broadcast-settings dialog caches server URL + publish secret + channel in cozer config
+    # (persist across restarts); saving refreshes the viewer link to the server channel.
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import cozer.app.crashreport as cr
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+    tp._apply_broadcast_settings("https://live.cozer.ee/", "  sek  ", "harku")
+    cfg = cr.load_config()
+    assert cfg["live_server_url"] == "https://live.cozer.ee/"                   # stored (rstrip at use)
+    assert cfg["live_publish_secret"] == "sek" and cfg["live_channel"] == "harku"   # trimmed
+    assert tp._viewer_url == "https://live.cozer.ee/?channel=harku" and not tp.viewer_row.isHidden()
+
+
 def test_timer_race_combo_popup_fits_labels():
     # issue #22: the Race dropdown must be wide enough to show the full (long, multi-class) race
     # labels rather than eliding them ("Race...00 1"), so the operator can tell races apart.

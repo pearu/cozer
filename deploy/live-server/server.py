@@ -30,6 +30,10 @@ PORT = int(os.environ.get("PORT", "8099"))
 BIND = os.environ.get("BIND", "127.0.0.1")
 MAX_BODY = 256 * 1024                      # snapshots are tiny; cap to refuse abuse
 CHANNEL_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+FLAG_RE = re.compile(r"^/flags/([A-Za-z0-9_-]{1,16}\.svg)$")
+# Static web root -- the viewer + flags, so live.cozer.ee/?channel=X serves the overlay same-origin.
+WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs"))
 
 _store = {}                                # channel -> (json_bytes, updated_epoch)
 _lock = threading.Lock()
@@ -44,20 +48,30 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "cozer-live/1.0"
     protocol_version = "HTTP/1.1"
 
-    def _send(self, code, body=b"", ctype="application/json", extra=None):
+    def _send(self, code, body=b"", ctype="application/json", cache="no-store"):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")   # public read-only scores
-        self.send_header("Cache-Control", "no-store")
-        for k, v in (extra or {}).items():
-            self.send_header(k, v)
+        self.send_header("Access-Control-Allow-Origin", "*")   # public read-only
+        self.send_header("Cache-Control", cache)
         self.end_headers()
         if body and self.command != "HEAD":       # HEAD: send headers (incl. Content-Length) only
             self.wfile.write(body)
 
     def _json(self, code, obj):
         self._send(code, json.dumps(obj).encode("utf-8"))
+
+    def _serve_static(self, relpath, ctype, cache="no-store"):
+        full = os.path.normpath(os.path.join(WEB_ROOT, relpath))
+        root = os.path.normpath(WEB_ROOT)
+        if full != root and not full.startswith(root + os.sep):   # path-traversal guard
+            return self._json(400, {"error": "bad path"})
+        try:
+            with open(full, "rb") as f:
+                data = f.read()
+        except OSError:
+            return self._json(404, {"error": "not found"})
+        return self._send(200, data, ctype, cache=cache)
 
     def log_message(self, fmt, *args):     # route through _log (journald), not stderr
         _log("%s - %s" % (self.address_string(), fmt % args))
@@ -66,6 +80,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             return self._send(200, b"ok", "text/plain")
+        if self.path in ("/", "/index.html", "/live-viewer.html"):     # the viewer overlay
+            return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
+        if self.path == "/favicon.ico":
+            return self._send(204)
+        mflag = FLAG_RE.match(self.path)
+        if mflag:                                                      # a bundled flag SVG
+            return self._serve_static("flags/" + mflag.group(1), "image/svg+xml",
+                                      cache="public, max-age=86400")
         m = re.match(r"^/live/([^/]+)\.json$", self.path)
         if not m:
             return self._json(404, {"error": "not found"})

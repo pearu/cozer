@@ -22,8 +22,8 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
-    QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
+    QLineEdit, QMdiArea, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from cozer._py2compat import round2
@@ -296,6 +296,11 @@ class TimerPanel(QWidget):
             "display. Needs GitHub sign-in (top-right corner). Never affects timing.")
         self.broadcast_cb.toggled.connect(self._on_broadcast_toggled)
         top.addWidget(self.broadcast_cb)
+        self.broadcast_settings_btn = QPushButton("Broadcast settings…")
+        self.broadcast_settings_btn.setToolTip("Where to publish the live order: your own live server "
+            "(URL + publish secret + channel), or a GitHub gist if the server URL is left blank.")
+        self.broadcast_settings_btn.clicked.connect(self._broadcast_settings)
+        top.addWidget(self.broadcast_settings_btn)
         v.addLayout(top)
 
         # Live-viewer link (Phase 7, LIVE.md §6): shown once a broadcast gist exists so the operator
@@ -660,6 +665,46 @@ class TimerPanel(QWidget):
                                                        # the publish into 20-30s stalls (LIVE.md §5)
 
     # ---- live-order broadcast (Phase 7, LIVE.md) ----
+    def _broadcast_settings(self):
+        """Dialog to set where the live order is published (cached in cozer config, persists across
+        restarts): the self-hosted live server (URL + publish secret + channel), or a GitHub gist if
+        the Server URL is left blank."""
+        from cozer.app import crashreport
+        cfg = crashreport.load_config()
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Broadcast settings")
+        form = QFormLayout(dlg)
+        intro = QLabel("Publish the live running order to your own live server. Leave the Server URL "
+                       "blank to fall back to a GitHub gist.")
+        intro.setWordWrap(True)
+        form.addRow(intro)
+        url = QLineEdit(cfg.get("live_server_url") or "")
+        url.setPlaceholderText("https://live.cozer.ee")
+        secret = QLineEdit(cfg.get("live_publish_secret") or "")
+        secret.setEchoMode(QLineEdit.Password)               # the publish secret is masked
+        channel = QLineEdit(cfg.get("live_channel") or "")
+        channel.setPlaceholderText("e.g. harku2026")
+        form.addRow("Server URL:", url)
+        form.addRow("Publish secret:", secret)
+        form.addRow("Channel:", channel)
+        box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        box.accepted.connect(dlg.accept)
+        box.rejected.connect(dlg.reject)
+        form.addRow(box)
+        if dlg.exec():
+            self._apply_broadcast_settings(url.text(), secret.text(), channel.text())
+
+    def _apply_broadcast_settings(self, server_url, secret, channel):
+        """Persist the broadcast settings + refresh the viewer link (split out for testability)."""
+        from cozer.app import crashreport
+        cfg = crashreport.load_config()
+        cfg["live_server_url"] = (server_url or "").strip()
+        cfg["live_publish_secret"] = (secret or "").strip()
+        cfg["live_channel"] = (channel or "").strip()
+        crashreport.save_config(cfg)
+        self._update_viewer_url()
+        self.status.setText("Broadcast settings saved.")
+
     def _on_broadcast_toggled(self, on):
         """Turn the unofficial live-order feed on/off (LIVE.md §5). Transport is the self-hosted live
         server if configured (live_server_url + live_publish_secret), else the GitHub gist -- which

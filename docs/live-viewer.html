@@ -56,6 +56,7 @@
   var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
   var params = new URLSearchParams(location.search);
   var gistId = params.get("gist"), token = params.get("token");
+  var channel = params.get("channel"), src = params.get("src");   // self-hosted server feed
 
   function natCell(nat){
     // Flags are static repo data (docs/flags/<IOC>.svg), keyed by the 3-letter code — no CDN,
@@ -155,7 +156,24 @@
     }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
-  if(gistId){
+  // ---- live: poll the self-hosted server feed (same origin: /live/<channel>.json) ----
+  async function pollServer(){
+    var url = src || ("/live/" + encodeURIComponent(channel) + ".json");
+    try{
+      var r = await fetch(url, {cache:"no-store"});
+      if(!r.ok){ if(!haveData) status("Waiting for the feed… ("+r.status+")"); return; }
+      var feed = await r.json();
+      applyFeed(feed); haveData = true;
+      var ps = feed.view && feed.view.poll_s;              // cozer-set poll interval (seconds)
+      if(ps > 0) pollMs = ps * 1000;
+    }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
+  }
+
+  if(channel || src){                                      // self-hosted server (e.g. live.cozer.ee)
+    status("Connecting…"); pollMs = 3000;
+    (function tick(){ pollServer().then(function(){ setTimeout(tick, pollMs); }); })();
+  }
+  else if(gistId){                                         // gist fallback
     status("Connecting…");
     (function tick(){ poll().then(function(){ setTimeout(tick, pollMs); }); })();
   }
