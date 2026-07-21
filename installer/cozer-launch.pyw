@@ -19,6 +19,31 @@ if os.path.isdir(_libbin):
         _dll_handle = os.add_dll_directory(_libbin)   # bound: don't let GC remove it
 
 
+def _ensure_writable_std_streams():
+    """The shortcut launches this with pythonw.exe, which has NO console: sys.stdout / sys.stderr are
+    None, so the first print()/stderr write during startup raises and the process dies with no window
+    at all -- the icon "does nothing" (issue #22). (Under python.exe, e.g. cozer-debug.bat, there IS a
+    console, so cozer runs fine -- which is exactly the symptom we saw.) Point any unusable stream at a
+    log file so every write succeeds; fall back to os.devnull if the file can't be created."""
+    broken = []
+    for _name in ("stdout", "stderr"):
+        try:
+            getattr(sys, _name).write("")
+        except Exception:
+            broken.append(_name)
+    if not broken:
+        return
+    try:
+        sink = open(os.path.join(sys.prefix, "cozer-output.log"), "w", encoding="utf-8", buffering=1)
+    except OSError:
+        sink = open(os.devnull, "w")
+    for _name in broken:
+        setattr(sys, _name, sink)
+
+
+_ensure_writable_std_streams()
+
+
 def _report_startup_failure(exc):
     """The installer launches this with pythonw.exe (no console), so a startup crash would vanish
     with no window at all (exactly the report in issue #22 -- "clicking the icon does nothing").
