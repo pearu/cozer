@@ -44,6 +44,34 @@ def _ensure_writable_std_streams():
 _ensure_writable_std_streams()
 
 
+def _ensure_ca_bundle():
+    """HTTPS (GitHub sign-in, crash reports, the live feed) needs a CA root bundle to verify the
+    server certificate. conda's OpenSSL locates it via SSL_CERT_FILE, which `conda activate` sets --
+    but the launcher runs python.exe directly, so it is unset and every HTTPS call fails with
+    ``CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`` (issue #22). Point it at the
+    bundle shipped in the env (the ca-certificates package)."""
+    if os.environ.get("SSL_CERT_FILE"):
+        return
+    candidates = [
+        os.path.join(sys.prefix, "Library", "ssl", "cacert.pem"),   # conda-forge, Windows
+        os.path.join(sys.prefix, "Library", "ssl", "cert.pem"),
+        os.path.join(sys.prefix, "ssl", "cacert.pem"),
+        os.path.join(sys.prefix, "ssl", "cert.pem"),
+    ]
+    for cert in candidates:
+        if os.path.isfile(cert):
+            os.environ["SSL_CERT_FILE"] = cert
+            return
+    try:                                # last resort: certifi's bundle, if it happens to be installed
+        import certifi
+        os.environ["SSL_CERT_FILE"] = certifi.where()
+    except Exception:
+        pass                            # no bundle found; HTTPS may fail, but nothing else does
+
+
+_ensure_ca_bundle()
+
+
 def _report_startup_failure(exc):
     """The installer launches this with pythonw.exe (no console), so a startup crash would vanish
     with no window at all (exactly the report in issue #22 -- "clicking the icon does nothing").

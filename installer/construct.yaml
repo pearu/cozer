@@ -29,6 +29,7 @@ specs:
   - pyside6                  # Qt GUI
   - weasyprint               # HTML/CSS -> PDF reports (+ cairo/pango/gdk-pixbuf/fontconfig)
   - pip                      # used by post_install to install cozer itself
+  - ca-certificates          # CA root bundle for HTTPS (GitHub sign-in) -- see cozer-launch.pyw
 
 installer_type: exe          # Windows NSIS installer (built on a Windows runner)
 
