@@ -118,3 +118,15 @@ superseded.
   fires one background update check on open (`_start_update_check` → thread → `_update_ready`
   signal → `_on_update_check_result` logs an unobtrusive notice if newer). No timer; no blocking on
   no/slow internet. Disabled in tests (`COZER_NO_UPDATE_CHECK`, set in conftest). 608 green.
+- **2026-07-21** — **`v3.0.0rc4` cut** — Windows-install hardening from the first tester (issue #22)
+  plus two broadcast fixes (#20/#21). Windows install now works with **zero manual steps**:
+  - **Launcher `pythonw.exe` fixes** (`10c5ac7`, `1c87f9e`): the icon "did nothing" because
+    `pythonw` has no console → `sys.stdout/stderr` were `None` → cozer's first startup write killed
+    the process; now redirected to a log. And GitHub sign-in failed with
+    `CERTIFICATE_VERIFY_FAILED` → set `SSL_CERT_FILE` to the env's CA bundle (+ `ca-certificates` in
+    specs). Plus a startup-error dialog (`6269949`) so any future silent crash is visible.
+  - **Shortcut hardening** (`c458849`, `b0677e4`): create a **Desktop** icon (not just Start-menu),
+    log to `make_shortcut.log`, and ship `make_shortcut.bat` + `cozer-debug.bat` for self-service.
+  - **Broadcast** (`b7518a3`, `2c70a27`): build/publish off the GUI thread (no freeze on tick), and
+    request the `gist` OAuth scope so the live feed can publish.
+  617 green.

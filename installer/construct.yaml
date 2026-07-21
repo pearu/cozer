@@ -18,7 +18,7 @@ name: COZER
 # version + the extra_files wheel name below are set by `tools/bump_version.py`
 # (cozer/__init__.py's __version__ is the single source of truth; pyproject reads
 # it dynamically and post_install.bat globs the wheel).
-version: 3.0.0rc3
+version: 3.0.0rc4
 company: COZER
 
 channels:
@@ -44,7 +44,7 @@ post_install: post_install.bat
 # ship the cozer wheel inside the installer so post_install can pip-install it
 # offline. The wheel is built into installer/dist/ before running constructor.
 extra_files:
-  - dist/cozer-3.0.0rc3-py3-none-any.whl
+  - dist/cozer-3.0.0rc4-py3-none-any.whl
   - cozer-launch.pyw            # GUI launcher: adds Library\bin to the DLL path
   - make_shortcut.ps1           # creates the Desktop + Start-menu shortcuts (post_install)
   - make_shortcut.bat           # double-clickable re-run if the icons are ever missing
