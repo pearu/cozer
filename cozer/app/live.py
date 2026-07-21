@@ -23,7 +23,11 @@ DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6}
 def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
     """The unofficial live-order snapshot ``dict`` for class ``cl`` heat ``heat``.
 
-    ``order``   — boat ids leader-first (from :func:`timer.standings`).
+    ``order`` — leader-first, one item per boat. Each item is either a **boat id** (scalar) or a
+    **standings dict** ``{"id"|"boat", "laps", "time"}`` (pass ``timer.standings(rec)`` directly).
+    When laps/time are present they flow into the feed so the viewer can show laps-completed + the
+    time gap to the boat one place ahead, and switch from the pre-start (nat/boat/surname) layout to
+    the running layout once the field has started.
     ``updated`` — the publish timestamp (ISO-8601 string; the caller stamps it).
     ``view``    — the operator's display config (page size / dwell times); ``DEFAULT_VIEW`` if None.
 
@@ -31,11 +35,20 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
     """
     parts = participants_index(eventdata)
     nats = nationalities_index(eventdata)
-    rows = []
-    for i, bid in enumerate(order):
+    rows, started = [], False
+    for i, item in enumerate(order):
+        bid = item.get("id", item.get("boat")) if isinstance(item, dict) else item
         _, last, _ = parts.get((cl, str(bid)), ("", "", ""))
-        rows.append({"pos": i + 1, "boat": str(bid), "surname": last,
-                     "nat": nats.get((cl, str(bid)), "")})
+        row = {"pos": i + 1, "boat": str(bid), "surname": last,
+               "nat": nats.get((cl, str(bid)), "")}
+        if isinstance(item, dict):
+            if item.get("laps") is not None:
+                row["laps"] = item["laps"]
+                if item["laps"] >= 1:
+                    started = True
+            if item.get("time") is not None:
+                row["time"] = item["time"]          # cumulative seconds at the last crossing
+        rows.append(row)
     return {
         "class": getclass(cl),
         "phase": race_kind(eventdata, cl),
@@ -43,6 +56,7 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
         "updated": updated,
         "unofficial": True,
         "live": live,
+        "started": started,                          # any boat has completed >=1 lap
         "view": dict(view) if view else dict(DEFAULT_VIEW),
         "order": rows,
     }

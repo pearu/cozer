@@ -52,6 +52,30 @@ def test_snapshot_custom_view_and_unknown_boat():
     assert snap["order"][1] == {"pos": 2, "boat": "999", "surname": "", "nat": ""}
 
 
+def test_snapshot_standings_dicts_laps_time_and_started():
+    # pass standings-style dicts -> laps/time flow through + started is derived
+    order = [{"id": "7", "laps": 2, "time": 40.0}, {"id": "14", "laps": 2, "time": 41.5},
+             {"id": "9", "laps": 1, "time": 22.0}]
+    snap = live.snapshot(ED, "F 500", "2", order, "T")
+    assert snap["started"] is True
+    assert snap["order"][0] == {"pos": 1, "boat": "7", "surname": "Tamm", "nat": "EST",
+                                "laps": 2, "time": 40.0}
+    assert snap["order"][2]["laps"] == 1 and snap["order"][2]["time"] == 22.0
+
+
+def test_snapshot_not_started_when_no_laps():
+    order = [{"id": "7", "laps": 0, "time": 0.0}, {"id": "14", "laps": 0, "time": 0.0}]
+    snap = live.snapshot(ED, "F 500", "1", order, "T")
+    assert snap["started"] is False
+    assert snap["order"][0]["laps"] == 0
+
+
+def test_snapshot_scalar_ids_have_no_laps_and_not_started():
+    snap = live.snapshot(ED, "F 500", "1", ["7", "14"], "T")   # back-compat scalar ids
+    assert snap["started"] is False
+    assert "laps" not in snap["order"][0] and "time" not in snap["order"][0]
+
+
 def test_stopped_snapshot():
     snap = live.stopped(ED, "F 500", "2", "T")
     assert snap["live"] is False
