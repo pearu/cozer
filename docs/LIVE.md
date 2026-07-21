@@ -60,11 +60,11 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 ```json
 {
   "class": "F 500", "phase": "circuit", "heat": "2",
-  "updated": "2026-08-15T14:32:05Z", "unofficial": true, "live": true,
+  "updated": "2026-08-15T14:32:05Z", "unofficial": true, "live": true, "started": true,
   "view": {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6},
   "order": [
-    {"pos": 1, "boat": "7",  "surname": "Tamm",  "nat": "EST"},
-    {"pos": 2, "boat": "14", "surname": "Ozols", "nat": "LAT"}
+    {"pos": 1, "boat": "7",  "surname": "Tamm",  "nat": "EST", "laps": 2, "time": 40.0},
+    {"pos": 2, "boat": "14", "surname": "Ozols", "nat": "LAT", "laps": 2, "time": 41.5}
   ]
 }
 ```
@@ -77,6 +77,11 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 - `updated` is stamped at publish time.
 - **`live`** is `true` while broadcasting; a **`false`** snapshot (empty `order`) is published when the
   operator unticks, so the viewer shows a *"live stream disabled"* state rather than stale positions.
+- **`started`** is `true` once any boat has completed ≥1 lap (crossed the first lap-line). The
+  broadcast overlay shows only NAT/boat/surname before start, then reveals laps + gap once started.
+- **`laps`** (completed laps) and **`time`** (cumulative seconds at the last crossing) per order row —
+  from `timer.standings(rec)`. The overlay shows `laps`, and the **gap** = this boat's `time` minus the
+  time of the boat one place ahead (or `+N L` when a lap down). Absent for a not-yet-started boat.
 - **`view`** carries the **operator-configured display parameters, set *in cozer***: `page_size`
   (rows per screen — the number of splits is ⌈field ÷ page_size⌉) and the dwell times
   (`top_dwell_s`, `page_dwell_s`). The viewer obeys these and holds no view constants; absent or
@@ -119,16 +124,24 @@ the tower. This is exactly why a *public* audience needs §8.)
 
 ## 7. The viewer
 
-A separate, self-contained branded page (not shipped inside cozer):
-- **Look:** broadcast timing tower — see the **published design-preview artifact** (dark marine
-  palette, aqua accent, gold leader row, class+phase header, `POS·No.·SURNAME·NAT` rows, COZER
-  footer, live timestamp, "unofficial" label, FLIP-animated reordering).
-- **Hosting:** for controlled screens, either a tiny **local HTML file** the operator opens, or a
-  **GitHub Pages** page (stable URL, takes `?gist=<id>`). Either polls the feed and re-renders.
-- **Logo:** COZER logo (owner-supplied) embedded; **no UIM logo** — the class name is the header
-  (D-LIVE-4).
-- Note: the preview artifact can't be the live viewer (artifact CSP blocks external fetch); it fixes
-  the *design*, the hosted page does the fetching.
+A separate, self-contained page (`docs/live-viewer.html`, on GitHub Pages), designed as a
+**chroma-key video overlay** (owner, D-LIVE-8):
+- **Layout:** **top-left**, **driver rows only** — no header/footer/column-header/total rows.
+  Columns **NAT (country flag) · boat# · surname**, and once **started** (`started` in the feed) also
+  **laps · gap** (time to the boat one place ahead, or `+N L` a lap down).
+- **Chroma-key:** everything that is **not text or a flag** is one uniform **`--key` navy**
+  (`#0a1a2f`) — no gradients, chips, borders, or row shading — so the stream keys that navy to
+  transparent, leaving only the text + flags. (Replaces the earlier "timing tower" chrome.)
+- **Flags:** **static repo data** — `docs/flags/<IOC>.svg` (206 flags, one per IOC code, public-domain
+  from flag-icons), keyed by the 3-letter code so the viewer needs no mapping and there is **no runtime
+  CDN** (works offline / on the venue LAN). A missing or failed flag **falls back to the code text**
+  (which is what the artifact preview shows — relative `flags/` doesn't resolve there).
+- **Hosting:** `https://pearu.github.io/cozer/live-viewer.html?gist=<id>` (+`&token=<pat>`); polls
+  ~2.5 s. The design-preview artifact can't fetch (CSP) so its flags show as codes — it fixes the
+  *design*; the hosted page does the fetching.
+- Dropped from this view (vs the tower): class/phase header, COZER footer, timestamp, "unofficial"
+  label, podium colors, paging bands — none survive the "rows only + uniform bg" rule. (The channel
+  directory §11 still carries the unofficial framing.)
 
 ## 8. Upgrade path (future — public audience)
 
@@ -193,6 +206,12 @@ page (alongside / after the live order). A larger feature — official-ish resul
 when/what to publish, and the official-vs-unofficial line. **Deferred**: plan once the live MVP has run
 at a real event.
 
+- **D-LIVE-8 — Viewer is a chroma-key overlay (owner 2026-07-21).** Top-left, rows-only, uniform
+  `--key` navy behind everything (keyed transparent on the video stream); columns NAT-flag · boat# ·
+  surname (+ laps · gap once started); flags are static repo data (docs/flags/<IOC>.svg, no CDN) with a code-text fallback. Reference:
+  the real OSY400 broadcast strip (`Pasted image.png`) — direction, not a copy. Feed gained
+  `started`/`laps`/`time` (§4); Timer passes `standings(rec)` so those flow.
+
 ## Change log
 - **2026-07-21** — Plan created; owner decisions D-LIVE-1..5 (gist MVP; controlled screens; event-driven
   cadence; class+phase header replacing the UIM logo, rows + COZER logo + update-time + unofficial
@@ -209,3 +228,7 @@ at a real event.
   per-event URLs via a `404.html` router; per-own-account discovery via a committed account list;
   feed `event`/`event_meta`/`station` fields; graceful same-name handling; sshfs robustness. §12: the
   corrected-results-on-page feature deferred.
+- **2026-07-21** — **Viewer reworked into a chroma-key overlay** (D-LIVE-8): top-left, rows-only,
+  uniform navy, NAT-flag · boat# · surname (+ laps · gap once started), flags bundled as docs/flags/<IOC>.svg (no CDN) + code fallback.
+  Feed gained `started`/`laps`/`time`; `live.snapshot` accepts `standings()` dicts (back-compat with
+  scalar ids); +tests (9 green). Timer to pass `standings(rec)`. Viewer + backend done (7948e787).
