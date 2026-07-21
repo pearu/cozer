@@ -1,10 +1,17 @@
 # Live ordering feed — unofficial real-time running order
 
-> **Status:** plan (2026-07-21, owner-decided). The MAINTENANCE_PLAN **Phase 7 / DoD #6** feature:
-> cozer publishes the *unofficial* live running order during a race to a small feed that a
-> broadcast-style viewer renders (like the on-screen order in motorsport TV). Seeded by `7948e787`;
-> reports/GUI/release are `b76f2173`'s domain — coordinate before implementing. Nothing here is built
-> yet. **Design preview of the viewer:** the published artifact (a dark "timing tower" mock).
+> **Status: BUILT + LIVE (2026-07-21).** The MAINTENANCE_PLAN **Phase 7 / DoD #6** feature: cozer
+> publishes the *unofficial* live running order during a race; a chroma-key browser overlay renders it
+> (like the on-screen order in motorsport TV). **Primary transport: a self-hosted server on the owner's
+> box, live at `https://live.cozer.ee/` with SSE push (~0.5 s latency) — see §8.** The GitHub gist path
+> (§6) is kept as a fallback. Built jointly by `7948e787` (feed / viewer / flags / this doc) and
+> `b76f2173` (Timer / live-server / deploy).
+>
+> **History (why two transports):** this doc was written **gist-first** (MVP, §6) — but the gist *raw*
+> path proved **~60 s stale** (GitHub refreshes raw content server-side only ~1/min; edge cache-busting
+> doesn't defeat it) and the *API* path is rate-limited + needs a token in the URL. So the transport
+> moved to the self-hosted server; the decoupled sink (§3) made that a drop-in — only `live.py`'s sink
+> and the viewer's data source changed.
 
 ## 1. What it is
 
@@ -45,13 +52,15 @@ The one design rule that protects the investment: cozer never talks to gist dire
 **publisher** computes an ordering snapshot and hands it to a pluggable **sink**:
 
 ```
-Timer crossing ──▶ order snapshot (from ladder()) ──▶ Publisher.emit(snapshot)
-                                                          └─▶ GistSink   (MVP, §6)
-                                                          └─▶ KV / Realtime sink (future, §8)
+Timer crossing ──▶ order snapshot (from standings()) ──▶ Publisher.emit(snapshot)
+                                                          └─▶ ServerSink (PRIMARY — self-hosted, §8)
+                                                          └─▶ GistSink   (fallback, §6)
 ```
 
-Swapping the transport later (for a public audience) touches only the sink — not the Timer or the
-ordering code. `cozer/app/live.py` (new), mirroring how `update.py` reuses `crashreport`.
+This decoupling paid off: moving the transport gist → self-hosted server touched **only** the sink
+(`live.py`'s `publish_server` vs `publish`) and the viewer's data source — the Timer, the snapshot
+shape (§4), and the overlay render were unchanged. `cozer/app/live.py` mirrors how `update.py` reuses
+`crashreport`.
 
 ## 4. Data model — the snapshot
 
@@ -91,23 +100,30 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 ## 5. cozer side (publisher + Timer)
 
 - **`cozer/app/live.py`** (built) — `snapshot(eventdata, cl, heat, order, updated, view=None, live=True)`
-  builds the §4 feed (`order` = leader-first boat ids, e.g. `[b["id"] for b in standings(rec)]`);
-  `stopped(...)` is the `live:false` untick snapshot; `publish(token, gist_id, snap)` PATCHes the gist
-  (or creates one, returning the new id) via `crashreport._http`.
+  builds the §4 feed (`order` = `standings(rec)` dicts or bare ids); `stopped(...)` is the `live:false`
+  untick snapshot. Two sinks: **`publish_server(base_url, channel, secret, snap)`** POSTs to the
+  self-hosted server (primary, §8); `publish(token, gist_id, snap)` PATCHes/creates the gist (fallback,
+  §6). Both raise-on-error; the Timer guards them off the timing path.
 - **Timer checkbox "Broadcast live order" — lifecycle (owner scenario):**
   - **on tick:** publish **immediately** from the current ladder order — pre-start that's the field in
     ladder order, so a viewer opened before the start already shows the grid;
-  - **on each crossing:** update (debounced ~1 post / 2–3 s, D-LIVE-3, off the timing path);
+  - **on each crossing:** update — throttled ~1 post / **0.5 s** to the self-hosted server (no rate
+    limit → low latency; 2.5 s for the gist fallback), off the timing path;
   - **on untick:** publish `live.stopped(...)` → the viewer shows "live stream disabled".
-  The **clickable/copyable viewer URL** sits next to the checkbox once the gist exists (`e3dbe03`).
-- **Broadcast/view settings (in cozer)** — page size / number of splits + dwell times (the `view`
-  block, §4) are set here and shipped in every snapshot, so the operator tunes the display without
-  touching the viewer. Sensible per-event home; stored with the broadcast config.
+  The **clickable/copyable viewer URL** sits next to the checkbox (server: `<live_server_url>/?channel=
+  <channel>`; gist: `…/live-viewer.html?gist=<id>`).
+- **"Broadcast settings…" dialog (Timer)** — sets `live_server_url`, `live_publish_secret`, and
+  `live_channel` in cozer's config; with the URL + secret present cozer publishes to the **server**,
+  else it falls back to the **gist**. (View params — `max_rows`/`poll_s`/dwell — ride in the `view`
+  block, §4, so the operator tunes the display without touching the viewer.)
 - **Never block timing.** Reuse the crashreport **offline-tolerant** pattern: a failed/slow publish is
   swallowed (log + skip), off the Timer's critical path — timing must never stall for the network.
 - **What's broadcast** = the Timer's current `(class, heat)`.
 
-## 6. The gist + sharing the URL (owner's question)
+## 6. The gist + sharing the URL (FALLBACK transport)
+
+> Gist is now the **fallback** (the self-hosted server, §8, is primary). This section is the original
+> gist-MVP design, kept for when cozer has no `live_server_url` configured.
 
 **Recommended: one persistent gist, set up once — not per event.**
 - On first broadcast cozer **creates a gist** (`POST /gists`) and stores its id in cozer's **user
@@ -137,20 +153,45 @@ A separate, self-contained page (`docs/live-viewer.html`, on GitHub Pages), desi
   from flag-icons), keyed by the 3-letter code so the viewer needs no mapping and there is **no runtime
   CDN** (works offline / on the venue LAN). A missing or failed flag **falls back to the code text**
   (which is what the artifact preview shows — relative `flags/` doesn't resolve there).
-- **Hosting:** `https://pearu.github.io/cozer/live-viewer.html?gist=<id>` (+`&token=<pat>`); polls
-  ~2.5 s. The design-preview artifact can't fetch (CSP) so its flags show as codes — it fixes the
-  *design*; the hosted page does the fetching.
+- **Hosting / data source:** primary — served by the self-hosted server at
+  `https://live.cozer.ee/?channel=<channel>`, which uses **SSE** (`EventSource("/stream/<channel>")`,
+  sub-second) with a **poll fallback** (`/live/<channel>.json`); `?src=<url>` polls any feed URL.
+  Fallback — the gist path on GitHub Pages, `…/live-viewer.html?gist=<id>` (`&user=<login>` raw /
+  `&token=<pat>` API, §6/§13). The same `docs/live-viewer.html` serves both — only the data-source
+  branch differs; the render/flags/paging code is shared. (The design-preview artifact can't fetch
+  (CSP) so its flags show as codes — it fixes the *design*.)
 - Dropped from this view (vs the tower): class/phase header, COZER footer, timestamp, "unofficial"
   label, podium colors, paging bands — none survive the "rows only + uniform bg" rule. (The channel
   directory §11 still carries the unofficial framing.)
 
-## 8. Upgrade path (future — public audience)
+## 8. Self-hosted live server (PRIMARY transport — built, live at `https://live.cozer.ee/`)
 
-When a public, sub-second, many-viewer feed is wanted, swap the sink (§3) — no Timer/ordering rework:
-- **Serverless KV** (Cloudflare Worker+KV / Deno Deploy / Val.town): cozer POSTs, viewers GET; low
-  latency, free, minimal infra.
-- **Realtime DB** (Firebase Realtime DB / Supabase Realtime): true websocket push to the viewer,
-  scales to a public audience. The real-deal target; needs a service + keys.
+The owner's own box (fixed IP, fiber) runs a tiny server that holds the latest snapshot per channel and
+serves viewers directly — fresh, no rate limit, no token in any URL. This is the primary transport; it
+replaced the gist (whose raw path was ~60 s stale — see the header).
+
+**`deploy/live-server/`** (see its `README.md` + the owner's git-ignored `live_cozer_ee-setup.txt`):
+- **`server.py`** — stdlib only, binds `127.0.0.1:8099`; snapshots kept **in memory** (a restart drops
+  them, cozer re-publishes on the next tick → self-heals). Endpoints:
+  - `POST /publish/<channel>` — operator writes the latest snapshot; auth = shared secret in the
+    `X-Publish-Secret` header (`== PUBLISH_SECRET` env). Body-size-capped + JSON-validated.
+  - `GET /live/<channel>.json` — public read of the latest snapshot (CORS `*`, `no-store`).
+  - `GET /stream/<channel>` — **SSE push**: sends the current snapshot, then each new one the instant
+    it's published (sub-second); 15 s keepalive; per-stream queue fed by `publish`.
+  - serves the **viewer** (`/`, `/live-viewer.html`) + **flags** (`/flags/<IOC>.svg`) static, so the
+    overlay is **same-origin** (no CORS) at `live.cozer.ee`.
+- **`Caddyfile`** — Caddy fronts it: automatic Let's Encrypt HTTPS for `live.cozer.ee`, reverse-proxy to
+  `127.0.0.1:8099`, `flush_interval -1` so SSE isn't buffered. Only Caddy is internet-facing.
+- **`cozer-live.service`** — systemd unit (boot-start, `Restart=always`, `NoNewPrivileges`,
+  `PrivateTmp`); reads the secret from root-only `/etc/cozer-live.env`.
+- **Ports:** router forwards **80 + 443** (one-time); 80 = cert challenge + redirect, 443 serves all.
+  Add more services later by hostname (a new Caddy block) — no new port changes.
+
+**Why self-host over a managed backend** (the earlier "future" options — Cloudflare KV / Firebase /
+Supabase): the owner already has a fixed-IP fiber box → full control, no third-party account/limits;
+and plain KV stores are *eventually consistent* (~60 s), which would repeat the gist problem — an SSE
+**push** server avoids it. Trade-off: it's a single box (owner's home server), so **the gist path (§6)
+stays as the documented fallback** if the server is unreachable.
 
 ## 9. Caveats
 
@@ -215,6 +256,10 @@ at a real event.
 
 ## 13. Rate limits & the broadcast account (2026-07-21)
 
+> **Now that the self-hosted server (§8) is primary, this whole section applies only to the gist
+> *fallback*.** The server has **no rate limit**, is always fresh, and needs no token in any URL — it
+> sidesteps everything below. Kept for when the gist path is used.
+
 The gist API has two limits: **60 req/hour anonymous** (per IP) and **5,000 req/hour authenticated**
 (per account). This decides how viewers fetch and whether a dedicated account is worth it.
 
@@ -262,3 +307,10 @@ The gist API has two limits: **60 req/hour anonymous** (per IP) and **5,000 req/
   rate-limited, anonymous-safe, no token-in-URL), never-blanks (status + last-good render), and takes
   its poll interval from **`view.poll_s`** (default 3 s). Recommend cozer surface the URL with
   `&user=<login>` and read `X-RateLimit-*` headers for a live budget readout; a bot account deferred.
+- **2026-07-21/22** — **Transport moved off the gist to a self-hosted server** (owner + `b76f2173`),
+  live at `https://live.cozer.ee/` (630 green). New `deploy/live-server/` (stdlib `server.py`:
+  `POST /publish/<ch>` secret-authed, `GET /live/<ch>.json`, `GET /stream/<ch>` SSE, + serves the
+  viewer/flags) behind Caddy (auto-HTTPS) + systemd; `live.publish_server()`; Timer "Broadcast
+  settings…" dialog + server-or-gist selection + 500 ms throttle; viewer `?channel=`/`?src=` with SSE +
+  poll fallback (gist path kept as fallback). **Doc updated (this pass, `7948e787`):** header/§3/§5/§7,
+  §8 rewritten to the self-hosted server (was "future upgrade"), §13 scoped to the gist fallback.
