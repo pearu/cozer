@@ -141,3 +141,10 @@ superseded.
     = **cozer-environment only**, self-updating to the latest cozer wheel on install/first run.
     **Offline first-run (owner-decided):** if there's no internet, use a cozer wheel sitting in the
     same directory as the installer if present, otherwise fail gracefully with a clear message.
+  - **Re-install / upgrade (owner-decided):** constructor does NOT cleanly overwrite an existing
+    install — it errors "File or directory already exists" and expects an empty target (constructor
+    #804; the NSIS GUI exposes no in-place overwrite). So install into a **versioned directory**
+    `cozer-<installer-version>` (e.g. `cozer-2026.07`, set via constructor `default_prefix`): each
+    installer version lands in a fresh dir (never collides), versions coexist, and the fixed-name
+    Desktop/Start shortcut (`COZER.lnk`) is repointed to the newest by `post_install`. Old env dirs
+    can be deleted at leisure. (Windows-only.)
