@@ -40,6 +40,68 @@ def install_kind():
     return "wheel"
 
 
+def env_version():
+    """The ENVIRONMENT (installer) version, read from the versioned install dir name -- the installer
+    installs into ``cozer-<YYYY.MM>`` (see construct.yaml default_prefix), so ``2026.07`` here. None
+    for a source/pip install whose ``sys.prefix`` isn't a versioned cozer dir."""
+    base = os.path.basename(os.path.normpath(sys.prefix))
+    m = re.match(r"(?i)cozer-(\d{4}\.\d{2}(?:\.\d+)?)$", base)
+    return m.group(1) if m else None
+
+
+def git_hash(gitdir=None):
+    """The short git commit hash when running from a source checkout; None otherwise. Reads it
+    straight from the ``.git`` files (HEAD -> ref -> refs file, with a packed-refs fallback) rather
+    than spawning ``git`` -- the git binary may be unavailable, or unable to operate on a ``.git`` dir
+    on an sshfs mount, whereas plain file reads work fine. Lets a screenshot pin the exact local build."""
+    if gitdir is None:
+        pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # .../cozer
+        gitdir = os.path.join(os.path.dirname(pkg_root), ".git")                 # repo root/.git, if source
+    try:
+        if os.path.isfile(gitdir):              # worktree/submodule: ".git" is a "gitdir: <path>" file
+            with open(gitdir, encoding="utf-8") as f:
+                line = f.read().strip()
+            if not line.startswith("gitdir:"):
+                return None
+            p = line[len("gitdir:"):].strip()
+            gitdir = p if os.path.isabs(p) else os.path.normpath(os.path.join(os.path.dirname(gitdir), p))
+        if not os.path.isdir(gitdir):
+            return None
+        with open(os.path.join(gitdir, "HEAD"), encoding="utf-8") as f:
+            head = f.read().strip()
+        if not head.startswith("ref:"):
+            return head[:7] or None             # detached HEAD: a raw sha
+        ref = head[4:].strip()                  # e.g. "refs/heads/main"
+        refpath = os.path.join(gitdir, *ref.split("/"))
+        if os.path.isfile(refpath):
+            with open(refpath, encoding="utf-8") as f:
+                return f.read().strip()[:7] or None
+        packed = os.path.join(gitdir, "packed-refs")   # ref not loose -> look in packed-refs
+        if os.path.isfile(packed):
+            with open(packed, encoding="utf-8") as f:
+                for entry in f:
+                    entry = entry.strip()
+                    if entry and not entry.startswith(("#", "^")) and entry.endswith(" " + ref):
+                        return entry.split()[0][:7]
+        return None
+    except OSError:
+        return None
+
+
+def version_label():
+    """Compact build identity for the window title, so a screenshot shows exactly what's running: the
+    cozer version, the environment version (installer dir, if any), and the git short hash (source
+    checkouts). E.g. ``3.0.0rc5`` / ``3.0.0rc5 · env 2026.07`` / ``3.0.0rc5 · git 1a2b3c4``."""
+    parts = [__version__]
+    env = env_version()
+    if env:
+        parts.append("env " + env)
+    gh = git_hash()
+    if gh:
+        parts.append("git " + gh)
+    return " · ".join(parts)
+
+
 def _clean(v):
     return (v or "").strip().lstrip("vV")
 

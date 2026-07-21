@@ -77,3 +77,43 @@ def test_recommend_by_install_kind():
     # a plain pip/wheel install whose release somehow has no wheel -> just open the release page
     r = update.recommend(_res("wheel", assets=[]))
     assert r["action"] == "link" and r["url"] == "https://rel"
+
+
+def test_env_version_from_prefix(monkeypatch):
+    # the ENVIRONMENT version is read from the versioned install dir name (cozer-<YYYY.MM>)
+    monkeypatch.setattr("sys.prefix", "/opt/cozer-2026.07")
+    assert update.env_version() == "2026.07"
+    monkeypatch.setattr("sys.prefix", "/opt/cozer-2026.07.3")
+    assert update.env_version() == "2026.07.3"
+    monkeypatch.setattr("sys.prefix", "/home/x/miniconda3/envs/cozer")     # not versioned -> None
+    assert update.env_version() is None
+
+
+def _write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(text)
+
+
+def test_git_hash_reads_dot_git_without_git(tmp_path):
+    sha = "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+    g = tmp_path / "loose" / ".git"
+    _write(str(g / "HEAD"), "ref: refs/heads/main\n")
+    _write(str(g / "refs" / "heads" / "main"), sha + "\n")
+    assert update.git_hash(str(g)) == sha[:7]                              # loose ref
+
+    g2 = tmp_path / "packed" / ".git"
+    _write(str(g2 / "HEAD"), "ref: refs/heads/main\n")                     # ref file absent -> packed-refs
+    _write(str(g2 / "packed-refs"), "# pack-refs with: peeled\n%s refs/heads/main\n" % sha)
+    assert update.git_hash(str(g2)) == sha[:7]
+
+    g3 = tmp_path / "detached" / ".git"
+    _write(str(g3 / "HEAD"), sha + "\n")                                   # detached HEAD: raw sha
+    assert update.git_hash(str(g3)) == sha[:7]
+
+    assert update.git_hash(str(tmp_path / "nope" / ".git")) is None        # no .git -> None
+
+
+def test_version_label_leads_with_cozer_version():
+    from cozer import __version__
+    assert update.version_label().split(" · ")[0] == __version__      # "<version> [· env …] [· git …]"

@@ -1132,9 +1132,13 @@ class MainWindow(QMainWindow):
             open_in_viewer(path)
 
     def _refresh_title(self):
+        if not hasattr(self, "_build_label"):    # version/env/git stamp -- computed once (runs git)
+            from cozer.app import update
+            self._build_label = update.version_label()
         kind = " [ruleset]" if rulesetmod.is_ruleset(self.eventdata) else ""
-        self.setWindowTitle("COZER%s — %s"
-                            % (kind, self.store.path if self.store else "(unsaved)"))
+        self.setWindowTitle("COZER %s%s — %s"
+                            % (self._build_label, kind,
+                               self.store.path if self.store else "(unsaved)"))
 
 
 def _startup_paths(argv):

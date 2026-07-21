@@ -972,6 +972,16 @@ def _timer_event():
     }
 
 
+def test_window_title_shows_build_version():
+    # a screenshot must reveal the running build: the title carries the cozer version (+ the git hash
+    # when run from a source checkout) so a reported screenshot's version is obvious.
+    from cozer import __version__
+    _app()
+    w = MainWindow(_timer_event())
+    title = w.windowTitle()
+    assert title.startswith("COZER ") and __version__ in title
+
+
 def _save_as(w, path, monkeypatch):
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (path, "")))
