@@ -117,9 +117,10 @@ def test_publish_updates_when_id_else_creates():
 def test_publish_server_posts_snapshot_with_secret():
     snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
     t = FakeTransport(status=200)
-    assert live.publish_server("https://live.cozer.ee/", "harku", "s3cr3t", snap, transport=t) == "harku"
+    # publish_server(base_url, eventname, channel, secret, snap) -> the feed path (docs/broadcast-urls.md)
+    assert live.publish_server("https://live.cozer.ee/", "0726", "a", "s3cr3t", snap, transport=t) == "0726/feed/a"
     method, url, headers, body = t.calls[0]
-    assert method == "POST" and url == "https://live.cozer.ee/publish/harku"    # trailing '/' stripped
+    assert method == "POST" and url == "https://live.cozer.ee/_publish/0726/feed/a"   # trailing '/' stripped
     assert headers["X-Publish-Secret"] == "s3cr3t"                              # secret in the header
     assert body == snap                                                        # snapshot JSON is the body
 
@@ -127,4 +128,4 @@ def test_publish_server_posts_snapshot_with_secret():
 def test_publish_server_raises_on_non_2xx():
     import pytest
     with pytest.raises(RuntimeError):
-        live.publish_server("https://x", "c", "bad", {"a": 1}, transport=FakeTransport(status=401))
+        live.publish_server("https://x", "e", "a", "bad", {"a": 1}, transport=FakeTransport(status=401))

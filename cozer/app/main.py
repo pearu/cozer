@@ -348,6 +348,7 @@ class MainWindow(QMainWindow):
             self.editor_panel.refresh_heats()
         elif self.tabs.widget(idx) is self._reports_tab:
             self._reload_classes()          # pick up classes/heats recorded on other tabs
+            self._reload_broadcast_settings()   # reflect the current config + event (fresh on entry)
 
     def closeEvent(self, event):
         # Don't let unsaved race edits vanish on quit.
@@ -694,6 +695,7 @@ class MainWindow(QMainWindow):
         self.classnames_editor.set_data(self.eventdata["classnames"])
         self.scoring_edit.setText(" ".join(str(x) for x in self.eventdata["scoringsystem"]))
         self._reload_classes()
+        self._reload_broadcast_settings()   # populate the Reports-tab live-broadcast fields
         self.timer_panel.reload()
         self.editor_panel.reload()
         self._apply_kind()
@@ -1003,6 +1005,41 @@ class MainWindow(QMainWindow):
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
         v.addWidget(opts)
+
+        # Live broadcast (docs/broadcast-urls.md §4): all the live.cozer.ee settings live here (broadcast
+        # and reports are both *outputs*). The server URL + publish secret go to cozer config (per
+        # operator; the secret must NEVER reach the .coz -- its content is embedded in bug reports). The
+        # event name + channel go to the event, forming the public address <server>/<event>/feed/<channel>/.
+        live = QGroupBox("Live broadcast")
+        lf = QFormLayout(live)
+        lintro = QLabel("Publish the unofficial live running order to your own live server. The event "
+                        "name and channel form the public address "
+                        "<b>&lt;server&gt;/&lt;event&gt;/feed/&lt;channel&gt;/</b> — turn it on from the "
+                        "Timer tab.")
+        lintro.setWordWrap(True)
+        lf.addRow(lintro)
+        self.live_url_edit = QLineEdit()
+        self.live_url_edit.setPlaceholderText("https://live.cozer.ee")
+        self.live_secret_edit = QLineEdit()
+        self.live_secret_edit.setEchoMode(QLineEdit.Password)     # the publish secret is masked
+        self.live_secret_edit.setToolTip("Kept in cozer's own settings, never written to the event "
+                                         "file (so it can't leak through a bug report).")
+        self.live_event_edit = QLineEdit()
+        self.live_event_edit.setToolTip("A short broadcast name, lowercase (letters, digits, hyphens). "
+                                        "Left blank, cozer uses the current month+year, e.g. 0726.")
+        self.live_channel_edit = QLineEdit()
+        self.live_channel_edit.setPlaceholderText("a")
+        self.live_channel_edit.setToolTip("Separate feed for a second timekeeper on the same event "
+                                          "(a, b, …). Left blank, it is 'a'.")
+        lf.addRow("Live server URL:", self.live_url_edit)
+        lf.addRow("Publish secret:", self.live_secret_edit)
+        lf.addRow("Event name:", self.live_event_edit)
+        lf.addRow("Channel:", self.live_channel_edit)
+        live_save = QPushButton("Save broadcast settings")
+        live_save.clicked.connect(self._save_broadcast_settings)
+        lf.addRow("", live_save)
+        v.addWidget(live)
+
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
         self.report_tree = QTreeWidget()
         self.report_tree.setHeaderHidden(True)
@@ -1017,6 +1054,39 @@ class MainWindow(QMainWindow):
         btnrow.addWidget(export)
         v.addLayout(btnrow)
         return w
+
+    def _reload_broadcast_settings(self):
+        """Populate the Reports-tab live-broadcast fields from cozer config (server URL + secret) and
+        the event (name + channel). Called on load + on each Reports-tab entry (not on every class
+        change, so it never stomps an in-progress edit)."""
+        if not hasattr(self, "live_url_edit"):
+            return
+        from cozer.app import broadcast, crashreport
+        cfg = crashreport.load_config()
+        self.live_url_edit.setText(cfg.get("live_server_url") or "")
+        self.live_secret_edit.setText(cfg.get("live_publish_secret") or "")
+        b = self.eventdata.get("broadcast") or {}
+        self.live_event_edit.setText(b.get("eventname") or "")
+        self.live_channel_edit.setText(b.get("channel") or "")
+        self.live_event_edit.setPlaceholderText(broadcast.default_event_name())   # the MMYY it would use
+
+    def _save_broadcast_settings(self):
+        """Persist the live-broadcast settings (docs/broadcast-urls.md §3). Server URL + publish secret
+        -> cozer config (per operator; the secret is NEVER written to the .coz). Event name + channel ->
+        the event, slugified (blank -> the MMYY / 'a' defaults). Echoes the normalized values back and
+        refreshes the Timer's viewer link + toggle."""
+        from cozer.app import broadcast, crashreport
+        cfg = crashreport.load_config()
+        cfg["live_server_url"] = self.live_url_edit.text().strip()
+        cfg["live_publish_secret"] = self.live_secret_edit.text().strip()
+        crashreport.save_config(cfg)
+        en, ch = broadcast.set_broadcast(self.eventdata,
+                                         self.live_event_edit.text(), self.live_channel_edit.text())
+        self.live_event_edit.setText(en)          # echo the normalized (slugified) values back
+        self.live_channel_edit.setText(ch)
+        self.timer_panel._update_viewer_url()
+        self.timer_panel._refresh_broadcast_button()
+        self.log("Broadcast settings saved (event '%s', channel '%s')." % (en, ch))
 
     def _reload_classes(self):
         """Populate the Reports tab's class/heat tree, preserving the operator's checks.

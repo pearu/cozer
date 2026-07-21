@@ -1352,16 +1352,16 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
                         lambda ed, cl, h, updated, view=None: snaps.append(("stopped", None)) or {"s": 1})
     monkeypatch.setattr(live, "publish", lambda token, gid, snap, transport=None: "GID123")
 
-    # toggling on without sign-in prompts + auto-clears (can't publish without a token)
-    tp.broadcast_cb.setChecked(True)
-    assert not tp.broadcast_cb.isChecked() and "Sign in" in tp.status.text()
+    # toggling on with nothing configured points to the Reports tab + auto-clears (no transport)
+    tp.broadcast_btn.setChecked(True)
+    assert not tp.broadcast_btn.isChecked() and "Reports tab" in tp.status.text()
 
     # signed in + a race selected -> ticking publishes the field IMMEDIATELY (no crossing needed)
     cr.save_config({"token": "gho_x", "login": "pearu"})
     tp.race_combo.setCurrentIndex(0)
     tp._publishing = False
-    tp.broadcast_cb.setChecked(True)
-    assert tp.broadcast_cb.isChecked() and snaps and snaps[-1][0] == "order"   # published on tick
+    tp.broadcast_btn.setChecked(True)
+    assert tp.broadcast_btn.isChecked() and snaps and snaps[-1][0] == "order"   # published on tick
     assert cr.load_config().get("live_gist_id") == "GID123"                    # created gist id persisted
     assert not tp.viewer_row.isHidden()                                        # viewer URL surfaced
     assert tp._viewer_url == "https://pearu.github.io/cozer/live-viewer.html?gist=GID123"
@@ -1370,7 +1370,7 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
 
     # unticking publishes a 'stopped' snapshot so the viewer shows the stream disabled
     tp._publishing = False
-    tp.broadcast_cb.setChecked(False)
+    tp.broadcast_btn.setChecked(False)
     assert snaps[-1][0] == "stopped" and "off" in tp.status.text()
 
     # a failed publish is guarded (never breaks timing): status note, gist id unchanged
@@ -1441,35 +1441,47 @@ def test_timer_broadcast_via_server(tmp_path, monkeypatch):
     monkeypatch.setattr(threading, "Thread", _Sync)
     posts = []
     monkeypatch.setattr(live, "snapshot", lambda *a, **k: {"n": 1})
-    monkeypatch.setattr(live, "publish_server",
-                        lambda url, ch, secret, snap: posts.append((url, ch, secret)) or ch)
+    monkeypatch.setattr(live, "publish_server",                # (base_url, eventname, channel, secret, snap)
+                        lambda url, en, ch, secret, snap: posts.append((url, en, ch, secret)) or "%s/feed/%s" % (en, ch))
     monkeypatch.setattr(live, "publish",                       # the gist path must NOT be used
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("gist used in server mode")))
 
-    cr.save_config({"live_server_url": "https://live.cozer.ee",
-                    "live_publish_secret": "sek", "live_channel": "harku"})
+    # event name + channel live in the event (.coz); server URL + secret in cozer config
+    tp.eventdata["broadcast"] = {"eventname": "0726", "channel": "harku"}
+    cr.save_config({"live_server_url": "https://live.cozer.ee", "live_publish_secret": "sek"})
     tp.race_combo.setCurrentIndex(0)
     tp._publishing = False
-    tp.broadcast_cb.setChecked(True)                          # no token, but server config -> allowed
-    assert tp.broadcast_cb.isChecked()
-    assert posts and posts[-1] == ("https://live.cozer.ee", "harku", "sek")     # published to the server
-    assert tp._viewer_url == "https://live.cozer.ee/?channel=harku"             # viewer link -> server channel
+    tp.broadcast_btn.setChecked(True)                          # no token, but server config -> allowed
+    assert tp.broadcast_btn.isChecked()
+    assert posts and posts[-1] == ("https://live.cozer.ee", "0726", "harku", "sek")   # published to the server
+    assert tp._viewer_url == "https://live.cozer.ee/0726/feed/harku/"           # viewer link -> the feed path
     assert not tp.viewer_row.isHidden()
     assert cr.load_config().get("live_gist_id") is None                        # nothing gist-related stored
 
 
 def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
-    # the Broadcast-settings dialog caches server URL + publish secret + channel in cozer config
-    # (persist across restarts); saving refreshes the viewer link to the server channel.
+    # The Reports-tab "Live broadcast" section stores the server URL + publish secret in cozer config
+    # (persist across restarts) and the event name + channel in the event, slugified. The publish
+    # secret must NEVER reach the event (its content is embedded verbatim in bug reports). Saving
+    # refreshes the Timer viewer link to the feed path.
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import json
     import cozer.app.crashreport as cr
     _app()
-    tp = MainWindow(_timer_event()).timer_panel
-    tp._apply_broadcast_settings("https://live.cozer.ee/", "  sek  ", "harku")
+    w = MainWindow(_timer_event())
+    w.live_url_edit.setText("https://live.cozer.ee/")
+    w.live_secret_edit.setText("  sek  ")
+    w.live_event_edit.setText("Harku 2026")                    # free text -> slugified into the event
+    w.live_channel_edit.setText("A")
+    w._save_broadcast_settings()
     cfg = cr.load_config()
     assert cfg["live_server_url"] == "https://live.cozer.ee/"                   # stored (rstrip at use)
-    assert cfg["live_publish_secret"] == "sek" and cfg["live_channel"] == "harku"   # trimmed
-    assert tp._viewer_url == "https://live.cozer.ee/?channel=harku" and not tp.viewer_row.isHidden()
+    assert cfg["live_publish_secret"] == "sek"                                  # trimmed
+    assert w.eventdata["broadcast"] == {"eventname": "harku-2026", "channel": "a"}   # slugified, in the event
+    assert w.live_event_edit.text() == "harku-2026" and w.live_channel_edit.text() == "a"   # echoed back
+    assert "sek" not in json.dumps(w.eventdata)                                 # the secret never in the event
+    assert w.timer_panel._viewer_url == "https://live.cozer.ee/harku-2026/feed/a/"   # viewer -> the feed path
+    assert not w.timer_panel.viewer_row.isHidden()
 
 
 def test_timer_race_combo_popup_fits_labels():

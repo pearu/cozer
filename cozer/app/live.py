@@ -11,6 +11,7 @@ never blocks timing (LIVE.md §5). Keeping this layer raise-on-error keeps it te
 import json
 
 from cozer.app import crashreport
+from cozer.app.broadcast import feed_path        # light, shared with the Timer / Reports settings
 from cozer.classes import getclass
 from cozer.racepattern import race_kind
 from cozer.reports.common import nationalities_index, participants_index
@@ -103,16 +104,16 @@ def _http_post(method, url, headers, data):        # pragma: no cover - real net
         return resp.status, resp.read()
 
 
-def publish_server(base_url, channel, secret, snap, transport=None):
-    """Publish ``snap`` to the self-hosted live server (deploy/live-server): POST the snapshot JSON to
-    ``<base_url>/publish/<channel>`` with the shared secret in the ``X-Publish-Secret`` header. This is
-    the primary transport -- fresh (viewers see the newest within their poll interval), no token in any
-    URL, no rate limit -- with the gist path above kept as a fallback. ``transport(method, url, headers,
-    data)`` is injectable for tests. Raises on a non-2xx or network error (the Timer guards it)."""
-    url = "%s/publish/%s" % (base_url.rstrip("/"), channel)
+def publish_server(base_url, eventname, channel, secret, snap, transport=None):
+    """Publish ``snap`` to the self-hosted live server: POST the snapshot JSON to
+    ``<base_url>/_publish/<eventname>/feed/<channel>`` with the shared secret in the
+    ``X-Publish-Secret`` header (docs/broadcast-urls.md). Primary transport -- fresh, no token in any
+    URL, no rate limit (the gist path above is the fallback). ``transport(method, url, headers, data)``
+    is injectable for tests. Raises on a non-2xx or network error (the Timer guards it)."""
+    url = "%s/_publish/%s" % (base_url.rstrip("/"), feed_path(eventname, channel))
     body = json.dumps(snap, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json", "X-Publish-Secret": secret, "User-Agent": "cozer"}
     status, _ = (transport or _http_post)("POST", url, headers, body)
     if not 200 <= (status or 0) < 300:
         raise RuntimeError("live server publish failed: HTTP %s" % status)
-    return channel
+    return feed_path(eventname, channel)
