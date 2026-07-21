@@ -7,6 +7,10 @@ import pytest
 # offscreen platform plugin.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+# Never let constructing a MainWindow fire the startup update check (a real network call to
+# GitHub) during the suite.
+os.environ.setdefault("COZER_NO_UPDATE_CHECK", "1")
+
 
 @pytest.fixture(autouse=True)
 def _auto_confirm_dialogs(monkeypatch):

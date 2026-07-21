@@ -77,11 +77,14 @@ either asset by suffix.) Live from **`v3.0.0rc2`**: the direct link `releases/la
 COZER-Setup-Windows.exe` resolves (302 → the rc2 asset). `v3.0.0rc1` (versioned asset) is
 superseded.
 
-### Phase 3 — optional polish
-- **Throttled startup check** (once/day, background, reusing the offline-tolerant Reporter
-  pattern) → an unobtrusive "update available" line; manual "Check now" always present.
-- **PyPI publish** (would enable a plain `pip install -U cozer` for the wheel path) — decide later;
-  not required since the wheel ships as a Release asset.
+### Phase 3 — polish
+- ✅ **Startup update check** (owner-refined: startup-only, non-blocking). Checks once **when COZER
+  is opened** — not a periodic timer — in a **background thread**, so no internet or a slow
+  connection never blocks or delays opening COZER. A newer release is noted **unobtrusively** in the
+  Log (and the status bar); silent when up to date or offline. Manual **Help ▸ Check for updates…**
+  is unchanged. Skipped under tests via `COZER_NO_UPDATE_CHECK`.
+- **PyPI publish** (would enable a plain `pip install -U cozer` for the wheel path) — deferred; not
+  required since the wheel ships as a Release asset.
 
 ## 4. Safety / principles
 - Never auto-apply; always confirm and show the release notes first.
@@ -111,3 +114,7 @@ superseded.
   behind the scenes, no exe download) + jargon-free update dialogs (operators never see "pip").
   Verified: `releases/latest` = rc3, direct link resolves, and `recommend()` for a Windows install
   now returns the fast wheel update.
+- **2026-07-21** — **Phase 3 startup check done** (owner: startup-only, non-blocking). MainWindow
+  fires one background update check on open (`_start_update_check` → thread → `_update_ready`
+  signal → `_on_update_check_result` logs an unobtrusive notice if newer). No timer; no blocking on
+  no/slow internet. Disabled in tests (`COZER_NO_UPDATE_CHECK`, set in conftest). 608 green.

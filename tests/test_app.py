@@ -1730,6 +1730,42 @@ def test_apply_update_dispatches_by_install_kind(monkeypatch):
     assert not opened and not ran                                  # source -> informational only
 
 
+def test_startup_update_check(monkeypatch):
+    # Phase 3: the startup check runs once, in the background (no blocking), and notes an available
+    # update unobtrusively via the Log; it is silent when up to date / offline, and it never runs
+    # under tests (COZER_NO_UPDATE_CHECK, set by conftest).
+    _app()
+    w = MainWindow()
+    logs = []
+    monkeypatch.setattr(w, "log", logs.append)
+    w._on_update_check_result({"available": True, "latest": {"name": "cozer v9.9.9", "tag": "v9.9.9"}})
+    assert logs and "available" in logs[-1] and "v9.9.9" in logs[-1]     # noted in the Log
+    logs.clear()
+    w._on_update_check_result({"available": False, "latest": {"tag": "v1"}})
+    w._on_update_check_result(None)                                     # offline -> None
+    assert not logs                                                    # silent when up-to-date/offline
+    # the env guard skips the network check entirely under the suite
+    import cozer.app.update as upd
+    called = []
+    monkeypatch.setattr(upd, "check", lambda *a, **k: called.append(1))
+    w._start_update_check()
+    assert not called
+    # with the guard cleared, the background worker does call update.check (run the thread inline)
+    monkeypatch.delenv("COZER_NO_UPDATE_CHECK", raising=False)
+    import threading
+
+    class _Sync:
+        def __init__(self, target=None, daemon=None):
+            self._t = target
+
+        def start(self):
+            self._t()
+    monkeypatch.setattr(threading, "Thread", _Sync)
+    monkeypatch.setattr(upd, "check", lambda *a, **k: called.append("ran") or {"available": False, "latest": None})
+    w._start_update_check()
+    assert called == ["ran"]
+
+
 def test_report_bug_queues_when_offline(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)

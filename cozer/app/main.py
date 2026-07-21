@@ -15,7 +15,7 @@ import subprocess
 import sys
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow,
@@ -265,6 +265,8 @@ def _install_excepthook(window):     # pragma: no cover - process-global; needs 
 
 
 class MainWindow(QMainWindow):
+    _update_ready = Signal(object)   # carries the startup update-check result (dict or None)
+
     def __init__(self, eventdata=None):
         super().__init__()
         self.store = None
@@ -298,6 +300,33 @@ class MainWindow(QMainWindow):
         self._reload_forms()
         self._refresh_title()
         self.log("Ready")
+        self._update_ready.connect(self._on_update_check_result)
+        self._start_update_check()
+
+    def _start_update_check(self):
+        """Check once, at startup, for a newer release — in a background thread, so no internet (or
+        a slow connection) never blocks or delays opening COZER. There is no repeat/timer: this runs
+        only now. Skipped under tests (COZER_NO_UPDATE_CHECK)."""
+        if os.environ.get("COZER_NO_UPDATE_CHECK"):
+            return
+        import threading
+        from cozer.app import update
+
+        def worker():
+            try:
+                res = update.check()
+            except Exception:
+                res = None
+            self._update_ready.emit(res)         # cross-thread -> queued onto the GUI thread
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_update_check_result(self, res):
+        """(GUI thread) If the startup check found a newer version, note it unobtrusively — one Log
+        line (and the status bar). No pop-up; the operator installs it via Help ▸ Check for updates…."""
+        if res and res.get("available") and res.get("latest"):
+            name = res["latest"].get("name") or res["latest"].get("tag") or "a newer version"
+            self.log("An update is available: %s — open Help ▸ Check for updates… to install it."
+                     % name)
 
     def _on_tab_changed(self, idx):
         # Prompt to save/discard unsaved Edit Records edits before leaving the tab.
