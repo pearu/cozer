@@ -156,6 +156,43 @@ When a public, sub-second, many-viewer feed is wanted, swap the sink (§3) — n
    file) that polls the gist; embed the COZER logo.
 4. **(Future)** realtime sink for a public audience (§8).
 
+## 11. Channel directory & per-event pages (owner-decided 2026-07-21)
+
+Multiple timekeepers broadcast in parallel (UIM ≥2 timekeepers), each from their **own** cozer under
+their **own** GitHub account. A directory at `/cozer/` plus per-event pages aggregate their channels.
+(`docs/index.html` = the `/cozer/` root directory — landed, `dac2f6e`.)
+
+- **URL scheme — clean paths (owner).** `/cozer/` lists everything; **`/cozer/<event>/`** shows one
+  event's channels. Pages is static, so the clean path uses a **`404.html` SPA router**: an unknown
+  path serves `docs/404.html`, which reads `location.pathname`, extracts `<event>`, and renders that
+  event's directory (reusing the index logic).
+- **Discovery — per-own-account, least maintenance (owner).** Timekeepers keep their own GitHub
+  accounts; the directory reads a **stable, committed list of timekeeper accounts**
+  (`docs/live-config.json`, rarely changes) and auto-lists each account's "cozer live order" gists.
+  No shared login, no per-broadcast registry; adding a timekeeper = add their account once.
+- **Feed additions (group + disambiguate):**
+  - `event` — a slug from the `.cozj` name (the `/cozer/<event>/` key);
+  - `event_meta` — `{title, date, venue}` (so a same-slug-different-event is shown distinctly);
+  - `station` — a per-timekeeper label (operator / GitHub login) so two stations on the **same** event
+    are told apart on the page.
+- **Same-name collision — handled gracefully (owner's concern).** Two operators using the same `.cozj`
+  name share the `/cozer/<event>/` slug — *intended* for the same event (both stations show, by
+  `station`). For genuinely different events colliding on a name, the page still lists both, labelled
+  by `event_meta` (date/venue) + `station` — never a wrong merge or a crash; the viewer disambiguates
+  by metadata. Policy can discourage name reuse; the system handles it either way.
+- **Robustness — sshfs (owner).** Operators run cozer over **sshfs** (latency / "sleeping"): publishing
+  stays off the timing path (background thread) and best-effort; config/gist writes may lag but must
+  never stall timing. The directory tolerates a channel being briefly stale/unreachable.
+- **Split:** feed fields (`event`/`event_meta`/`station`) — `live.py` (7948e787) + the Timer populates
+  them (b76f2173); directory + `404.html` router + per-event page — `docs/` (7948e787).
+
+## 12. Future — corrected results on the channel page (large; plan later)
+
+Owner idea: once Edit-Records corrections are applied, publish the **corrected results** on the same
+page (alongside / after the live order). A larger feature — official-ish result rendering, deciding
+when/what to publish, and the official-vs-unofficial line. **Deferred**: plan once the live MVP has run
+at a real event.
+
 ## Change log
 - **2026-07-21** — Plan created; owner decisions D-LIVE-1..5 (gist MVP; controlled screens; event-driven
   cadence; class+phase header replacing the UIM logo, rows + COZER logo + update-time + unofficial
@@ -167,3 +204,8 @@ When a public, sub-second, many-viewer feed is wanted, swap the sink (§3) — n
   (pre-start shows the field), not on first crossing; **on untick** publish a `live:false` "stopped"
   snapshot → viewer shows "disabled". Added `live` field (§4) + `live.stopped()`; viewer renders the
   disabled state. Backend + viewer done (7948e787, 615 green); Timer tick/untick wiring is b76f2173's.
+- **2026-07-21** — **Channel directory** landed (`docs/index.html`, `dac2f6e`) — fixes the Pages 404;
+  auto-lists an account's cozer-live gists as channels. Owner decisions recorded (§11): clean
+  per-event URLs via a `404.html` router; per-own-account discovery via a committed account list;
+  feed `event`/`event_meta`/`station` fields; graceful same-name handling; sshfs robustness. §12: the
+  corrected-results-on-page feature deferred.
