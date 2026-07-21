@@ -43,13 +43,7 @@
 <ol id="order" class="pre" role="table" aria-label="Live running order"></ol>
 
 <script>
-  // ---- mock fallback (no ?gist) ----
-  var mock = [
-    {no:"91",name:"Musts",first:"Reinis",nat:"LAT"}, {no:"19",name:"Suuk",first:"Rene",nat:"EST"},
-    {no:"7",name:"Soodla",first:"Karol",nat:"EST"},  {no:"4",name:"Biete",first:"Hera",nat:"LAT"},
-    {no:"93",name:"Lauss",first:"Martins",nat:"LAT"},{no:"44",name:"Musts",first:"Kristers",nat:"LAT"},
-  ];
-  var boats = mock.slice(), started = false;
+  var boats = [], started = false;
   var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
 
   var ol = document.getElementById("order");
@@ -60,13 +54,16 @@
   // Served from the live server at /<event>/feed/<channel>/ -> data + stream live under that path.
   var feedPath = /^\/[a-z0-9][a-z0-9-]*\/feed\/[a-z0-9][a-z0-9-]*\/?$/.test(location.pathname)
                  ? location.pathname.replace(/\/?$/, "/") : null;
+  // Flags load from absolute /_flags/ when served by the live server (works at any depth); from
+  // relative flags/ on the GitHub-Pages gist fallback (Pages serves docs/flags/ under /cozer/).
+  var flagBase = feedPath ? "/_flags/" : "flags/";
 
   function natCell(nat){
-    // Flags are shared static data at the server root: /_flags/<IOC>.svg (absolute, so it works at
-    // any depth like /0726/feed/a/). A missing/failed flag falls back to the 3-letter code text.
+    // Flags are shared static SVGs keyed by the 3-letter code; flagBase resolves to the right origin
+    // (server vs Pages). A missing/failed flag falls back to the 3-letter code text.
     nat = (nat||"").toUpperCase();
     if(!nat) return '<span class="nat noflag"><span class="code"></span></span>';
-    return '<span class="nat"><img class="flag" alt="'+nat+'" src="/_flags/'+nat+'.svg" '
+    return '<span class="nat"><img class="flag" alt="'+nat+'" src="'+flagBase+nat+'.svg" '
       + 'onerror="this.parentNode.classList.add(\'noflag\')">'
       + '<span class="code">'+nat+'</span></span>';
   }
@@ -195,16 +192,13 @@
     status("Connecting…");
     (function tick(){ poll().then(function(){ setTimeout(tick, pollMs); }); })();
   }
-  else {                                                   // design preview with mock data
-    render();
-    if(!reduce) setInterval(function(){                    // shuffle to show the live reorder
-      var i = 1 + Math.floor(Math.random()*(boats.length-1));
-      var t = boats[i-1]; boats[i-1] = boats[i]; boats[i] = t; render();
-    }, 3000);
-    setTimeout(function(){                                 // then "start": reveal laps + gap
-      started = true;
-      boats.forEach(function(b,i){ b.laps = 1; b.time = 30 + i*1.4; });
-      render();
-    }, 4000);
+  else {                                                   // root / no feed selected: a neutral landing
+    ol.className = "pre";
+    ol.innerHTML =
+      '<li style="grid-template-columns:1fr;color:var(--ink);font-weight:900;letter-spacing:.24em;'
+        + 'font-size:32px;padding-bottom:8px">COZER</li>'
+      + '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:700;font-size:15px;'
+        + 'line-height:1.55">Live running order for powerboat races.<br>'
+        + 'Open the broadcast link from the event organizer to watch a feed.</li>';
   }
 </script>

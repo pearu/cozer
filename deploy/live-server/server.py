@@ -16,6 +16,7 @@ Config (env): PUBLISH_SECRET (required), PORT (default 8099), BIND (default 127.
 Stdlib only; binds localhost -- Caddy is the only internet-facing process. Snapshots are held in
 memory (a restart drops them; cozer re-publishes on the next tick, so the feed self-heals).
 """
+import hmac
 import json
 import os
 import queue
@@ -29,6 +30,8 @@ SECRET = os.environ.get("PUBLISH_SECRET", "")
 PORT = int(os.environ.get("PORT", "8099"))
 BIND = os.environ.get("BIND", "127.0.0.1")
 MAX_BODY = 256 * 1024                      # snapshots are tiny; cap to refuse abuse
+MAX_STREAMS = int(os.environ.get("MAX_STREAMS", "200"))   # global SSE cap -> 503 past it (thread-flood
+                                                          # guard; each open /stream holds one thread)
 # eventname / channel: strict lowercase slugs -- can't start with '_' (never collide with /_… paths)
 # and no dots/uppercase (never look like /favicon.ico etc.). See docs/broadcast-urls.md.
 _SLUG = r"[a-z0-9][a-z0-9-]{0,62}"
@@ -46,8 +49,9 @@ def _feed_key(event, channel):
     return "%s/feed/%s" % (event, channel)    # internal store/subscriber key for a live feed
 
 
-_store = {}                                # key -> (json_bytes, updated_epoch)
-_subscribers = {}                          # channel -> set of queue.Queue (open SSE streams)
+_store = {}                                # <event>/feed/<channel> key -> (json_bytes, updated_epoch)
+_subscribers = {}                          # <event>/feed/<channel> key -> set of queue.Queue (open SSE)
+_open_streams = [0]                         # count of live SSE streams (capped at MAX_STREAMS)
 _lock = threading.Lock()
 
 
@@ -121,10 +125,22 @@ class Handler(BaseHTTPRequestHandler):
         already route-validated) the instant it's published, so the viewer updates sub-second
         (LIVE.md §8). Chunked HTTP/1.1; one thread per open stream. Sends the current snapshot
         immediately, then blocks on a per-stream queue that publish() feeds."""
+        if self.command == "HEAD":             # HEAD: advertise the stream headers, no body/no thread
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache, no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
         q = queue.Queue(maxsize=8)
         with _lock:
-            _subscribers.setdefault(key, set()).add(q)
-            current = _store.get(key)
+            over = _open_streams[0] >= MAX_STREAMS     # thread-flood guard (each stream holds a thread)
+            if not over:
+                _open_streams[0] += 1
+                _subscribers.setdefault(key, set()).add(q)
+                current = _store.get(key)
+        if over:                               # at capacity -> the viewer falls back to polling data.json
+            return self._json(503, {"error": "the live server is at capacity — try again shortly"})
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache, no-store")
@@ -156,6 +172,7 @@ class Handler(BaseHTTPRequestHandler):
             pass                                             # the client went away
         finally:
             with _lock:
+                _open_streams[0] -= 1
                 subs = _subscribers.get(key)
                 if subs:
                     subs.discard(q)
@@ -178,8 +195,8 @@ class Handler(BaseHTTPRequestHandler):
         m = PUBLISH_RE.match(self.path.split("?", 1)[0])       # /_publish/<event>/feed/<channel>
         if not m:
             return self._json(404, {"error": "not found"})
-        if not SECRET or self.headers.get("X-Publish-Secret", "") != SECRET:
-            return self._json(401, {"error": "unauthorized"})
+        if not SECRET or not hmac.compare_digest(self.headers.get("X-Publish-Secret", ""), SECRET):
+            return self._json(401, {"error": "unauthorized"})   # constant-time compare
         try:
             json.loads(body.decode("utf-8"))       # validate it's JSON (store the raw bytes)
         except Exception:
