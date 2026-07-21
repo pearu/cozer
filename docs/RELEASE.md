@@ -133,7 +133,24 @@ superseded.
 - **2026-07-21** — **`v3.0.0rc5` cut** — Timer **Race drop-down widened** so long multi-class labels
   are readable instead of elided ("Race...00 1") (issue #22, `ae4e1ef`). A **wheel-only** change
   (the installer is unchanged from rc4); delivered to existing installs via in-app Update. 618 green.
-  - **Next (owner-decided):** a **wheel-only-by-default** release pipeline — rebuild the Windows
+- **2026-07-21** — **Wheel-only release pipeline — DONE** (built + validated). Releasing is now split:
+  - **`release.yml`** — every `v*` tag builds a **wheel-only** release on **ubuntu** (~seconds; pure-
+    Python wheel) → `releases/latest`, what the in-app updater reads. Validated: the wheel builds on a
+    bare runner. No Windows runner, no installer rebuild per cozer release.
+  - **`installer.yml`** — on-demand (manual dispatch or an `installer-*` tag) builds the installer →
+    a **fixed `windows-installer` prerelease** (stable URL
+    `releases/download/windows-installer/COZER-Setup-Windows.exe`). Validated: release created, link
+    resolves (302), and `releases/latest` stays the wheel (the prerelease never shadows it).
+  - **Two version lines** (`tools/bump_version.py`): `bump_version.py <v>` = cozer wheel/code version
+    (`__init__` + bundled-wheel filename); `--installer <YYYY.MM>` = date-based installer version
+    (`construct.yaml version:`, now `2026.07`). Docs + `update.py` + `main.py` installer links point at
+    the fixed `windows-installer` release. `windows-installer.yml` removed. 619 green.
+  - **Still deferred (needs Windows testing):** the **environment-only installer** that self-updates
+    to the latest wheel on install/first run (offline → adjacent-wheel fallback, else fail gracefully)
+    and the **versioned install dir** `cozer-<installer-version>` (constructor `default_prefix`) — the
+    two owner ideas below. The pipeline above is the foundation they build on.
+  - **Design details (owner-decided; the env-only + versioned-dir parts are deferred):** a
+    **wheel-only-by-default** release pipeline — rebuild the Windows
     installer only when its *environment* changes (Python/PySide6/WeasyPrint/ca-certificates or the
     launcher/shortcut files), with a **separate date-based installer version** (e.g. `2026.07`) and
     the installer download **decoupled** from `releases/latest` (a fixed `windows-installer` release/
