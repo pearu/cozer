@@ -113,17 +113,44 @@
     });
     render();
   }
+  // Fetch mode (avoids the 60/hr unauthenticated gist-API rate limit):
+  //   &token=<pat>  -> authed API (freshest, 5000/hr);
+  //   &user=<login> -> the RAW gist file (no token, not rate-limited) — the default for a screen;
+  //   neither       -> unauthenticated API, polled slowly (a 403 shows a hint to add &user/&token).
+  var user = params.get("user"), cb = 0, haveData = false;
+  function status(msg){
+    ol.className = "pre";
+    ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:700;'
+      + 'font-size:14px;letter-spacing:.02em">'+msg+'</li>';
+  }
   async function poll(){
+    var raw = !token && user;
+    var url = raw ? ("https://gist.githubusercontent.com/"+encodeURIComponent(user)+"/"
+                     +encodeURIComponent(gistId)+"/raw/order.json?_="+(++cb))
+                  : ("https://api.github.com/gists/"+encodeURIComponent(gistId));
     try{
-      var h = {"Accept":"application/vnd.github+json"}; if(token) h["Authorization"]="Bearer "+token;
-      var r = await fetch("https://api.github.com/gists/"+encodeURIComponent(gistId), {headers:h, cache:"no-store"});
-      if(!r.ok) return;
-      var g = await r.json(), f = g.files && g.files["order.json"];
-      if(f && f.content) applyFeed(JSON.parse(f.content));
-    }catch(e){}
+      var h = {}; if(!raw){ h["Accept"]="application/vnd.github+json"; if(token) h["Authorization"]="Bearer "+token; }
+      var r = await fetch(url, {headers:h, cache:"no-store"});
+      if(!r.ok){
+        if(!haveData) status(r.status===403
+          ? "GitHub rate limit — open the URL with &user=<github-login> (or &token=<token>)"
+          : "Waiting for the feed… ("+r.status+")");
+        return;
+      }
+      var feed;
+      if(raw){ feed = await r.json(); }
+      else { var g = await r.json(), f = g.files && g.files["order.json"];
+             if(!(f && f.content)){ if(!haveData) status("Gist has no order.json"); return; }
+             feed = JSON.parse(f.content); }
+      applyFeed(feed); haveData = true;
+    }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
-  if(gistId){ poll(); setInterval(poll, 2500); }
+  if(gistId){
+    status("Connecting…");
+    poll();
+    setInterval(poll, (token || user) ? 2500 : 60000);   // slow unauth polling to respect 60/hr
+  }
   else {                                                   // design preview with mock data
     render();
     if(!reduce) setInterval(function(){                    // shuffle to show the live reorder
