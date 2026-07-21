@@ -68,8 +68,12 @@ def test_recommend_by_install_kind():
     r = update.recommend(_res("windows-installer",
                               assets=["cozer-9.0.0-py3-none-any.whl", "COZER-Setup-Windows.exe"]))
     assert r["action"] == "pip" and r["url"].endswith(".whl")
-    # a Windows install whose release has only the installer (no wheel) -> full installer download
+    # a Windows install whose (wheel-only) latest release lacks a wheel -> fall back to the FIXED
+    # windows-installer release URL (which always exists), regardless of what assets `rel` carries
     r = update.recommend(_res("windows-installer", assets=["COZER-Setup-Windows.exe"]))
-    assert r["action"] == "installer" and r["url"].endswith(".exe")
-    r = update.recommend(_res("windows-installer", assets=[]))                      # nothing usable
-    assert r["action"] == "link" and r["url"] == "https://rel"                      # -> release page
+    assert r["action"] == "installer" and r["url"] == update.WINDOWS_INSTALLER_URL
+    r = update.recommend(_res("windows-installer", assets=[]))
+    assert r["action"] == "installer" and r["url"] == update.WINDOWS_INSTALLER_URL
+    # a plain pip/wheel install whose release somehow has no wheel -> just open the release page
+    r = update.recommend(_res("wheel", assets=[]))
+    assert r["action"] == "link" and r["url"] == "https://rel"

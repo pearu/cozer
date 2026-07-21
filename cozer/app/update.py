@@ -13,6 +13,13 @@ from cozer.app import crashreport
 
 LATEST_RELEASE_URL = "%s/repos/%s/releases/latest" % (crashreport.GITHUB_API, crashreport.REPO)
 
+# The Windows installer lives in a FIXED, non-"latest" release (see .github/workflows/installer.yml):
+# wheel-only `v*` releases are what `releases/latest` (and the fast in-app update) track, so the
+# installer's download link must NOT depend on `releases/latest`. This stable URL always resolves to
+# the current installer and is the fresh-install link (docs) + the fast-update fallback (below).
+WINDOWS_INSTALLER_URL = ("https://github.com/%s/releases/download/windows-installer/"
+                         "COZER-Setup-Windows.exe" % crashreport.REPO)
+
 
 def install_kind():
     """How this cozer is installed, which bounds what an update can do (docs/RELEASE.md §3):
@@ -128,8 +135,8 @@ def recommend(res):
         wheel = _find_asset(rel, ".whl")
         if wheel:
             return {"action": "pip", "url": wheel.get("url"), "hint": wheel.get("name") or ""}
-    if kind == "windows-installer":                          # no wheel asset -> the full installer
-        exe = _find_asset(rel, ".exe")
-        if exe:
-            return {"action": "installer", "url": exe.get("url"), "hint": exe.get("name") or ""}
+    if kind == "windows-installer":                          # fast update unavailable -> full installer
+        # The wheel-only `releases/latest` carries no .exe; the installer lives in the fixed
+        # `windows-installer` release (stable URL), so point there rather than at ``rel``.
+        return {"action": "installer", "url": WINDOWS_INSTALLER_URL, "hint": "COZER-Setup-Windows.exe"}
     return {"action": "link", "url": rel.get("url"), "hint": "release page"}   # nothing usable

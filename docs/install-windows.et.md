@@ -46,7 +46,7 @@ Nüüd on sul GitHubi konto olemas. Hoia kasutajanimi ja parool käepärast.
 
 1. Klõpsa sellel **otselingil** — see laadib alati alla uusima COZERi Windowsi
    paigaldusfaili ega vaja GitHubi kontot:
-   **https://github.com/pearu/cozer/releases/latest/download/COZER-Setup-Windows.exe**
+   **https://github.com/pearu/cozer/releases/download/windows-installer/COZER-Setup-Windows.exe**
    *(Soovid valida versiooni? Sirvi https://github.com/pearu/cozer/releases ja
    laadi `.exe` alla jaotisest **Assets**.)*
 2. Fail laaditakse sinu **Downloads** (Allalaadimised) kausta. See on suur (mõnisada

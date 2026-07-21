@@ -862,7 +862,7 @@ class MainWindow(QMainWindow):
                     self, "Update COZER",
                     "Update COZER to the newest version now? COZER will need to be closed and "
                     "reopened afterwards.") == QMessageBox.Yes:
-                self._run_pip_update(url, (res.get("latest") or {}).get("url"))
+                self._run_pip_update(url, update.WINDOWS_INSTALLER_URL)
         elif url:                                    # "link" fallback: asset missing -> release page
             open_in_viewer(url)
 

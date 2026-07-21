@@ -41,7 +41,7 @@ You now have a GitHub account. Keep the username and password handy.
 
 1. Click this **direct download** link — it always fetches the newest COZER
    Windows installer, and needs no GitHub account:
-   **https://github.com/pearu/cozer/releases/latest/download/COZER-Setup-Windows.exe**
+   **https://github.com/pearu/cozer/releases/download/windows-installer/COZER-Setup-Windows.exe**
    *(Prefer to pick a version? Browse https://github.com/pearu/cozer/releases and
    download the `.exe` under **Assets**.)*
 2. It downloads to your **Downloads** folder. It is large (a few hundred MB)
