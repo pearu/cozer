@@ -1425,6 +1425,39 @@ def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
     assert built.get("ident") and built["ident"] != threading.get_ident()   # built off the GUI thread
 
 
+def test_timer_broadcast_via_server(tmp_path, monkeypatch):
+    # With a self-hosted live server configured (live_server_url + live_publish_secret), Broadcast
+    # publishes to it -- no GitHub token needed -- and the viewer link points at the server channel.
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import threading
+    import cozer.app.crashreport as cr
+    import cozer.app.live as live
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+
+    class _Sync:
+        def __init__(self, target=None, daemon=None): self._t = target
+        def start(self): self._t()
+    monkeypatch.setattr(threading, "Thread", _Sync)
+    posts = []
+    monkeypatch.setattr(live, "snapshot", lambda *a, **k: {"n": 1})
+    monkeypatch.setattr(live, "publish_server",
+                        lambda url, ch, secret, snap: posts.append((url, ch, secret)) or ch)
+    monkeypatch.setattr(live, "publish",                       # the gist path must NOT be used
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("gist used in server mode")))
+
+    cr.save_config({"live_server_url": "https://live.cozer.ee",
+                    "live_publish_secret": "sek", "live_channel": "harku"})
+    tp.race_combo.setCurrentIndex(0)
+    tp._publishing = False
+    tp.broadcast_cb.setChecked(True)                          # no token, but server config -> allowed
+    assert tp.broadcast_cb.isChecked()
+    assert posts and posts[-1] == ("https://live.cozer.ee", "harku", "sek")     # published to the server
+    assert tp._viewer_url == "https://live.cozer.ee/?channel=harku"             # viewer link -> server channel
+    assert not tp.viewer_row.isHidden()
+    assert cr.load_config().get("live_gist_id") is None                        # nothing gist-related stored
+
+
 def test_timer_race_combo_popup_fits_labels():
     # issue #22: the Race dropdown must be wide enough to show the full (long, multi-class) race
     # labels rather than eliding them ("Race...00 1"), so the operator can tell races apart.

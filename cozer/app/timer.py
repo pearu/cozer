@@ -268,6 +268,7 @@ class TimerPanel(QWidget):
         # feed, debounced so a slow/failed publish never blocks timing.
         self._broadcast_target = None       # (cl, h) whose order to publish next
         self._publishing = False            # a publish is in flight (avoid overlap / double gist-create)
+        self._live_via_server = False       # last publish went to the self-hosted server (vs gist)
         self._broadcast_timer = QTimer(self)
         self._broadcast_timer.setSingleShot(True)
         self._broadcast_timer.setInterval(2500)     # ~1 post / 2.5 s (LIVE.md §3)
@@ -660,13 +661,16 @@ class TimerPanel(QWidget):
 
     # ---- live-order broadcast (Phase 7, LIVE.md) ----
     def _on_broadcast_toggled(self, on):
-        """Turn the unofficial live-order feed on/off (LIVE.md §5). It publishes to a GitHub gist, so
-        it needs sign-in; turning it on while signed out prompts and clears the checkbox. On -> publish
-        the current field **immediately** (so the gist + viewer URL appear at once, no crossing needed);
-        off -> publish a `stopped` snapshot so the viewer shows the stream disabled."""
+        """Turn the unofficial live-order feed on/off (LIVE.md §5). Transport is the self-hosted live
+        server if configured (live_server_url + live_publish_secret), else the GitHub gist -- which
+        needs sign-in, so turning it on while signed out (and without a server) prompts and clears the
+        checkbox. On -> publish the current field **immediately** (so the URL appears at once, no
+        crossing needed); off -> publish a `stopped` snapshot so the viewer shows the stream disabled."""
         if on:
             from cozer.app import crashreport
-            if not crashreport.load_config().get("token"):
+            cfg = crashreport.load_config()
+            use_server = bool(cfg.get("live_server_url") and cfg.get("live_publish_secret"))
+            if not use_server and not cfg.get("token"):
                 self.status.setText("Sign in to GitHub (top-right corner) first, then turn on "
                                     "Broadcast live order.")
                 self.broadcast_cb.blockSignals(True)
@@ -727,13 +731,18 @@ class TimerPanel(QWidget):
         from datetime import datetime, timezone
         from cozer.app import crashreport
         cfg = crashreport.load_config()
+        server_url = cfg.get("live_server_url")
+        secret = cfg.get("live_publish_secret")
+        channel = cfg.get("live_channel") or "live"
+        use_server = bool(server_url and secret)
         token = cfg.get("token")
-        if not token:                       # signed out mid-broadcast -> skip quietly
-            return
         gid = cfg.get("live_gist_id")
-        if self._publishing and not gid:
+        if not use_server and not token:    # no transport configured -> skip quietly
+            return
+        if self._publishing and not use_server and not gid:   # gist: don't create two gists at once
             return
         self._publishing = True
+        self._live_via_server = use_server
         ed = self.eventdata
         updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -743,7 +752,11 @@ class TimerPanel(QWidget):
                 from cozer.app import live  # heavy import (weasyprint) -> keep it OFF the GUI thread
                 snap = (live.stopped(ed, cl, h, updated) if kind == "stopped"
                         else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW))
-                result = live.publish(token, gid, snap)
+                if use_server:              # self-hosted server: fresh, no token, no gist
+                    live.publish_server(server_url, channel, secret, snap)
+                    result = True           # success; nothing to persist (the channel is in config)
+                else:
+                    result = live.publish(token, gid, snap)   # returns the gist id
             except Exception as exc:        # surfaced to the operator; never breaks timing
                 result = exc
             self._broadcast_done.emit(result)
@@ -756,7 +769,7 @@ class TimerPanel(QWidget):
         a transient note. Timing is never affected either way."""
         self._publishing = False
         if isinstance(result, Exception):
-            if getattr(result, "code", None) in (401, 403, 404):
+            if not self._live_via_server and getattr(result, "code", None) in (401, 403, 404):
                 self.status.setText("Couldn't publish the live order — cozer needs permission to "
                                     "create the live link. Please sign out and sign in to GitHub "
                                     "again (top-right corner), then turn Broadcast on again.")
@@ -764,30 +777,37 @@ class TimerPanel(QWidget):
                 self.status.setText("Couldn't publish the live order (%s) — will retry on the next "
                                     "crossing." % result)
             return
-        gid = result
-        if not gid:
-            return
-        from cozer.app import crashreport
-        cfg = crashreport.load_config()
-        if cfg.get("live_gist_id") != gid:
-            cfg["live_gist_id"] = gid
-            crashreport.save_config(cfg)
+        if not self._live_via_server:       # gist: persist the created id
+            gid = result
+            if not gid:
+                return
+            from cozer.app import crashreport
+            cfg = crashreport.load_config()
+            if cfg.get("live_gist_id") != gid:
+                cfg["live_gist_id"] = gid
+                crashreport.save_config(cfg)
         self._update_viewer_url()
         self.status.setText("Live order published — the Live viewer link is shown above.")
 
     def _update_viewer_url(self):
-        """Show/refresh the copyable + clickable live-viewer link once a broadcast gist exists
-        (LIVE.md §6). The base follows the repo's GitHub Pages site (from ``crashreport.REPO``); the
-        gist id is the persisted ``live_gist_id``. Hidden until the first broadcast creates a gist."""
+        """Show/refresh the copyable + clickable live-viewer link (LIVE.md §6). Self-hosted server:
+        the viewer is served from the live server itself, ``<live_server_url>/?channel=<channel>``.
+        Gist: the GitHub Pages viewer with the persisted ``live_gist_id``. Hidden until there's a
+        published feed to point at."""
         from cozer.app import crashreport
-        gid = crashreport.load_config().get("live_gist_id")
-        if gid:
+        cfg = crashreport.load_config()
+        url = ""
+        if cfg.get("live_server_url") and cfg.get("live_publish_secret"):
+            channel = cfg.get("live_channel") or "live"
+            url = "%s/?channel=%s" % (cfg["live_server_url"].rstrip("/"), channel)
+        elif cfg.get("live_gist_id"):
             owner, _, repo = crashreport.REPO.partition("/")
-            self._viewer_url = "https://%s.github.io/%s/live-viewer.html?gist=%s" % (owner, repo, gid)
-            self.viewer_link.setText('<a href="%s">%s</a>' % (self._viewer_url, self._viewer_url))
+            url = "https://%s.github.io/%s/live-viewer.html?gist=%s" % (owner, repo, cfg["live_gist_id"])
+        self._viewer_url = url
+        if url:
+            self.viewer_link.setText('<a href="%s">%s</a>' % (url, url))
             self.viewer_row.show()
         else:
-            self._viewer_url = ""
             self.viewer_row.hide()
 
     def _copy_viewer_url(self):
