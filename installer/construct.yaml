@@ -45,4 +45,5 @@ post_install: post_install.bat
 extra_files:
   - dist/cozer-3.0.0rc3-py3-none-any.whl
   - cozer-launch.pyw            # GUI launcher: adds Library\bin to the DLL path
-  - make_shortcut.ps1           # creates the Start-menu shortcut (post_install)
+  - make_shortcut.ps1           # creates the Desktop + Start-menu shortcuts (post_install)
+  - make_shortcut.bat           # double-clickable re-run if the icons are ever missing
