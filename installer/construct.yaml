@@ -15,9 +15,10 @@
 # built beside this file).
 
 name: COZER
-# version + the extra_files wheel name below are set by `tools/bump_version.py`
-# (cozer/__init__.py's __version__ is the single source of truth; pyproject reads
-# it dynamically and post_install.bat globs the wheel).
+# This is the INSTALLER version (date-based, the environment bootstrap) -- set by
+# `tools/bump_version.py --installer YYYY.MM`, which also stamps `default_prefix` below. It is
+# INDEPENDENT of the cozer (wheel) version, which the installer does NOT bundle: post_install fetches
+# the latest cozer from GitHub (install_cozer.py). Bump it only when the ENVIRONMENT changes.
 version: 2026.07
 company: COZER
 
@@ -38,13 +39,22 @@ initialize_by_default: false
 register_python_default: false
 keep_pkgs: false
 
+# Install into a per-INSTALLER-VERSION directory so a newer installer never collides with an existing
+# install (constructor refuses a non-empty target -- "File or directory already exists"); versions
+# coexist and post_install repoints the shortcut to the newest. `--installer` keeps the
+# `cozer-<version>` dir here in sync with `version:` above.
+default_prefix: '%USERPROFILE%\cozer-2026.07'
+default_prefix_domain_user: '%USERPROFILE%\cozer-2026.07'
+default_prefix_all_users: '%ALLUSERSPROFILE%\cozer-2026.07'
+
 # runs after the base env is laid down; %PREFIX% = install location
 post_install: post_install.bat
 
-# ship the cozer wheel inside the installer so post_install can pip-install it
-# offline. The wheel is built into installer/dist/ before running constructor.
+# The installer ships the ENVIRONMENT only -- NOT cozer. post_install runs install_cozer.py, which
+# fetches + pip-installs the LATEST cozer wheel from GitHub (offline: an adjacent cozer-*.whl, else a
+# clear message). So a cozer *code* release needs NO new installer.
 extra_files:
-  - dist/cozer-3.0.0rc5-py3-none-any.whl
+  - install_cozer.py            # post_install: fetch + install the latest cozer (offline fallback)
   - cozer-launch.pyw            # GUI launcher: adds Library\bin to the DLL path
   - make_shortcut.ps1           # creates the Desktop + Start-menu shortcuts (post_install)
   - make_shortcut.bat           # double-clickable re-run if the icons are ever missing

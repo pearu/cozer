@@ -17,29 +17,26 @@ def _fixture(tmp_path):
                 tmp_path / "installer" / "construct.yaml")
 
 
-def test_set_version_rewrites_init_and_wheel_name(tmp_path):
+def test_set_version_rewrites_only_init(tmp_path):
     _fixture(tmp_path)
     bump_version.set_version("1.2.3", root=str(tmp_path))               # known baseline
     changed = bump_version.set_version("9.9.9rc3", root=str(tmp_path))
-    assert len(changed) == 2
+    assert len(changed) == 1                                           # env-only installer: only cozer/__init__.py
     init = (tmp_path / "cozer" / "__init__.py").read_text()
     yaml = (tmp_path / "installer" / "construct.yaml").read_text()
-    assert '__version__ = "9.9.9rc3"' in init
-    assert "dist/cozer-9.9.9rc3-py3-none-any.whl" in yaml               # installer bundles the matching wheel
-    assert "version: 9.9.9rc3" not in yaml                              # cozer version does NOT set the installer version:
-    assert "1.2.3" not in init and "cozer-1.2.3" not in yaml            # prior version fully replaced
+    assert '__version__ = "9.9.9rc3"' in init and "1.2.3" not in init
+    assert "9.9.9rc3" not in yaml                                      # construct.yaml carries no cozer version
     assert bump_version.set_version("9.9.9rc3", root=str(tmp_path)) == []  # idempotent
 
 
-def test_set_installer_version_is_independent(tmp_path):
+def test_set_installer_version_syncs_version_and_prefix(tmp_path):
     _fixture(tmp_path)
-    bump_version.set_version("9.9.9rc3", root=str(tmp_path))            # cozer wheel version
     bump_version.set_installer_version("1999.01", root=str(tmp_path))  # known baseline (repo-independent)
     changed = bump_version.set_installer_version("2026.08", root=str(tmp_path))
     yaml = (tmp_path / "installer" / "construct.yaml").read_text()
-    assert changed and "version: 2026.08" in yaml                      # installer version set
-    assert "dist/cozer-9.9.9rc3-py3-none-any.whl" in yaml              # cozer wheel name left intact
-    assert "version: 9.9.9rc3" not in yaml                             # never the cozer version
+    assert changed
+    assert "version: 2026.08" in yaml                                 # installer version:
+    assert "cozer-2026.08" in yaml and "cozer-1999.01" not in yaml     # versioned default_prefix dirs kept in sync
     assert bump_version.set_installer_version("2026.08", root=str(tmp_path)) == []  # idempotent
 
 

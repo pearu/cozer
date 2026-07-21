@@ -1,18 +1,20 @@
 @echo off
 rem constructor post-install script (Windows). %PREFIX% = install location.
-rem DRAFT: validate on a real Windows box / CI.
 
-rem 1) Install cozer itself into the bundled env, offline, from the shipped wheel
-rem    (runtime deps are already present via construct.yaml `specs`, so --no-deps).
-rem    Match the wheel by glob so this script is version-independent.
-for %%W in ("%PREFIX%\cozer-*.whl") do "%PREFIX%\python.exe" -m pip install --no-deps --no-index "%%W"
-del "%PREFIX%\cozer-*.whl"
+rem Diagnostics (visible in CI logs) -- helps confirm what the installer exposes about its own
+rem directory, for the "cozer wheel next to the installer" offline fallback.
+echo [post_install] CD=%CD%
+echo [post_install] EXEDIR=%EXEDIR%  INSTALLER_UNPACK_DIR=%INSTALLER_UNPACK_DIR%  PREFIX=%PREFIX%
 
-rem 2) Start-menu shortcut -> pythonw running cozer-launch.pyw (no console window).
-rem    cozer-launch.pyw adds <prefix>\Library\bin to the DLL search path so
-rem    WeasyPrint/Qt find their native libraries, then runs cozer's main() (which
-rem    keeps the fontconfig-cache-segfault workaround). Shortcut creation is in a
-rem    real .ps1 (not inline) to avoid cmd<->PowerShell quoting pitfalls.
+rem 1) Install cozer into the environment. The installer ships the ENVIRONMENT only; install_cozer.py
+rem    fetches the LATEST cozer wheel from GitHub (offline: an adjacent cozer-*.whl, else a clear
+rem    message). Forward the installer's own directory so the offline fallback can look there.
+if defined EXEDIR set "COZER_INSTALLER_DIR=%EXEDIR%"
+"%PREFIX%\python.exe" "%PREFIX%\install_cozer.py"
+
+rem 2) Desktop + Start-menu shortcuts (the Desktop icon is the reliable, visible result). Runs even if
+rem    the cozer install above failed, so the operator still gets an icon and -- via cozer-launch.pyw's
+rem    startup-error dialog -- a clear message.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PREFIX%\make_shortcut.ps1"
 
 exit /b 0

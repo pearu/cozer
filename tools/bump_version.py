@@ -5,9 +5,8 @@ cozer has TWO independent version lines (docs/RELEASE.md, wheel-only pipeline):
 
   - **cozer (wheel/code) version** — what users update to via the in-app updater and what
     ``releases/latest`` tracks. Single source: ``cozer/__init__.py``'s ``__version__``
-    (``pyproject.toml`` reads it via ``dynamic = ["version"]``; ``post_install.bat`` globs the wheel).
-    We also stamp the ``installer/construct.yaml`` ``extra_files`` wheel filename so an installer build
-    bundles the matching wheel.
+    (``pyproject.toml`` reads it via ``dynamic = ["version"]``). The installer is env-only (it does not
+    bundle a cozer wheel -- install_cozer.py fetches the latest), so construct.yaml is untouched.
         python tools/bump_version.py 3.0.0
 
   - **Windows-installer version** — the environment bootstrap, bumped ONLY when the installer's
@@ -37,27 +36,25 @@ def _sub_file(path, subs):
 
 
 def set_version(version, root=ROOT):
-    """Set the cozer (wheel/code) version: ``cozer/__init__.py`` ``__version__`` + the installer's
-    bundled-wheel filename in construct.yaml. Does NOT touch construct.yaml's ``version:`` (that is the
-    separate Windows-installer version). Returns the list of files changed."""
+    """Set the cozer (wheel/code) version -- ``cozer/__init__.py`` ``__version__`` (``pyproject.toml``
+    reads it via ``dynamic = ["version"]``). The installer is env-only (it does NOT bundle a cozer
+    wheel), so construct.yaml is untouched. Returns the list of files changed."""
     changed = []
     init = os.path.join(root, "cozer", "__init__.py")
     if _sub_file(init, [(r'(?m)^__version__ = ".*"$', '__version__ = "%s"' % version)]):
         changed.append(init)
-    yaml = os.path.join(root, "installer", "construct.yaml")
-    if _sub_file(yaml, [(r"dist/cozer-.*-py3-none-any\.whl",
-                         "dist/cozer-%s-py3-none-any.whl" % version)]):
-        changed.append(yaml)
     return changed
 
 
 def set_installer_version(iversion, root=ROOT):
-    """Set the Windows-installer version (construct.yaml ``version:``). Returns the files changed."""
-    changed = []
+    """Set the Windows-installer version: construct.yaml ``version:`` AND the ``cozer-<version>`` in
+    the versioned ``default_prefix`` install dirs (kept in sync). Returns the files changed."""
     yaml = os.path.join(root, "installer", "construct.yaml")
-    if _sub_file(yaml, [(r"(?m)^version: .*$", "version: %s" % iversion)]):
-        changed.append(yaml)
-    return changed
+    changed = _sub_file(yaml, [
+        (r"(?m)^version: .*$", "version: %s" % iversion),
+        (r"cozer-\d{4}\.\d{2}(?:\.\d+)?", "cozer-%s" % iversion),   # keep default_prefix dirs in sync
+    ])
+    return [yaml] if changed else []
 
 
 def main(argv):

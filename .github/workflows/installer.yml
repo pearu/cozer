@@ -1,10 +1,10 @@
 name: Windows installer (on demand)
 
 # The Windows installer is the ENVIRONMENT bootstrap (Python + PySide6 + WeasyPrint + ca-certificates
-# + the launcher/shortcut files). cozer's own code is updated in-app (the wheel), so the installer is
-# rebuilt ONLY when its environment changes -- not on every cozer release. Hence: manual dispatch, or
-# an `installer-*` tag. It publishes to a FIXED `windows-installer` release (see the release step),
-# which the install guides + the in-app installer-fallback link to.
+# + the launcher/shortcut files). It does NOT bundle cozer -- post_install runs install_cozer.py,
+# which fetches the LATEST cozer wheel from GitHub (offline: an adjacent cozer-*.whl, else a clear
+# message). So it is rebuilt ONLY when its environment changes: manual dispatch, or an `installer-*`
+# tag. Publishes to a FIXED `windows-installer` release the install guides + update fallback link to.
 on:
   workflow_dispatch:
   push:
@@ -21,39 +21,77 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build environment (constructor + wheel tooling)
+      - name: Build environment (constructor + NSIS)
         uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: build
           create-args: >-
-            python=3.13 constructor conda-standalone nsis python-build
+            python=3.13 constructor conda-standalone nsis
           cache-environment: true
 
-      - name: Build the cozer wheel (bundled into the installer)
-        run: python -m build --wheel --outdir installer/dist
-
-      - name: Build the installer (.exe)
+      - name: Build the installer (.exe)   # env-only: no cozer wheel is bundled
         run: constructor installer --output-dir dist-installer
 
       - name: Locate the installer
         id: find
         run: echo "exe=$(ls dist-installer/COZER-*.exe)" >> "$GITHUB_OUTPUT"
 
-      - name: Silent install to C:\cozer
+      # Silent install with NO /D -> uses default_prefix, i.e. the VERSIONED dir cozer-<installer-ver>.
+      # The default may land under the user profile or all-users, so search both (+ C:\).
+      - name: Silent install to the DEFAULT (versioned) directory
+        id: inst
         shell: pwsh
         run: |
-          Start-Process -Wait -FilePath ".\${{ steps.find.outputs.exe }}" -ArgumentList '/S','/D=C:\cozer'
-          if (!(Test-Path 'C:\cozer\python.exe')) { throw 'install failed: no python.exe' }
+          Start-Process -Wait -FilePath ".\${{ steps.find.outputs.exe }}" -ArgumentList '/S'
+          $roots = @($env:USERPROFILE, $env:ALLUSERSPROFILE, 'C:\')
+          $dir = $null
+          foreach ($r in $roots) {
+            $c = Join-Path $r 'cozer-2026.07'
+            if (Test-Path (Join-Path $c 'python.exe')) { $dir = $c; break }
+          }
+          if (-not $dir) {
+            Write-Host "versioned dir cozer-2026.07 not found under: $($roots -join ', ')"
+            foreach ($r in $roots) {
+              Get-ChildItem $r -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like 'cozer*' } | ForEach-Object { Write-Host "  present: $($_.FullName)" }
+            }
+            throw "versioned default_prefix install dir not found"
+          }
+          Write-Host "installed to versioned dir: $dir"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "prefix=$dir"
+
+      - name: Env-only bootstrap installed the LATEST cozer (online)
+        shell: pwsh
+        run: |
+          & "${{ steps.inst.outputs.prefix }}\python.exe" -c "import cozer; print('cozer', cozer.__version__)"
+          if ($LASTEXITCODE -ne 0) { throw 'post_install did not install cozer (online bootstrap failed)' }
 
       - name: Smoke test (offscreen — no display in CI)
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          # Mirrors cozer-launch.pyw: prepend <prefix>\Library\bin to PATH (cffi's find_library, which
-          # resolves WeasyPrint's bare-name dlopens, searches PATH) + a bound add_dll_directory for Qt.
-          # Verifies the bundled env end-to-end: cozer imports, Qt inits, WeasyPrint renders a PDF.
-          C:\cozer\python.exe -c "import os,sys; d=os.path.join(sys.prefix,'Library','bin'); os.environ['PATH']=d+os.pathsep+os.environ.get('PATH',''); _h=os.add_dll_directory(d); import cozer, weasyprint; from PySide6 import QtWidgets; QtWidgets.QApplication([]); weasyprint.HTML(string='<p>ok</p>').write_pdf('smoke.pdf'); print('smoke OK')"
+          # Mirrors cozer-launch.pyw: prepend <prefix>\Library\bin to PATH + a bound add_dll_directory,
+          # then verify cozer imports, Qt inits, and WeasyPrint renders a PDF.
+          $py = "${{ steps.inst.outputs.prefix }}\python.exe"
+          & $py -c "import os,sys; d=os.path.join(sys.prefix,'Library','bin'); os.environ['PATH']=d+os.pathsep+os.environ.get('PATH',''); _h=os.add_dll_directory(d); import cozer, weasyprint; from PySide6 import QtWidgets; QtWidgets.QApplication([]); weasyprint.HTML(string='<p>ok</p>').write_pdf('smoke.pdf'); print('smoke OK')"
+
+      # Offline path: point the release API at an unreachable host so install_cozer.py takes its
+      # offline branch, and give it a cozer-*.whl "placed nearby" (downloaded here to stand in for one
+      # the user dropped next to the installer). Verifies the graceful offline fallback installs it.
+      - name: Offline fallback (unreachable API -> adjacent cozer wheel)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $py = "${{ steps.inst.outputs.prefix }}\python.exe"
+          New-Item -ItemType Directory -Force -Path offline-wheel | Out-Null
+          gh release download --repo ${{ github.repository }} --pattern 'cozer-*.whl' --dir offline-wheel
+          $env:COZER_RELEASE_API = 'http://127.0.0.1:9/unreachable'
+          $env:COZER_OFFLINE_WHEEL_DIR = (Resolve-Path offline-wheel).Path
+          & $py "${{ steps.inst.outputs.prefix }}\install_cozer.py"
+          if ($LASTEXITCODE -ne 0) { throw 'offline fallback did not install from the adjacent wheel' }
+          Write-Host 'offline fallback OK'
 
       - name: Publish the installer artifact
         uses: actions/upload-artifact@v7
@@ -62,11 +100,9 @@ jobs:
           path: ${{ steps.find.outputs.exe }}
           if-no-files-found: error
 
-      # Publish to a FIXED `windows-installer` release (stable download URL:
-      # releases/download/windows-installer/COZER-Setup-Windows.exe -- what docs/install-windows.md,
-      # .et.md, and update.py's installer fallback link to). Marked --latest=false + --prerelease so it
-      # NEVER becomes releases/latest, which update.py reads for the newest WHEEL (a v* release from
-      # release.yml). Create it once, then clobber the asset on every rebuild.
+      # Publish to the FIXED `windows-installer` release (stable URL
+      # releases/download/windows-installer/COZER-Setup-Windows.exe). --latest=false + --prerelease so
+      # it never becomes releases/latest (which update.py reads for the newest WHEEL).
       - name: Publish / refresh the Windows-installer release
         shell: bash
         env:
