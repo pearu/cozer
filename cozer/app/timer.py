@@ -271,7 +271,8 @@ class TimerPanel(QWidget):
         self._live_via_server = False       # last publish went to the self-hosted server (vs gist)
         self._broadcast_timer = QTimer(self)
         self._broadcast_timer.setSingleShot(True)
-        self._broadcast_timer.setInterval(2500)     # ~1 post / 2.5 s (LIVE.md §3)
+        self._broadcast_timer.setInterval(500)      # throttle: <=1 post / 0.5 s (self-hosted server,
+                                                    # no rate limit -> low latency; was 2500 for gist)
         self._broadcast_timer.timeout.connect(self._do_broadcast)
         self._broadcast_done.connect(self._on_broadcast_done)
 

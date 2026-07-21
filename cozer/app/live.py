@@ -17,7 +17,7 @@ from cozer.reports.common import nationalities_index, participants_index
 
 GIST_FILE = "order.json"
 # Default display config; the operator overrides it in cozer and it ships in the feed (LIVE.md §4).
-DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6}
+DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 0.5}
 
 
 def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):

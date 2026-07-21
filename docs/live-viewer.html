@@ -170,7 +170,7 @@
   }
 
   if(channel || src){                                      // self-hosted server (e.g. live.cozer.ee)
-    status("Connecting…"); pollMs = 3000;
+    status("Connecting…"); pollMs = 500;                   // poll fast (feed.view.poll_s can override)
     (function tick(){ pollServer().then(function(){ setTimeout(tick, pollMs); }); })();
   }
   else if(gistId){                                         // gist fallback
