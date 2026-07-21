@@ -130,3 +130,12 @@ superseded.
   - **Broadcast** (`b7518a3`, `2c70a27`): build/publish off the GUI thread (no freeze on tick), and
     request the `gist` OAuth scope so the live feed can publish.
   617 green.
+- **2026-07-21** — **`v3.0.0rc5` cut** — Timer **Race drop-down widened** so long multi-class labels
+  are readable instead of elided ("Race...00 1") (issue #22, `ae4e1ef`). A **wheel-only** change
+  (the installer is unchanged from rc4); delivered to existing installs via in-app Update. 618 green.
+  - **Next (owner-decided):** a **wheel-only-by-default** release pipeline — rebuild the Windows
+    installer only when its *environment* changes (Python/PySide6/WeasyPrint/ca-certificates or the
+    launcher/shortcut files), with a **separate date-based installer version** (e.g. `2026.07`) and
+    the installer download **decoupled** from `releases/latest` (a fixed `windows-installer` release/
+    tag) so wheel-only releases don't break the fresh-install link. Owner idea to fold in: installer
+    = **cozer-environment only**, self-updating to the latest wheel (resolve offline-first-run).
