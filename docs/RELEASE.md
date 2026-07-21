@@ -107,3 +107,7 @@ superseded.
   stable-asset workflow fix, bumped to `3.0.0rc2`, tagged → Release live with the **stable**
   `COZER-Setup-Windows.exe` (+ wheel). Verified: `releases/latest` = rc2, the install-guide direct
   link resolves (302), `update.check()`/`recommend()` see rc2 end-to-end. CI green on main.
+- **2026-07-21** — **`v3.0.0rc3` cut**: adds the fast in-app update on the Windows install (pip
+  behind the scenes, no exe download) + jargon-free update dialogs (operators never see "pip").
+  Verified: `releases/latest` = rc3, direct link resolves, and `recommend()` for a Windows install
+  now returns the fast wheel update.
