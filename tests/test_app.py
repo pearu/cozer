@@ -1109,12 +1109,18 @@ def test_timer_resume_continues_without_reset(tmp_path, monkeypatch):
     tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
+    # recording: Start + Resume disabled, only Stop enabled
+    assert not tp.start_btn.isEnabled() and tp.stop_btn.isEnabled() and not tp.resume_btn.isEnabled()
     clock[0] = 130.0                          # 30 s lap (above the bounce floor)
     tp.record_lap("GT", "1", "1")
     tp.on_stop()
     assert not tp._started
+    # stopped: Start + Resume enabled, Stop disabled
+    assert tp.start_btn.isEnabled() and not tp.stop_btn.isEnabled() and tp.resume_btn.isEnabled()
     tp.on_resume()
     assert tp._started                        # a start time exists -> resumes
+    # recording again: Resume disabled too (owner feedback)
+    assert not tp.start_btn.isEnabled() and tp.stop_btn.isEnabled() and not tp.resume_btn.isEnabled()
     assert len(record_heat(w.eventdata, "GT", "1")[1]["1"]) == 1   # prior data kept
 
 
@@ -1379,7 +1385,7 @@ def test_timer_broadcast_via_server(tmp_path, monkeypatch):
     assert tp.broadcast_btn.isChecked()
     assert posts and posts[-1] == ("https://live.cozer.ee", "0726", "harku", "sek")   # published to the server
     assert tp._viewer_url == "https://live.cozer.ee/0726/feed/harku/"           # viewer link -> the feed path
-    assert not tp.viewer_row.isHidden()
+    assert not tp.copy_url_btn.isHidden()
 
 
 def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
@@ -1404,7 +1410,27 @@ def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
     assert w.live_event_edit.text() == "harku-2026" and w.live_channel_edit.text() == "a"   # echoed back
     assert "sek" not in json.dumps(w.eventdata)                                 # the secret never in the event
     assert w.timer_panel._viewer_url == "https://live.cozer.ee/harku-2026/feed/a/"   # viewer -> the feed path
-    assert not w.timer_panel.viewer_row.isHidden()
+    assert not w.timer_panel.copy_url_btn.isHidden()
+
+
+def test_broadcast_refresh_republishes_on_view_change(tmp_path, monkeypatch):
+    # Owner: selecting a race (and start/stop/resume) must re-publish the feed, not only lap crossings.
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    _app()
+    w = MainWindow(_timer_event())
+    tp = w.timer_panel
+    tp.race_combo.setCurrentIndex(0)          # heats populated (fires _show_race)
+    tp._broadcast_timer.stop()
+    tp.broadcast_btn.setChecked(False)        # broadcasting OFF -> _broadcast_refresh is a no-op
+    tp._broadcast_refresh()
+    assert not tp._broadcast_timer.isActive()
+    # broadcasting ON (set without firing the publish thread) -> a view change re-arms the throttle
+    tp.broadcast_btn.blockSignals(True)
+    tp.broadcast_btn.setChecked(True)
+    tp.broadcast_btn.blockSignals(False)
+    tp._broadcast_target = None
+    tp._broadcast_refresh()
+    assert tp._broadcast_timer.isActive() and tp._broadcast_target == tp._heats[0]
 
 
 def test_timer_race_combo_popup_fits_labels():

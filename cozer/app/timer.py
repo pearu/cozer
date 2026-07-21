@@ -296,28 +296,16 @@ class TimerPanel(QWidget):
         self.broadcast_btn.setCheckable(True)
         self.broadcast_btn.toggled.connect(self._on_broadcast_toggled)
         top.addWidget(self.broadcast_btn)
-        v.addLayout(top)
-
-        # Live-viewer link (Phase 7): shown once a broadcast is configured so the operator points the
-        # venue screens at it. Clickable (opens in the browser) + a Copy button. The URL is
-        # <live_server_url>/<eventname>/feed/<channel>/ (docs/broadcast-urls.md).
+        # Small companion button (docs/broadcast-urls.md §4): copies the live-viewer link
+        # (<live_server_url>/<eventname>/feed/<channel>/) for the venue screens. Sits right by the
+        # toggle; hidden until a broadcast is configured; its tooltip shows the URL.
         self._viewer_url = ""
-        self.viewer_row = QWidget()
-        _vr = QHBoxLayout(self.viewer_row)
-        _vr.setContentsMargins(0, 0, 0, 0)
-        _vr.addWidget(QLabel("Live viewer:"))
-        self.viewer_link = QLabel()
-        self.viewer_link.setTextFormat(Qt.RichText)
-        self.viewer_link.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        self.viewer_link.setOpenExternalLinks(False)          # route clicks through the clean-env opener
-        self.viewer_link.linkActivated.connect(self._open_viewer)
-        _vr.addWidget(self.viewer_link, 1)
-        _copy = QPushButton("Copy URL")
-        _copy.clicked.connect(self._copy_viewer_url)
-        _vr.addWidget(_copy)
-        self.viewer_row.hide()
-        v.addWidget(self.viewer_row)
-        self._update_viewer_url()                             # show now if a broadcast is already configured
+        self.copy_url_btn = QPushButton("📋 Copy viewer link")
+        self.copy_url_btn.clicked.connect(self._copy_viewer_url)
+        self.copy_url_btn.hide()
+        top.addWidget(self.copy_url_btn)
+        v.addLayout(top)
+        self._update_viewer_url()          # reveal the copy button now if a broadcast is already configured
 
         # Mis-pick guard (§5.2): always show exactly what the selected race will record —
         # class · phase · heat · restart — so a wrong pick (wrong class/phase/restart) is
@@ -385,6 +373,7 @@ class TimerPanel(QWidget):
         self._heats = self._race_heats(self._selected_race())
         self.identity_label.setText(self._race_identity_text())
         self._build()
+        self._broadcast_refresh()          # selecting a race changes the feed -> re-publish (if on)
 
     def _race_identity_text(self):
         """What the selected race records, decoded per heat — the mis-pick guard's display."""
@@ -584,10 +573,12 @@ class TimerPanel(QWidget):
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+        self.resume_btn.setEnabled(False)   # recording -> Resume is meaningless until Stop
         self.race_combo.setEnabled(False)
         self._build()
         self._arm_all_predictions()        # first-lap closing hints from the class @speed
         self.status.setText("Recording…")
+        self._broadcast_refresh()          # publish the fresh field if broadcasting is on
 
     def _confirm_overwrite(self):      # pragma: no cover - modal dialog
         detail = "\n".join("  • " + heat_identity(self.eventdata, cl, h)
@@ -625,9 +616,11 @@ class TimerPanel(QWidget):
         self._started = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+        self.resume_btn.setEnabled(False)   # recording -> Resume is disabled until Stop
         self.race_combo.setEnabled(False)
         self.status.setText("Recording (resumed)…")
         self._arm_all_predictions()
+        self._broadcast_refresh()          # publish the resumed field if broadcasting is on
 
     def setup_heat(self, cl, h, now):
         course, sheats, duration = heat_course(self.eventdata, cl, h)
@@ -680,7 +673,8 @@ class TimerPanel(QWidget):
             "Set up the broadcast in the Reports tab first (live server address + publish secret).")
 
     def _style_broadcast_button(self, on):
-        self.broadcast_btn.setText("● Broadcasting" if on else "Broadcast live order")
+        # 🔴 (red-circle emoji) renders the "live" dot red without recolouring the whole label.
+        self.broadcast_btn.setText("🔴 Broadcasting" if on else "Broadcast live order")
 
     def _set_broadcast_button(self, on):
         """Set the toggle WITHOUT re-firing _on_broadcast_toggled (e.g. to pop it back out)."""
@@ -688,6 +682,18 @@ class TimerPanel(QWidget):
         self.broadcast_btn.setChecked(on)
         self.broadcast_btn.blockSignals(False)
         self._style_broadcast_button(on)
+
+    def _broadcast_refresh(self):
+        """Re-publish the live feed when the *view* changes without a lap crossing — the operator
+        selects a different race, or starts / stops / resumes. The broadcast should track what the
+        operator sees, not only crossings. No-op unless broadcasting is on; throttled like a crossing
+        (coalesces rapid changes)."""
+        if not self.broadcast_btn.isChecked() or not self._heats:
+            return
+        if self._broadcast_target not in self._heats:   # keep the active heat, else the race's first
+            self._broadcast_target = self._heats[0]
+        if not self._broadcast_timer.isActive():
+            self._broadcast_timer.start()
 
     def _on_broadcast_toggled(self, on):
         """Turn the unofficial live-order feed on/off (docs/broadcast-urls.md §4). Publishes to the
@@ -804,25 +810,24 @@ class TimerPanel(QWidget):
                                        broadcast.event_channel(self.eventdata))
         self._viewer_url = url
         if url:
-            self.viewer_link.setText('<a href="%s">%s</a>' % (url, url))
-            self.viewer_row.show()
+            self.copy_url_btn.setToolTip("Copy the live viewer link:\n%s\n\nPaste it into the display "
+                                         "screens' browser." % url)
+            self.copy_url_btn.show()
         else:
-            self.viewer_row.hide()
+            self.copy_url_btn.hide()
 
     def _copy_viewer_url(self):
         if self._viewer_url:
             QApplication.clipboard().setText(self._viewer_url)
-            self.status.setText("Live viewer URL copied — paste it into the display screens' browser.")
-
-    def _open_viewer(self, url):
-        from cozer.app.main import open_in_viewer   # clean-env opener (lazy: main imports timer)
-        open_in_viewer(url)
+            self.status.setText("Live viewer link copied — paste it into the display screens' browser.")
 
     def on_stop(self):
         self._started = False
         self._cancel_all_predictions()
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self.resume_btn.setEnabled(True)    # stopped -> Resume can continue this race
         self.race_combo.setEnabled(True)
         self.status.setText("Stopped")
+        self._broadcast_refresh()
 
