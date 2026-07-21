@@ -723,30 +723,42 @@ class TimerPanel(QWidget):
         updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         def worker():
+            result = None
             try:
                 from cozer.app import live  # heavy import (weasyprint) -> keep it OFF the GUI thread
                 snap = (live.stopped(ed, cl, h, updated) if kind == "stopped"
                         else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW))
-                new_gid = live.publish(token, gid, snap)
-            except Exception:               # never breaks timing; retried on the next crossing
-                new_gid = False
-            self._broadcast_done.emit(new_gid)
+                result = live.publish(token, gid, snap)
+            except Exception as exc:        # surfaced to the operator; never breaks timing
+                result = exc
+            self._broadcast_done.emit(result)
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_broadcast_done(self, gid):
-        """(GUI thread) Publish finished: persist a newly-created gist id, then refresh the viewer link."""
+    def _on_broadcast_done(self, result):
+        """(GUI thread) Publish finished. ``result`` is the gist id (str) on success, else the
+        Exception the worker hit. A permission failure (401/403/404) means the signed-in token
+        predates the ``gist`` scope (issue #21) -> ask the operator to re-authorize; anything else is
+        a transient note. Timing is never affected either way."""
         self._publishing = False
-        if gid is False:
-            self.status.setText("Couldn't publish the live order (will retry on the next crossing).")
+        if isinstance(result, Exception):
+            if getattr(result, "code", None) in (401, 403, 404):
+                self.status.setText("Couldn't publish the live order — cozer needs permission to "
+                                    "create the live link. Please sign out and sign in to GitHub "
+                                    "again (top-right corner), then turn Broadcast on again.")
+            else:
+                self.status.setText("Couldn't publish the live order (%s) — will retry on the next "
+                                    "crossing." % result)
+            return
+        gid = result
+        if not gid:
             return
         from cozer.app import crashreport
         cfg = crashreport.load_config()
-        if gid and cfg.get("live_gist_id") != gid:
+        if cfg.get("live_gist_id") != gid:
             cfg["live_gist_id"] = gid
             crashreport.save_config(cfg)
         self._update_viewer_url()
-        if gid:
-            self.status.setText("Live order published — the Live viewer link is shown above.")
+        self.status.setText("Live order published — the Live viewer link is shown above.")
 
     def _update_viewer_url(self):
         """Show/refresh the copyable + clickable live-viewer link once a broadcast gist exists

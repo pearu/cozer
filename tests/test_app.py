@@ -1369,6 +1369,15 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
     tp._publish_order("GT", "1", ["1"])
     assert cr.load_config().get("live_gist_id") == "GID123" and "Couldn't publish" in tp.status.text()
 
+    # a permission failure (the signed-in token predates the `gist` scope, issue #21) -> ask the
+    # operator to re-authorize, rather than a generic "retry" note
+    class _Http404(Exception):
+        code = 404
+    monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(_Http404("no gist scope")))
+    tp._publishing = False
+    tp._publish_order("GT", "1", ["1"])
+    assert "sign" in tp.status.text().lower() and "in" in tp.status.text().lower()
+
     # a crossing debounce computes the leader-first order from standings
     calls = []
     monkeypatch.setattr(tp, "_rec", lambda cl, h: [{}, {"1": [], "2": []}])

@@ -23,7 +23,10 @@ from cozer import __version__
 from cozer.store import atomic_write, dumps, to_jsonable
 
 REPO = "pearu/cozer"
-SCOPE = "public_repo"
+# public_repo: file bug reports (issues) + push bug screenshots. gist: publish the live-order feed
+# (LIVE.md) -- creating a gist needs its own scope, separate from repo access. Tokens issued before
+# `gist` was added lack it, so the live feed asks such users to sign out and back in (see timer.py).
+SCOPE = "public_repo gist"
 LABEL = "needs-triage"
 SCREENSHOT_BRANCH = "bug-screenshots"   # side branch that holds bug-report screenshots (off main)
 # cozer's registered GitHub OAuth App (Device Flow). The client id is public and
@@ -248,7 +251,9 @@ def _http(method, url, token=None, data=None, transport=None, accept="applicatio
 
 
 def device_start(cid, transport=None):
-    _, js = _http("POST", "%s?client_id=%s&scope=%s" % (DEVICE_CODE_URL, cid, SCOPE),
+    import urllib.parse
+    _, js = _http("POST", "%s?client_id=%s&scope=%s" % (DEVICE_CODE_URL, cid,
+                  urllib.parse.quote(SCOPE)),      # SCOPE is now space-separated -> must be encoded
                   transport=transport, accept="application/json")
     return js       # device_code, user_code, verification_uri, interval, expires_in
 
