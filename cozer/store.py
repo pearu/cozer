@@ -168,13 +168,15 @@ def apply_op(eventdata, op):
     """Apply one journal operation to ``eventdata`` in place. Record ops address the heat by
     the legacy ``(cl, h)`` id via ``native.record_heat``/``ensure_heat``, so they work whether
     the in-memory record is the native shape or the legacy suffixed one."""
-    from cozer.native import record_heat, ensure_heat
+    from cozer.native import record_heat, ensure_heat, remove_heat
     kind = op["op"]
     if kind == "field":
         eventdata[op["key"]] = op["value"]
     elif kind == "heat":
         ensure_heat(eventdata, op["cl"], op["h"],
                     [dict(op.get("info", {})), {i: [] for i in op.get("ids", [])}])
+    elif kind == "delheat":                    # delete a heat's record -> restore it to pre-Start
+        remove_heat(eventdata, op["cl"], op["h"])
     elif kind == "info":
         record_heat(eventdata, op["cl"], op["h"])[0][op["key"]] = op["value"]
     elif kind == "lap":

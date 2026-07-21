@@ -138,6 +138,37 @@ def ensure_heat(eventdata, cl, h, slot):
         rec.setdefault(cl, {})[h] = slot
 
 
+def remove_heat(eventdata, cl, h):
+    """Remove the ``[info, boats]`` record slot for legacy ``(class, heat_id)`` — restoring the heat to
+    a never-timed (pre-Start) state, so it drops out of record-based views (the Edit Records combo).
+    Prunes now-empty parents. No-op if there is no slot. A non-final restart occurrence can't be popped
+    (later occurrences are index-addressed by ``occ``), so it is emptied to ``[{}, {}]`` instead."""
+    rec = eventdata.get("record")
+    if not rec:
+        return
+    if eventdata.get("schema", 1) >= SCHEMA:
+        base, kind, (num, occ) = _native_addr(eventdata, cl, h)
+        kinds = rec.get(base, {})
+        nums = kinds.get(kind, {})
+        lst = nums.get(str(num))
+        if not lst or occ >= len(lst):
+            return
+        if occ == len(lst) - 1:
+            lst.pop()                          # last occurrence -> drop it outright
+        else:
+            lst[occ] = [{}, {}]                # interior restart occurrence -> empty (indices are fixed)
+        if not lst:                            # prune now-empty parents
+            nums.pop(str(num), None)
+            if not nums:
+                kinds.pop(kind, None)
+                if not kinds:
+                    rec.pop(base, None)
+    else:
+        rec.get(cl, {}).pop(h, None)
+        if cl in rec and not rec[cl]:
+            rec.pop(cl, None)
+
+
 def legacy_races_to_native(eventdata, races):
     """Race schedule → suffix-free heat refs. The in-memory model is native now, so this is
     mainly the legacy ``.coz`` import path (``to_native``): legacy ``[_, class, heat]`` rows →

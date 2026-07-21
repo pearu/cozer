@@ -622,9 +622,9 @@ def test_editor_picks_up_heats_recorded_after_load():
 
 
 def test_editor_delete_race_data(tmp_path, monkeypatch):
-    # owner: a "Delete race data" button in Edit Records erases the recorded laps/times, warning
-    # (default No) when there IS measured data. It overwrites the heat slot with an empty never-timed
-    # heat (the existing `heat` op), so the heat stays selectable, just emptied.
+    # owner: a "Delete race data" button in Edit Records warns (default No) when there IS measured data
+    # and, on Yes, RESTORES the heat to a pre-Start state — it removes the record slot (delheat op), so
+    # the heat drops out of the record-based combo (no emptied residual left behind).
     import cozer.app.editor as editor_mod
     from cozer.native import to_native, record_heat
     from cozer.store import apply_op
@@ -643,25 +643,24 @@ def test_editor_delete_race_data(tmp_path, monkeypatch):
     p.heat_combo.setCurrentIndex(0)
     assert p._cur() == ("GT", "1")
 
-    # measured data -> a confirm is asked; on Yes the laps are erased but the heat stays in the combo
+    # declining (No) keeps the data + the heat
+    monkeypatch.setattr(editor_mod, "confirm_delete", lambda *a, **k: False)
+    p._delete_race_data()
+    assert record_heat(w.eventdata, "GT", "1")[1].get("1")       # still there (declined)
+    assert p.heat_combo.count() == 1
+
+    # measured data -> a confirm is asked; on Yes the slot is REMOVED -> gone from the combo (pre-Start)
     asks = []
     monkeypatch.setattr(editor_mod, "confirm_delete", lambda *a, **k: asks.append(1) or True)
     p._delete_race_data()
-    assert asks                                                   # measured -> prompted
-    assert not any(record_heat(w.eventdata, "GT", "1")[1].values())   # laps erased
-    assert p.heat_combo.count() == 1                             # heat still selectable (emptied)
+    assert asks                                                  # measured -> prompted
+    assert record_heat(w.eventdata, "GT", "1") is None           # slot removed -> pre-Start (no residual)
+    assert p.heat_combo.count() == 0                             # heat dropped from the record-based combo
 
-    # already-empty heat -> no prompt, just a note
+    # nothing selected now -> a further delete is a quiet no-op (no prompt)
     asks.clear()
     p._delete_race_data()
     assert not asks
-
-    # declining (No) keeps the data
-    apply_op(w.eventdata, {"op": "lap", "cl": "GT", "h": "1", "id": "2", "mark": [1, 21.0]})
-    p._draft_key = None                                          # force a reload of the stored heat
-    monkeypatch.setattr(editor_mod, "confirm_delete", lambda *a, **k: False)
-    p._delete_race_data()
-    assert record_heat(w.eventdata, "GT", "1")[1].get("2")       # still there (declined)
 
 
 def test_reports_tree_shows_native_heats_and_refreshes_on_entry():

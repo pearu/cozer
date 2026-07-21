@@ -587,11 +587,12 @@ class EditRecordsPanel(QWidget):
 
     # ---- delete all recorded data for the selected heat ----
     def _delete_race_data(self):
-        """Erase every recorded lap/time for the selected heat (owner: a Delete button that warns loud
-        on measured data). It **overwrites** the slot with an empty never-timed heat via the existing
-        ``heat`` op (no new op; store.apply_op builds ``[{}, {}]`` from empty info/ids) — the heat stays
-        selectable, just emptied, and the operator can re-Start it in the Timer. Nothing recorded → a
-        note, no dialog. QMessageBox is monkeypatchable so tests can drive the confirmed path."""
+        """Delete every recorded lap/time for the selected heat, **restoring it to a pre-Start (never
+        timed) state** (owner: a Delete button that warns loud on measured data). It *removes* the
+        record slot via the ``delheat`` op (not just empties it), so the heat is a clean pre-Start heat
+        again — it drops out of this record-based combo, and re-Starting it in the Timer records fresh.
+        Nothing recorded → a note, no dialog. QMessageBox is monkeypatchable so tests can drive the
+        confirmed path."""
         cl, h = self._cur()
         if cl is None:
             return
@@ -604,11 +605,11 @@ class EditRecordsPanel(QWidget):
             return
         if not self._require_store():
             return
-        self.window.store.record({"op": "heat", "cl": cl, "h": h, "info": {}, "ids": []})
+        self.window.store.record({"op": "delheat", "cl": cl, "h": h})   # remove the slot -> pre-Start
         self.window.store.snapshot()
         self._draft, self._draft_key, self._dirty = None, None, False
-        self.refresh()
-        self.window.log("Deleted the recorded data for race %s / %s." % (cl, h))
+        self.reload()          # the heat's record is gone -> rebuild the combo without it
+        self.window.log("Deleted the recorded data for race %s / %s (restored to pre-Start)." % (cl, h))
 
     # ---- right-click menu on the timeline ----
     def build_mark_menu(self, pid, ct):
