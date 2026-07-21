@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
-        if body:
+        if body and self.command != "HEAD":       # HEAD: send headers (incl. Content-Length) only
             self.wfile.write(body)
 
     def _json(self, code, obj):
@@ -77,6 +77,9 @@ class Handler(BaseHTTPRequestHandler):
         if entry is None:
             return self._json(404, {"error": "no data for channel", "channel": channel})
         return self._send(200, entry[0])
+
+    def do_HEAD(self):
+        self.do_GET()                              # same routing/headers; _send drops the body for HEAD
 
     # --- POST: operator publishes a snapshot -------------------------------------------------------
     def do_POST(self):
