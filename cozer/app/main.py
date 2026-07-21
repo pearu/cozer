@@ -785,16 +785,16 @@ class MainWindow(QMainWindow):
         if rel is None:
             QMessageBox.information(
                 self, "Check for updates",
-                "Couldn't check for updates just now — no published release yet, or GitHub is "
-                "unreachable.\n\nYou are running cozer %s." % res["current"])
+                "Couldn't check for updates just now — you may be offline. Please try again "
+                "later.\n\n(You are running COZER %s.)" % res["current"])
             return
         if not res["available"]:
             QMessageBox.information(
-                self, "Check for updates", "cozer %s is up to date." % res["current"])
+                self, "Check for updates", "COZER %s is up to date." % res["current"])
             return
         box = QMessageBox(self)
         box.setWindowTitle("Update available")
-        box.setText("A newer version is available: %s\nYou are running cozer %s."
+        box.setText("A newer version is available: %s\nYou are running COZER %s."
                     % (rel["name"], res["current"]))
         if rel["notes"].strip():
             box.setDetailedText(rel["notes"])
@@ -830,35 +830,44 @@ class MainWindow(QMainWindow):
                 "installer to upgrade, then start cozer again." % (plan["hint"] or "latest release"))
         elif action == "pip" and url:
             if QMessageBox.question(
-                    self, "Update cozer",
-                    "Update cozer to the latest release now? cozer will need to be restarted "
-                    "afterwards.") == QMessageBox.Yes:
-                self._run_pip_update(url)
+                    self, "Update COZER",
+                    "Update COZER to the newest version now? COZER will need to be closed and "
+                    "reopened afterwards.") == QMessageBox.Yes:
+                self._run_pip_update(url, (res.get("latest") or {}).get("url"))
         elif url:                                    # "link" fallback: asset missing -> release page
             open_in_viewer(url)
 
-    def _run_pip_update(self, url):
-        """`pip install -U --no-deps` the release wheel into the running interpreter, then prompt a
-        restart. ``--no-deps`` keeps this to cozer's own code (its wheel is pure Python and declares
-        no runtime deps -- those come from the env); if a release ever needs newer bundled libraries,
-        the full installer is the fallback."""
+    def _run_pip_update(self, url, release_url=None):
+        """Install the newest COZER behind the scenes, then ask the operator to reopen COZER. The
+        operator never sees the mechanics (it runs `pip install -U --no-deps <wheel>` -- cozer's
+        wheel is pure Python with no runtime deps, so only cozer's own code is replaced); any raw
+        error is tucked behind "Show Details" for a bug report, with the full installer as fallback."""
         import subprocess
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             proc = subprocess.run([sys.executable, "-m", "pip", "install", "-U", "--no-deps", url],
                                   capture_output=True, text=True, timeout=300)
+            detail, ok = (proc.stderr or proc.stdout or ""), proc.returncode == 0
         except Exception as e:                       # network/timeout -> report, never crash
-            QApplication.restoreOverrideCursor()
-            QMessageBox.warning(self, "Update cozer", "Update failed:\n%s" % e)
-            return
+            detail, ok = str(e), False
         QApplication.restoreOverrideCursor()
-        if proc.returncode == 0:
-            QMessageBox.information(self, "Update cozer",
-                                    "cozer updated — restart cozer to use the new version.")
-        else:
-            QMessageBox.warning(self, "Update cozer", "Update failed (pip exit %d):\n\n%s\n\nYou can "
-                                "also upgrade by downloading the installer from the release page."
-                                % (proc.returncode, (proc.stderr or proc.stdout or "")[-700:]))
+        if ok:
+            QMessageBox.information(
+                self, "Update COZER",
+                "COZER has been updated. Close COZER and open it again to use the new version.")
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Update COZER")
+        box.setIcon(QMessageBox.Warning)
+        box.setText("COZER couldn't finish the update.\n\nYou can update instead by downloading the "
+                    "installer.")
+        if detail.strip():
+            box.setDetailedText(detail.strip()[-1500:])   # for a bug report, behind "Show Details"
+        box.setStandardButtons(QMessageBox.Close)
+        openb = box.addButton("Download the installer", QMessageBox.ActionRole) if release_url else None
+        box.exec()
+        if openb is not None and box.clickedButton() is openb:
+            open_in_viewer(release_url)
 
     def _on_about(self):
         """The About box (cf. legacy Cozer): tagline, version, project link, author."""

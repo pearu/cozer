@@ -1698,7 +1698,7 @@ def test_check_for_updates_menu_and_handler(monkeypatch):
     monkeypatch.setattr(upd, "check", lambda *a, **k: {
         "current": "3.0.0", "kind": "wheel", "latest": None, "available": False})
     w._on_check_updates()
-    assert "unreachable" in seen["text"] or "release" in seen["text"]      # offline / no release path
+    assert "offline" in seen["text"]                                       # couldn't-check / offline path
     monkeypatch.setattr(appmain.QMessageBox, "exec", lambda self: 0)       # available path -> must not raise
     monkeypatch.setattr(upd, "check", lambda *a, **k: {
         "current": "3.0.0rc1", "kind": "windows-installer", "available": True,
@@ -1716,7 +1716,7 @@ def test_apply_update_dispatches_by_install_kind(monkeypatch):
     monkeypatch.setattr(appmain, "open_in_viewer", lambda u: opened.__setitem__("url", u))
     monkeypatch.setattr(appmain.QMessageBox, "information", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(appmain.QMessageBox, "question", staticmethod(lambda *a, **k: appmain.QMessageBox.Yes))
-    monkeypatch.setattr(w, "_run_pip_update", lambda url: ran.__setitem__("url", url))
+    monkeypatch.setattr(w, "_run_pip_update", lambda url, release_url=None: ran.__setitem__("url", url))
     res = {"current": "3.0.0", "kind": "x", "latest": {"url": "https://rel"}, "available": True}
     monkeypatch.setattr(upd, "recommend", lambda r: {"action": "installer", "url": "https://dl/x.exe", "hint": "x.exe"})
     w._apply_update(res)
