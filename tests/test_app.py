@@ -1828,6 +1828,28 @@ def test_report_exception_ignores_keyboardinterrupt(tmp_path, monkeypatch):
     assert cr.list_pending() == []
 
 
+def test_render_report_permission_error_is_friendly(tmp_path, monkeypatch):
+    # a locked/read-only report file (the PDF still open in a viewer, or a OneDrive folder) gets a
+    # clear "close it and retry" message and is NOT filed as a crash (it's the environment, not a bug).
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import cozer.reports as R
+    _app()
+    w = MainWindow(_timer_event())
+    monkeypatch.setattr(R, "render_participants",
+                        lambda *a, **k: (_ for _ in ()).throw(PermissionError(13, "denied")))
+    warned = {}
+    monkeypatch.setattr(appmain.QMessageBox, "warning",
+                        staticmethod(lambda *a, **k: warned.update(text=a[2]) or appmain.QMessageBox.Ok))
+    reported = {"n": 0}
+    monkeypatch.setattr(appmain, "report_exception",
+                        lambda *a, **k: reported.update(n=reported["n"] + 1) or (None, None))
+    ok = w._render_report("Participants", "render_participants", False, False, False,
+                          str(tmp_path / "participants.pdf"))
+    assert ok is False
+    assert "open in another program" in warned.get("text", "")   # friendly guidance shown
+    assert reported["n"] == 0                                     # NOT crash-reported
+
+
 def test_menu_corner_reflects_signin_state(tmp_path, monkeypatch):
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     monkeypatch.delenv("COZER_GITHUB_CLIENT_ID", raising=False)

@@ -1086,6 +1086,17 @@ class MainWindow(QMainWindow):
                 kwargs["options"] = self._report_options()
             func(self.eventdata, path, **kwargs)
             return True
+        except PermissionError as e:
+            # The report file couldn't be written -- almost always because it's still open in a PDF
+            # viewer (Windows blocks the overwrite), or the folder is read-only / a OneDrive placeholder.
+            # That's the operator's environment, not a cozer bug -> a clear message, no crash report.
+            QMessageBox.warning(
+                self, "Report error",
+                "Couldn't save the report — writing the file was denied:\n\n%s\n\nThe report is most "
+                "likely still open in another program (a PDF viewer) — close it and generate the report "
+                "again. If it's in a OneDrive or other synced folder, make sure the folder is available "
+                "(not “online-only”) and not read-only." % e)
+            return False
         except Exception as e:
             _report, url = report_exception(self, type(e), e, e.__traceback__,
                                             action="Generate report: %s" % label)
