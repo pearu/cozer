@@ -23,7 +23,7 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
     """The unofficial live-order snapshot ``dict`` for class ``cl`` heat ``heat``.
 
     ``order`` — leader-first, one item per boat. Each item is either a **boat id** (scalar) or a
-    **standings dict** ``{"id"|"boat", "laps", "time"}`` (pass ``timer.standings(rec)`` directly).
+    **standings dict** ``{"id"|"boat", "laps", "time", "finished"}`` (pass ``timer.standings(rec)``).
     When laps/time are present they flow into the feed so the viewer can show laps-completed + the
     time gap to the boat one place ahead, and switch from the pre-start (nat/boat/surname) layout to
     the running layout once the field has started.
@@ -47,6 +47,8 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
                     started = True
             if item.get("time") is not None:
                 row["time"] = item["time"]          # cumulative seconds at the last crossing
+            if item.get("finished"):
+                row["finished"] = True              # crossed the last lap-line -> viewer shows 🏁
         rows.append(row)
     return {
         "class": getclass(cl),

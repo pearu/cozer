@@ -53,13 +53,15 @@ def test_snapshot_custom_view_and_unknown_boat():
 
 
 def test_snapshot_standings_dicts_laps_time_and_started():
-    # pass standings-style dicts -> laps/time flow through + started is derived
-    order = [{"id": "7", "laps": 2, "time": 40.0}, {"id": "14", "laps": 2, "time": 41.5},
+    # pass standings-style dicts -> laps/time/finished flow through + started is derived
+    order = [{"id": "7", "laps": 3, "time": 40.0, "finished": True},
+             {"id": "14", "laps": 2, "time": 41.5, "finished": False},
              {"id": "9", "laps": 1, "time": 22.0}]
     snap = live.snapshot(ED, "F 500", "2", order, "T")
     assert snap["started"] is True
     assert snap["order"][0] == {"pos": 1, "boat": "7", "surname": "Tamm", "nat": "EST",
-                                "laps": 2, "time": 40.0}
+                                "laps": 3, "time": 40.0, "finished": True}     # 🏁 in the viewer
+    assert "finished" not in snap["order"][1]        # finished:False is omitted (only True flows)
     assert snap["order"][2]["laps"] == 1 and snap["order"][2]["time"] == 22.0
 
 

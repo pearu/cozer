@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
+from cozer.app.grids import confirm_delete
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
 from cozer.records import insertmark, invreccodemap, reccodemap
@@ -346,6 +347,13 @@ class EditRecordsPanel(QWidget):
         self.save_btn.setEnabled(False)
         self.save_btn.clicked.connect(self.save_draft)
         top.addWidget(self.save_btn)
+        top.addSpacing(12)                       # destructive action, set apart from Save
+        self.delete_btn = QPushButton("Delete race data…")
+        self.delete_btn.setStyleSheet("color:#b00000;")
+        self.delete_btn.setToolTip("Erase all recorded laps/times for the selected race "
+                                   "(warns first; can't be undone).")
+        self.delete_btn.clicked.connect(self._delete_race_data)
+        top.addWidget(self.delete_btn)
         v.addLayout(top)
         # Frozen header column (left) + horizontally-scrolling timeline (right).
         # The header lives in a fixed-width clipping holder and is moved by the
@@ -576,6 +584,31 @@ class EditRecordsPanel(QWidget):
         box.setDefaultButton(QMessageBox.Save)
         return {QMessageBox.Save: "save", QMessageBox.Discard: "discard",
                 QMessageBox.Cancel: "cancel"}.get(box.exec(), "cancel")
+
+    # ---- delete all recorded data for the selected heat ----
+    def _delete_race_data(self):
+        """Erase every recorded lap/time for the selected heat (owner: a Delete button that warns loud
+        on measured data). It **overwrites** the slot with an empty never-timed heat via the existing
+        ``heat`` op (no new op; store.apply_op builds ``[{}, {}]`` from empty info/ids) — the heat stays
+        selectable, just emptied, and the operator can re-Start it in the Timer. Nothing recorded → a
+        note, no dialog. QMessageBox is monkeypatchable so tests can drive the confirmed path."""
+        cl, h = self._cur()
+        if cl is None:
+            return
+        rec = self._draft if self._draft_key == (cl, h) else record_heat(self.window.eventdata, cl, h)
+        measured = bool(rec) and rec[1] and any(rec[1].values())
+        if not measured:
+            self.window.log("Race %s / %s has no recorded data to delete." % (cl, h))
+            return
+        if not confirm_delete(self, "all recorded laps/times for race %s / %s" % (cl, h)):
+            return
+        if not self._require_store():
+            return
+        self.window.store.record({"op": "heat", "cl": cl, "h": h, "info": {}, "ids": []})
+        self.window.store.snapshot()
+        self._draft, self._draft_key, self._dirty = None, None, False
+        self.refresh()
+        self.window.log("Deleted the recorded data for race %s / %s." % (cl, h))
 
     # ---- right-click menu on the timeline ----
     def build_mark_menu(self, pid, ct):
