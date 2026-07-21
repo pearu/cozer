@@ -45,8 +45,9 @@ You now have a GitHub account. Keep the username and password handy.
    *(Prefer to pick a version? Browse https://github.com/pearu/cozer/releases and
    download the `.exe` under **Assets**.)*
 2. It downloads to your **Downloads** folder. It is large (a few hundred MB)
-   because it bundles everything COZER needs — you do **not** install Python, Qt,
-   or anything else separately.
+   because it bundles Python, Qt and WeasyPrint — you do **not** install those
+   separately. COZER itself is downloaded during installation (see the note in step 3),
+   which is why COZER updates later never need a new installer.
 
 > The link always fetches the newest published release. If it doesn't download, a new release
 > may be building right then — wait a minute and try again, or ask Pearu.
@@ -62,7 +63,15 @@ You now have a GitHub account. Keep the username and password handy.
    - If Windows asks *"Do you want to allow this app to make changes?"*, click **Yes**.
    - If your antivirus quarantines the file, choose **Allow** / **Keep**.
 3. Follow the installer: **Next → Install → Finish**. Accept the default location
-   unless you have a reason to change it.
+   unless you have a reason to change it. (COZER installs into a folder named
+   `cozer-<date>` — e.g. `cozer-2026.07` — so a newer installer never clashes with an
+   older install.)
+
+> **Keep an internet connection during installation.** The installer downloads the latest
+> COZER during the **Install** step. If you must install without internet, put a COZER wheel
+> file (`cozer-…-py3-none-any.whl`, ask Pearu) in the **same folder as the installer** before
+> running it, and it will use that instead. With no internet and no such file, the installer
+> tells you it couldn't finish — just run it again once you're online.
 
 ---
 

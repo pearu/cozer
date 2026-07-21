@@ -50,8 +50,9 @@ Nüüd on sul GitHubi konto olemas. Hoia kasutajanimi ja parool käepärast.
    *(Soovid valida versiooni? Sirvi https://github.com/pearu/cozer/releases ja
    laadi `.exe` alla jaotisest **Assets**.)*
 2. Fail laaditakse sinu **Downloads** (Allalaadimised) kausta. See on suur (mõnisada
-   MB), sest sisaldab kõike, mida COZER vajab — sa **ei pea** eraldi paigaldama
-   Pythonit, Qt-d ega midagi muud.
+   MB), sest sisaldab Pythonit, Qt-d ja WeasyPrinti — neid **ei pea** eraldi paigaldama.
+   COZER ise laaditakse alla paigaldamise ajal (vt märkust 3. sammus), just seepärast ei
+   vaja COZERi hilisemad uuendused enam uut paigaldusfaili.
 
 > Link laadib alati alla uusima avaldatud väljalaske. Kui allalaadimine ei õnnestu, võib parasjagu
 > valmida uus väljalase — oota minut ja proovi uuesti või küsi Pearult.
@@ -69,7 +70,15 @@ Nüüd on sul GitHubi konto olemas. Hoia kasutajanimi ja parool käepärast.
      lubada sellel rakendusel muudatusi teha?), klõpsa **Yes** (Jah).
    - Kui viirusetõrje faili blokeerib, vali **Allow / Keep** (Luba / Säilita).
 3. Järgi paigaldajat: **Next → Install → Finish** (Edasi → Paigalda → Lõpeta).
-   Jäta vaikeasukoht, kui sul pole põhjust seda muuta.
+   Jäta vaikeasukoht, kui sul pole põhjust seda muuta. (COZER paigaldatakse kausta
+   nimega `cozer-<kuupäev>` — nt `cozer-2026.07` — nii et uuem paigaldusfail ei lähe
+   vanema paigaldusega vastuollu.)
+
+> **Hoia paigaldamise ajal internetiühendus.** Paigaldaja laadib **Install** (Paigalda)
+> sammu ajal alla uusima COZERi. Kui pead paigaldama ilma internetita, pane COZERi
+> wheel-fail (`cozer-…-py3-none-any.whl`, küsi Pearult) **paigaldusfailiga samasse kausta**
+> enne käivitamist — siis kasutab paigaldaja seda. Kui internetti pole ega ka sellist faili,
+> teatab paigaldaja, et ei saanud lõpetada — käivita see uuesti, kui oled võrgus.
 
 ---
 
