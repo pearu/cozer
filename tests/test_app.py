@@ -1313,6 +1313,56 @@ def test_timer_shows_buttons_on_race_select():
     tp.race_combo.setCurrentIndex(0)
     # boat-number grid appears BEFORE Start, built from the class participant ids
     assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "2") in tp._buttons
+
+
+def test_timer_broadcast_live_order(tmp_path, monkeypatch):
+    # Phase 7: the "Broadcast live order" checkbox publishes the live order to a gist -- needs
+    # sign-in, runs off the timing path (background thread), and persists the created gist id.
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import threading
+    import cozer.app.crashreport as cr
+    import cozer.app.live as live
+    _app()
+    w = MainWindow(_timer_event())
+    tp = w.timer_panel
+    # toggling on without sign-in prompts + auto-clears the checkbox (can't publish without a token)
+    tp.broadcast_cb.setChecked(True)
+    assert not tp.broadcast_cb.isChecked() and "Sign in" in tp.status.text()
+    cr.save_config({"token": "gho_x", "login": "pearu"})
+    tp.broadcast_cb.setChecked(True)
+    assert tp.broadcast_cb.isChecked() and "Broadcasting" in tp.status.text()
+
+    # publish runs in a thread -> run it inline; mock the live seam
+    class _Sync:
+        def __init__(self, target=None, daemon=None):
+            self._t = target
+
+        def start(self):
+            self._t()
+    monkeypatch.setattr(threading, "Thread", _Sync)
+    snaps = {}
+    monkeypatch.setattr(live, "snapshot",
+                        lambda ed, cl, h, order, updated, view=None: snaps.update(order=order, cl=cl) or {"n": 1})
+    monkeypatch.setattr(live, "publish", lambda token, gid, snap, transport=None: "GID123")
+    tp._publish_order("F 500", "2", ["7", "3"])
+    assert snaps["order"] == ["7", "3"] and snaps["cl"] == "F 500"        # order+class passed to snapshot
+    assert cr.load_config().get("live_gist_id") == "GID123"              # created gist id persisted
+    assert not tp._publishing                                            # cleared when done
+
+    # failure is guarded: status note, no save, no crash (timing never affected)
+    monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
+    tp._publishing = False
+    tp._publish_order("F 500", "2", ["7"])
+    assert cr.load_config().get("live_gist_id") == "GID123" and "Couldn't publish" in tp.status.text()
+
+    # a debounce fire computes the leader-first order from standings and hands it to _publish_order
+    calls = []
+    monkeypatch.setattr(tp, "_rec", lambda cl, h: [{}, {"1": [], "2": []}])
+    monkeypatch.setattr(tp, "_publish_order", lambda cl, h, order: calls.append(order))
+    tp._broadcast_target = ("F 500", "2")
+    tp._publishing = False
+    tp._do_broadcast()
+    assert calls and calls[0] == ["1", "2"]
     assert not tp._started
     assert tp._buttons[("GT", "1", "1")].text().startswith("1")   # shows the boat number
 

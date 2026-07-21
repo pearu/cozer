@@ -20,9 +20,9 @@ display is always recomputed from the record, so reopening reconstructs it.
 import math
 import time
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
+    QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMdiArea, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -249,6 +249,8 @@ class GridButtons(QWidget):
 
 
 class TimerPanel(QWidget):
+    _broadcast_done = Signal(object)   # (gist_id | None | False-on-failure) from the publish thread
+
     def __init__(self, window, wall=time.time, clock=None):
         super().__init__()
         self.window = window
@@ -262,6 +264,15 @@ class TimerPanel(QWidget):
         self._ladder_boats = {}     # (cl, h, pid) -> ladder QPushButton
         self._ladder_layouts = {}   # (cl, h) -> QVBoxLayout of the ladder
         self._grids = {}            # (cl, h) -> GridButtons
+        # Live-order broadcast (Phase 7, LIVE.md): publish the unofficial running order to a shared
+        # feed, debounced so a slow/failed publish never blocks timing.
+        self._broadcast_target = None       # (cl, h) whose order to publish next
+        self._publishing = False            # a publish is in flight (avoid overlap / double gist-create)
+        self._broadcast_timer = QTimer(self)
+        self._broadcast_timer.setSingleShot(True)
+        self._broadcast_timer.setInterval(2500)     # ~1 post / 2.5 s (LIVE.md §3)
+        self._broadcast_timer.timeout.connect(self._do_broadcast)
+        self._broadcast_done.connect(self._on_broadcast_done)
 
         v = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -278,6 +289,12 @@ class TimerPanel(QWidget):
         for w in (self.start_btn, self.stop_btn, self.resume_btn):
             top.addWidget(w)
         top.addStretch()
+        self.broadcast_cb = QCheckBox("Broadcast live order")
+        self.broadcast_cb.setToolTip(
+            "Publish the unofficial live running order to a shared feed for a broadcast / venue "
+            "display. Needs GitHub sign-in (top-right corner). Never affects timing.")
+        self.broadcast_cb.toggled.connect(self._on_broadcast_toggled)
+        top.addWidget(self.broadcast_cb)
         v.addLayout(top)
 
         # Mis-pick guard (§5.2): always show exactly what the selected race will record —
@@ -605,6 +622,80 @@ class TimerPanel(QWidget):
             grid.restyle(pid)
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
         self._arm_prediction(cl, h, pid)   # predict the next crossing -> closing hint
+        if self.broadcast_cb.isChecked():  # the order changed -> (debounced) publish the live feed
+            self._broadcast_target = (cl, h)
+            self._broadcast_timer.start()
+
+    # ---- live-order broadcast (Phase 7, LIVE.md) ----
+    def _on_broadcast_toggled(self, on):
+        """Turn the unofficial live-order feed on/off. It publishes to a GitHub gist, so it needs
+        sign-in; turning it on while signed out just prompts to sign in and clears the checkbox."""
+        if on:
+            from cozer.app import crashreport
+            if not crashreport.load_config().get("token"):
+                self.status.setText("Sign in to GitHub (top-right corner) first, then turn on "
+                                    "Broadcast live order.")
+                self.broadcast_cb.blockSignals(True)
+                self.broadcast_cb.setChecked(False)
+                self.broadcast_cb.blockSignals(False)
+                return
+            self.status.setText("Broadcasting the unofficial live order.")
+        else:
+            self._broadcast_timer.stop()
+            self.status.setText("Live broadcast off.")
+
+    def _do_broadcast(self):
+        """(debounce fired) Publish the current order of the heat that last changed. If a publish is
+        still in flight, re-arm and retry shortly — never overlap (which could double-create the gist)."""
+        if self._publishing:
+            self._broadcast_timer.start()
+            return
+        if self._broadcast_target is None:
+            return
+        cl, h = self._broadcast_target
+        rec = self._rec(cl, h)
+        if not rec:
+            return
+        self._publishing = True
+        self._publish_order(cl, h, [b["id"] for b in standings(rec)])
+
+    def _publish_order(self, cl, h, order):
+        """Publish the live order in a background thread, so a slow/failed post never blocks timing
+        (LIVE.md §5). The gist id (created on the first publish) is persisted in the user config."""
+        from datetime import datetime, timezone
+        import threading
+        from cozer.app import crashreport, live
+        cfg = crashreport.load_config()
+        token = cfg.get("token")
+        if not token:                       # signed out mid-broadcast -> skip quietly
+            self._publishing = False
+            return
+        gid = cfg.get("live_gist_id")
+        snap = live.snapshot(self.eventdata, cl, h, order,
+                             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                             live.DEFAULT_VIEW)
+
+        def worker():
+            try:
+                new_gid = live.publish(token, gid, snap)
+            except Exception:               # never breaks timing; retried on the next crossing
+                new_gid = False
+            self._broadcast_done.emit(new_gid)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_broadcast_done(self, gid):
+        """(GUI thread) Publish finished: persist a newly-created gist id and show the feed URL."""
+        self._publishing = False
+        if gid is False:
+            self.status.setText("Couldn't publish the live order (will retry on the next crossing).")
+            return
+        from cozer.app import crashreport
+        cfg = crashreport.load_config()
+        if gid and cfg.get("live_gist_id") != gid:
+            cfg["live_gist_id"] = gid
+            crashreport.save_config(cfg)
+        if gid:
+            self.status.setText("Live order published — feed gist: https://gist.github.com/%s" % gid)
 
     def on_stop(self):
         self._started = False
