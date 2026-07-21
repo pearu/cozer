@@ -651,9 +651,12 @@ class TimerPanel(QWidget):
             grid.restyle(pid)
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
         self._arm_prediction(cl, h, pid)   # predict the next crossing -> closing hint
-        if self.broadcast_cb.isChecked():  # the order changed -> (debounced) publish the live feed
+        if self.broadcast_cb.isChecked():  # the order changed -> (throttled) publish the live feed
             self._broadcast_target = (cl, h)
-            self._broadcast_timer.start()
+            if not self._broadcast_timer.isActive():   # throttle, NOT restart-debounce: fire ~2.5s
+                self._broadcast_timer.start()          # after the FIRST crossing of a burst, so busy
+                                                       # racing (crossings <2.5s apart) can't starve
+                                                       # the publish into 20-30s stalls (LIVE.md §5)
 
     # ---- live-order broadcast (Phase 7, LIVE.md) ----
     def _on_broadcast_toggled(self, on):
