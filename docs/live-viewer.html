@@ -55,15 +55,18 @@
   var ol = document.getElementById("order");
   var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
   var params = new URLSearchParams(location.search);
-  var gistId = params.get("gist"), token = params.get("token");
-  var channel = params.get("channel"), src = params.get("src");   // self-hosted server feed
+  var gistId = params.get("gist"), token = params.get("token");   // gist fallback transport
+  var src = params.get("src");                                    // explicit JSON URL (poll)
+  // Served from the live server at /<event>/feed/<channel>/ -> data + stream live under that path.
+  var feedPath = /^\/[a-z0-9][a-z0-9-]*\/feed\/[a-z0-9][a-z0-9-]*\/?$/.test(location.pathname)
+                 ? location.pathname.replace(/\/?$/, "/") : null;
 
   function natCell(nat){
-    // Flags are static repo data (docs/flags/<IOC>.svg), keyed by the 3-letter code — no CDN,
-    // works offline. A missing/failed flag falls back to the code text.
+    // Flags are shared static data at the server root: /_flags/<IOC>.svg (absolute, so it works at
+    // any depth like /0726/feed/a/). A missing/failed flag falls back to the 3-letter code text.
     nat = (nat||"").toUpperCase();
     if(!nat) return '<span class="nat noflag"><span class="code"></span></span>';
-    return '<span class="nat"><img class="flag" alt="'+nat+'" src="flags/'+nat+'.svg" '
+    return '<span class="nat"><img class="flag" alt="'+nat+'" src="/_flags/'+nat+'.svg" '
       + 'onerror="this.parentNode.classList.add(\'noflag\')">'
       + '<span class="code">'+nat+'</span></span>';
   }
@@ -107,7 +110,9 @@
   function applyFeed(feed){
     if(feed.live === false){ boats = []; started = false; ol.className = "pre";
       ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:800;'
-        + 'letter-spacing:.14em;text-transform:uppercase;font-size:14px">Live stream disabled</li>';
+        + 'letter-spacing:.14em;text-transform:uppercase;font-size:14px">Live stream disabled</li>'
+        + '<li style="grid-template-columns:1fr;color:var(--ink);font-weight:900;'
+        + 'letter-spacing:.22em;font-size:22px;padding-top:10px">COZER</li>';
       return; }
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
@@ -156,9 +161,8 @@
     }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
-  // ---- live: poll the self-hosted server feed (same origin: /live/<channel>.json) ----
-  async function pollServer(){
-    var url = src || ("/live/" + encodeURIComponent(channel) + ".json");
+  // ---- live: poll a JSON feed URL (the server's data.json, or ?src=) ----
+  async function pollServer(url){
     try{
       var r = await fetch(url, {cache:"no-store"});
       if(!r.ok){ if(!haveData) status("Waiting for the feed… ("+r.status+")"); return; }
@@ -169,19 +173,23 @@
     }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
-  function startPolling(){                                 // fallback / src mode: poll /live/<ch>.json
-    pollMs = 500;                                          // fast (feed.view.poll_s can override)
-    (function tick(){ pollServer().then(function(){ setTimeout(tick, pollMs); }); })();
+  function startPolling(url){                              // poll a JSON feed at ~0.5 s (view.poll_s overrides)
+    pollMs = 500;
+    (function tick(){ pollServer(url).then(function(){ setTimeout(tick, pollMs); }); })();
   }
-  if(channel || src){                                      // self-hosted server (e.g. live.cozer.ee)
+  if(feedPath){                                            // served from the live server (/<event>/feed/<channel>/)
     status("Connecting…");
-    if(channel && window.EventSource){                     // SSE push (sub-second); poll is the fallback
-      var es = new EventSource("/stream/" + encodeURIComponent(channel)), fell = false;
+    var dataUrl = feedPath + "data.json", streamUrl = feedPath + "stream";
+    if(window.EventSource){                                // SSE push (sub-second); poll is the fallback
+      var es = new EventSource(streamUrl), fell = false;
       es.onmessage = function(ev){ try{ applyFeed(JSON.parse(ev.data)); haveData = true; }catch(e){} };
-      es.onerror = function(){                              // /stream unavailable -> fall back to polling
-        if(!haveData && !fell){ fell = true; es.close(); startPolling(); }
+      es.onerror = function(){                              // stream unavailable -> fall back to polling
+        if(!haveData && !fell){ fell = true; es.close(); startPolling(dataUrl); }
       };
-    } else startPolling();
+    } else startPolling(dataUrl);
+  }
+  else if(src){                                            // explicit JSON URL (poll)
+    status("Connecting…"); startPolling(src);
   }
   else if(gistId){                                         // gist fallback
     status("Connecting…");
