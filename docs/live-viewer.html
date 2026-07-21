@@ -37,6 +37,13 @@
   .name .first{ font-weight:400; color:var(--dim) }
   .laps{ font-size:17px; font-weight:700; text-align:center }
   .gap{ font-size:16px; font-weight:700; text-align:right; color:var(--dim) }
+  /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
+     band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
+  .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
+  .p1 .boat, .p2 .boat, .p3 .boat{ font-size:19px }
+  .p1 .name{ color:#ffce5c }   /* gold   */
+  .p2 .name{ color:#e6edf7 }   /* silver */
+  .p3 .name{ color:#e0a46b }   /* bronze */
   @media (prefers-reduced-motion:reduce){ }
 </style>
 
@@ -81,6 +88,7 @@
     boats.slice(0, maxRows).forEach(function(b, i){       // top-N only
       var li = document.createElement("li");
       li.dataset.no = b.no;
+      if(i < 3) li.className = "p" + (i + 1);              // podium (top 3): text-only emphasis
       var name = '<span class="name">'+(b.name||"")
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;

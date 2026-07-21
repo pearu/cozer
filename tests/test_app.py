@@ -621,6 +621,49 @@ def test_editor_picks_up_heats_recorded_after_load():
     assert "GT / 1" in w.editor_panel.heat_combo.itemText(0)
 
 
+def test_editor_delete_race_data(tmp_path, monkeypatch):
+    # owner: a "Delete race data" button in Edit Records erases the recorded laps/times, warning
+    # (default No) when there IS measured data. It overwrites the heat slot with an empty never-timed
+    # heat (the existing `heat` op), so the heat stays selectable, just emptied.
+    import cozer.app.editor as editor_mod
+    from cozer.native import to_native, record_heat
+    from cozer.store import apply_op
+    _app()
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT", "1*(1000):1"]], "record": {}, "races": []})
+    apply_op(ed, {"op": "heat", "cl": "GT", "h": "1", "info": {"course": [1000]}, "ids": ["1", "2"]})
+    apply_op(ed, {"op": "lap", "cl": "GT", "h": "1", "id": "1", "mark": [1, 20.0]})
+    w = MainWindow(ed)
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",           # Delete goes through the store
+                        staticmethod(lambda *a, **k: (str(tmp_path / "ev.cozj"), "")))
+    w.on_save_as()
+    assert w.store is not None
+    w.tabs.setCurrentWidget(w.editor_panel)
+    p = w.editor_panel
+    p.heat_combo.setCurrentIndex(0)
+    assert p._cur() == ("GT", "1")
+
+    # measured data -> a confirm is asked; on Yes the laps are erased but the heat stays in the combo
+    asks = []
+    monkeypatch.setattr(editor_mod, "confirm_delete", lambda *a, **k: asks.append(1) or True)
+    p._delete_race_data()
+    assert asks                                                   # measured -> prompted
+    assert not any(record_heat(w.eventdata, "GT", "1")[1].values())   # laps erased
+    assert p.heat_combo.count() == 1                             # heat still selectable (emptied)
+
+    # already-empty heat -> no prompt, just a note
+    asks.clear()
+    p._delete_race_data()
+    assert not asks
+
+    # declining (No) keeps the data
+    apply_op(w.eventdata, {"op": "lap", "cl": "GT", "h": "1", "id": "2", "mark": [1, 21.0]})
+    p._draft_key = None                                          # force a reload of the stored heat
+    monkeypatch.setattr(editor_mod, "confirm_delete", lambda *a, **k: False)
+    p._delete_race_data()
+    assert record_heat(w.eventdata, "GT", "1")[1].get("2")       # still there (declined)
+
+
 def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     # Regression: the Reports class/heat tree read the record by synthesized class name, so on the
     # native model (record keyed by base->kind->number) heats were missing; and it wasn't refreshed
