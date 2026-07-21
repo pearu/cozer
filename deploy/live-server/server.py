@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, code, obj):
         self._send(code, json.dumps(obj).encode("utf-8"))
 
-    def _serve_static(self, relpath, ctype, cache="no-store"):
+    def _serve_static(self, relpath, ctype, cache="no-store", code=200):
         full = os.path.normpath(os.path.join(WEB_ROOT, relpath))
         root = os.path.normpath(WEB_ROOT)
         if full != root and not full.startswith(root + os.sep):   # path-traversal guard
@@ -87,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
                 data = f.read()
         except OSError:
             return self._json(404, {"error": "not found"})
-        return self._send(200, data, ctype, cache=cache)
+        return self._send(code, data, ctype, cache=cache)
 
     def log_message(self, fmt, *args):     # route through _log (journald), not stderr
         _log("%s - %s" % (self.address_string(), fmt % args))
@@ -115,7 +115,9 @@ class Handler(BaseHTTPRequestHandler):
         ms = FEED_STREAM_RE.match(path)
         if ms:                                                         # SSE push (sub-second)
             return self._sse(_feed_key(ms.group(1), ms.group(2)))
-        return self._json(404, {"error": "not found"})
+        # Unknown GET path (e.g. /aaa, a mistyped or non-existent event) -> the neutral COZER landing
+        # (HTML), not raw JSON, so a person who opens a wrong link sees a page. 404 keeps it honest.
+        return self._serve_static("live-viewer.html", "text/html; charset=utf-8", code=404)
 
     def do_HEAD(self):
         self.do_GET()                              # same routing/headers; _send drops the body for HEAD
