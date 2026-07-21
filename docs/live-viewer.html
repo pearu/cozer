@@ -169,9 +169,19 @@
     }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
   }
 
-  if(channel || src){                                      // self-hosted server (e.g. live.cozer.ee)
-    status("Connecting…"); pollMs = 500;                   // poll fast (feed.view.poll_s can override)
+  function startPolling(){                                 // fallback / src mode: poll /live/<ch>.json
+    pollMs = 500;                                          // fast (feed.view.poll_s can override)
     (function tick(){ pollServer().then(function(){ setTimeout(tick, pollMs); }); })();
+  }
+  if(channel || src){                                      // self-hosted server (e.g. live.cozer.ee)
+    status("Connecting…");
+    if(channel && window.EventSource){                     // SSE push (sub-second); poll is the fallback
+      var es = new EventSource("/stream/" + encodeURIComponent(channel)), fell = false;
+      es.onmessage = function(ev){ try{ applyFeed(JSON.parse(ev.data)); haveData = true; }catch(e){} };
+      es.onerror = function(){                              // /stream unavailable -> fall back to polling
+        if(!haveData && !fell){ fell = true; es.close(); startPolling(); }
+      };
+    } else startPolling();
   }
   else if(gistId){                                         // gist fallback
     status("Connecting…");

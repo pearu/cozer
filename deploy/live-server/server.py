@@ -19,6 +19,7 @@ memory (a restart drops them; cozer re-publishes on the next tick, so the feed s
 """
 import json
 import os
+import queue
 import re
 import sys
 import threading
@@ -36,6 +37,7 @@ WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs"))
 
 _store = {}                                # channel -> (json_bytes, updated_epoch)
+_subscribers = {}                          # channel -> set of queue.Queue (open SSE streams)
 _lock = threading.Lock()
 
 
@@ -89,6 +91,9 @@ class Handler(BaseHTTPRequestHandler):
         if mflag:                                                      # a bundled flag SVG
             return self._serve_static("flags/" + mflag.group(1), "image/svg+xml",
                                       cache="public, max-age=86400")
+        mstream = re.match(r"^/stream/([^/]+)$", path)
+        if mstream:                                                    # SSE push (sub-second)
+            return self._sse(mstream.group(1))
         m = re.match(r"^/live/([^/]+)\.json$", path)
         if not m:
             return self._json(404, {"error": "not found"})
@@ -103,6 +108,53 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         self.do_GET()                              # same routing/headers; _send drops the body for HEAD
+
+    def _sse(self, channel):
+        """Server-Sent Events: push each new snapshot for <channel> the instant it's published, so the
+        viewer updates sub-second (LIVE.md §8). Chunked HTTP/1.1; one thread per open stream. Sends the
+        current snapshot immediately, then blocks on a per-stream queue that publish() feeds."""
+        if not CHANNEL_RE.match(channel):
+            return self._json(400, {"error": "bad channel"})
+        q = queue.Queue(maxsize=8)
+        with _lock:
+            _subscribers.setdefault(channel, set()).add(q)
+            current = _store.get(channel)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("X-Accel-Buffering", "no")           # ask proxies not to buffer
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
+        self.close_connection = True                          # this connection IS the stream
+
+        def chunk(b):
+            self.wfile.write(b"%X\r\n" % len(b) + b + b"\r\n")
+            self.wfile.flush()
+
+        def event(body):
+            chunk(b"".join(b"data: " + ln + b"\n" for ln in body.split(b"\n")) + b"\n")
+
+        try:
+            chunk(b": connected\n\n")
+            if current:
+                event(current[0])                            # a fresh viewer isn't blank
+            while True:
+                try:
+                    data = q.get(timeout=15)
+                except queue.Empty:
+                    chunk(b": keepalive\n\n")                 # heartbeat -> surfaces a dead peer
+                    continue
+                event(data)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass                                             # the client went away
+        finally:
+            with _lock:
+                subs = _subscribers.get(channel)
+                if subs:
+                    subs.discard(q)
+                    if not subs:
+                        _subscribers.pop(channel, None)
 
     # --- POST: operator publishes a snapshot -------------------------------------------------------
     def do_POST(self):
@@ -131,7 +183,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "body is not valid JSON"})
         with _lock:
             _store[channel] = (body, time.time())
-        _log("publish %s (%d bytes)" % (channel, len(body)))
+            subs = list(_subscribers.get(channel, ()))
+        for sub in subs:                           # push to open SSE streams (sub-second)
+            try:
+                sub.put_nowait(body)
+            except queue.Full:                     # slow client -> drop; it gets the next/current on reconnect
+                pass
+        _log("publish %s (%d bytes) -> %d stream(s)" % (channel, len(body), len(subs)))
         return self._json(200, {"ok": True, "channel": channel, "bytes": len(body)})
 
 

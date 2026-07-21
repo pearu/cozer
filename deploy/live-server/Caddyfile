@@ -11,6 +11,9 @@
 # }
 
 live.cozer.ee {
-    encode gzip
-    reverse_proxy 127.0.0.1:8099
+    reverse_proxy 127.0.0.1:8099 {
+        # stream Server-Sent Events (/stream/<channel>) immediately -- no proxy buffering.
+        # (gzip is intentionally omitted: it can buffer the event stream, and payloads are tiny.)
+        flush_interval -1
+    }
 }
