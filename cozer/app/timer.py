@@ -78,10 +78,12 @@ def estimate_next_lap(course, laptimes, speed_kmh):
 
 
 def _btn_qss(color, fontpx):
-    """Boat-button style: a thin border separates neighbours (avoid mis-taps); on
-    hover it thickens so the button stands out."""
+    """Boat-button style: a thin border separates neighbours (avoid mis-taps); on hover it thickens,
+    and on press it stands out (thick dark border + a warm flash) so a recorded tap is visible."""
     return ("QPushButton { background-color: %s; font-size: %dpx; border: 1px solid #9a9a9a; }"
-            "QPushButton:hover { border: 3px solid #202020; }" % (color, fontpx))
+            "QPushButton:hover { border: 3px solid #202020; }"
+            "QPushButton:pressed { border: 3px solid #202020; background-color: #ffe08a; }"
+            % (color, fontpx))
 
 
 def _idkey(pid):
@@ -517,8 +519,9 @@ class TimerPanel(QWidget):
             if k[0] == cl and k[1] == h:
                 del self._ladder_boats[k]
         rec = self._rec(cl, h)
-        if rec is None:
-            return
+        if rec is None:                        # not started yet -> draw all boats "Ready to Start"
+            rec = [{"course": heat_course(self.eventdata, cl, h)[0]},
+                   {pid: [] for pid in heat_membership(self.eventdata, cl, h)}]
         rows, _ = ladder(rec)
         for r in rows:
             if r[0] == "marker":

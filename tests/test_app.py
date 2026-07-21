@@ -1372,6 +1372,8 @@ def test_timer_shows_buttons_on_race_select():
     tp.race_combo.setCurrentIndex(0)
     # boat-number grid appears BEFORE Start, built from the class participant ids
     assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "2") in tp._buttons
+    # the running-order ladder is also drawn on select (all boats "Ready to Start"), not only after Start
+    assert ("GT", "1", "1") in tp._ladder_boats and ("GT", "1", "2") in tp._ladder_boats
 
 
 def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
