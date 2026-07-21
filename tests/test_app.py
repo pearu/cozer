@@ -1325,80 +1325,6 @@ def test_timer_shows_buttons_on_race_select():
     assert ("GT", "1", "1") in tp._buttons and ("GT", "1", "2") in tp._buttons
 
 
-def test_timer_broadcast_live_order(tmp_path, monkeypatch):
-    # Phase 7: "Broadcast live order" needs sign-in, runs off the timing path (background thread),
-    # publishes the field on tick + the order on each crossing, and a 'stopped' snapshot on untick.
-    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
-    import threading
-    import cozer.app.crashreport as cr
-    import cozer.app.live as live
-    from PySide6.QtWidgets import QApplication
-    _app()
-    w = MainWindow(_timer_event())
-    tp = w.timer_panel
-
-    # publishes run in a thread -> run inline; mock the live seam so nothing hits the network
-    class _Sync:
-        def __init__(self, target=None, daemon=None):
-            self._t = target
-
-        def start(self):
-            self._t()
-    monkeypatch.setattr(threading, "Thread", _Sync)
-    snaps = []
-    monkeypatch.setattr(live, "snapshot",
-                        lambda ed, cl, h, order, updated, view=None: snaps.append(("order", order)) or {"n": 1})
-    monkeypatch.setattr(live, "stopped",
-                        lambda ed, cl, h, updated, view=None: snaps.append(("stopped", None)) or {"s": 1})
-    monkeypatch.setattr(live, "publish", lambda token, gid, snap, transport=None: "GID123")
-
-    # toggling on with nothing configured points to the Reports tab + auto-clears (no transport)
-    tp.broadcast_btn.setChecked(True)
-    assert not tp.broadcast_btn.isChecked() and "Reports tab" in tp.status.text()
-
-    # signed in + a race selected -> ticking publishes the field IMMEDIATELY (no crossing needed)
-    cr.save_config({"token": "gho_x", "login": "pearu"})
-    tp.race_combo.setCurrentIndex(0)
-    tp._publishing = False
-    tp.broadcast_btn.setChecked(True)
-    assert tp.broadcast_btn.isChecked() and snaps and snaps[-1][0] == "order"   # published on tick
-    assert cr.load_config().get("live_gist_id") == "GID123"                    # created gist id persisted
-    assert not tp.viewer_row.isHidden()                                        # viewer URL surfaced
-    assert tp._viewer_url == "https://pearu.github.io/cozer/live-viewer.html?gist=GID123"
-    tp._copy_viewer_url()
-    assert QApplication.clipboard().text() == tp._viewer_url                   # "Copy URL" -> clipboard
-
-    # unticking publishes a 'stopped' snapshot so the viewer shows the stream disabled
-    tp._publishing = False
-    tp.broadcast_btn.setChecked(False)
-    assert snaps[-1][0] == "stopped" and "off" in tp.status.text()
-
-    # a failed publish is guarded (never breaks timing): status note, gist id unchanged
-    monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
-    tp._publishing = False
-    tp._publish_order("GT", "1", ["1"])
-    assert cr.load_config().get("live_gist_id") == "GID123" and "Couldn't publish" in tp.status.text()
-
-    # a permission failure (the signed-in token predates the `gist` scope, issue #21) -> ask the
-    # operator to re-authorize, rather than a generic "retry" note
-    class _Http404(Exception):
-        code = 404
-    monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(_Http404("no gist scope")))
-    tp._publishing = False
-    tp._publish_order("GT", "1", ["1"])
-    assert "sign" in tp.status.text().lower() and "in" in tp.status.text().lower()
-
-    # a crossing debounce computes the leader-first order from standings
-    calls = []
-    monkeypatch.setattr(tp, "_rec", lambda cl, h: [{}, {"1": [], "2": []}])
-    monkeypatch.setattr(tp, "_publish_order", lambda cl, h, order: calls.append(order))
-    tp._broadcast_target = ("GT", "1")
-    tp._publishing = False
-    tp._do_broadcast()
-    # once racing, the order is the standings dicts (so laps/time/started reach the viewer), leader-first
-    assert calls and [str(b["id"]) for b in calls[0]] == ["1", "2"]
-
-
 def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
     # issue #20: building the snapshot does `import cozer.app.live`, which pulls in weasyprint --
     # slow the first time, and much slower over a network filesystem (sshfs). So both the build AND
@@ -1410,7 +1336,7 @@ def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
     import cozer.app.live as live
     _app()
     tp = MainWindow(_timer_event()).timer_panel
-    cr.save_config({"token": "gho_x", "login": "pearu"})
+    cr.save_config({"live_server_url": "https://live.cozer.ee", "live_publish_secret": "sek"})
     built = {}
     done = threading.Event()
 
@@ -1418,7 +1344,7 @@ def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
         built["ident"] = threading.get_ident()
         return {"n": 1}
     monkeypatch.setattr(live, "snapshot", snap)
-    monkeypatch.setattr(live, "publish", lambda *a, **k: done.set() or "GID123")
+    monkeypatch.setattr(live, "publish_server", lambda *a, **k: done.set() or "e/feed/c")
 
     tp._publish_order("GT", "1", ["1"])                 # real background thread (not mocked here)
     assert done.wait(5), "the publish worker never ran"
@@ -1443,8 +1369,6 @@ def test_timer_broadcast_via_server(tmp_path, monkeypatch):
     monkeypatch.setattr(live, "snapshot", lambda *a, **k: {"n": 1})
     monkeypatch.setattr(live, "publish_server",                # (base_url, eventname, channel, secret, snap)
                         lambda url, en, ch, secret, snap: posts.append((url, en, ch, secret)) or "%s/feed/%s" % (en, ch))
-    monkeypatch.setattr(live, "publish",                       # the gist path must NOT be used
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("gist used in server mode")))
 
     # event name + channel live in the event (.coz); server URL + secret in cozer config
     tp.eventdata["broadcast"] = {"eventname": "0726", "channel": "harku"}
@@ -1456,7 +1380,6 @@ def test_timer_broadcast_via_server(tmp_path, monkeypatch):
     assert posts and posts[-1] == ("https://live.cozer.ee", "0726", "harku", "sek")   # published to the server
     assert tp._viewer_url == "https://live.cozer.ee/0726/feed/harku/"           # viewer link -> the feed path
     assert not tp.viewer_row.isHidden()
-    assert cr.load_config().get("live_gist_id") is None                        # nothing gist-related stored
 
 
 def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):

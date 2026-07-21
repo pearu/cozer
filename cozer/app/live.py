@@ -1,22 +1,20 @@
 """Live ordering feed — the *unofficial* running order published during a race (LIVE.md, Phase 7).
 
-Builds a small snapshot (the "machine feed", LIVE.md §4) and publishes it to a GitHub **Gist**,
-reusing the ``crashreport`` GitHub client (OAuth token + ``_http``). Pure and headless-testable:
-the caller (the Timer) supplies the leader-first boat order — e.g.
-``[b["id"] for b in timer.standings(rec)]`` — so nothing here imports Qt.
+Builds a small snapshot (the "machine feed", LIVE.md §4) and publishes it to the self-hosted live
+server (deploy/live-server, ``https://live.cozer.ee/``). Pure and headless-testable: the caller (the
+Timer) supplies the leader-first boat order — e.g. ``timer.standings(rec)`` — so nothing here
+imports Qt.
 
 Network errors are **not** swallowed here — the caller (Timer) guards them so a failed publish
 never blocks timing (LIVE.md §5). Keeping this layer raise-on-error keeps it testable.
 """
 import json
 
-from cozer.app import crashreport
 from cozer.app.broadcast import feed_path        # light, shared with the Timer / Reports settings
 from cozer.classes import getclass
 from cozer.racepattern import race_kind
 from cozer.reports.common import nationalities_index, participants_index
 
-GIST_FILE = "order.json"
 # Default display config; the operator overrides it in cozer and it ships in the feed (LIVE.md §4).
 DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 0.5}
 
@@ -69,34 +67,6 @@ def stopped(eventdata, cl, heat, updated, view=None):
     return snapshot(eventdata, cl, heat, [], updated, view=view, live=False)
 
 
-def _files_payload(snap):
-    return {"files": {GIST_FILE: {"content": json.dumps(snap, ensure_ascii=False)}}}
-
-
-def create_gist(token, snap, transport=None):
-    """Create the live gist; return its id. Store the id (persistent, LIVE.md §6) and reuse it."""
-    data = {"description": "cozer live order (unofficial)", "public": True}
-    data.update(_files_payload(snap))
-    _, resp = crashreport._http("POST", crashreport.GITHUB_API + "/gists",
-                                token=token, data=data, transport=transport)
-    return (resp or {}).get("id")
-
-
-def update_gist(token, gist_id, snap, transport=None):
-    """Overwrite the live gist's ``order.json`` with a new snapshot."""
-    crashreport._http("PATCH", "%s/gists/%s" % (crashreport.GITHUB_API, gist_id),
-                      token=token, data=_files_payload(snap), transport=transport)
-
-
-def publish(token, gist_id, snap, transport=None):
-    """Publish ``snap``: PATCH the existing gist, or create one (returning the new id) if ``gist_id``
-    is falsy. Returns the gist id in use (so a first publish can be persisted)."""
-    if gist_id:
-        update_gist(token, gist_id, snap, transport=transport)
-        return gist_id
-    return create_gist(token, snap, transport=transport)
-
-
 def _http_post(method, url, headers, data):        # pragma: no cover - real network
     import urllib.request
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -107,9 +77,9 @@ def _http_post(method, url, headers, data):        # pragma: no cover - real net
 def publish_server(base_url, eventname, channel, secret, snap, transport=None):
     """Publish ``snap`` to the self-hosted live server: POST the snapshot JSON to
     ``<base_url>/_publish/<eventname>/feed/<channel>`` with the shared secret in the
-    ``X-Publish-Secret`` header (docs/broadcast-urls.md). Primary transport -- fresh, no token in any
-    URL, no rate limit (the gist path above is the fallback). ``transport(method, url, headers, data)``
-    is injectable for tests. Raises on a non-2xx or network error (the Timer guards it)."""
+    ``X-Publish-Secret`` header (docs/broadcast-urls.md). Fresh, no token in any URL, no rate limit.
+    ``transport(method, url, headers, data)`` is injectable for tests. Raises on a non-2xx or network
+    error (the Timer guards it)."""
     url = "%s/_publish/%s" % (base_url.rstrip("/"), feed_path(eventname, channel))
     body = json.dumps(snap, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json", "X-Publish-Secret": secret, "User-Agent": "cozer"}

@@ -71,4 +71,4 @@ After the race, the operator selects reports under the Reports tab to publish to
 ## 6. Migration from `?channel=`
 The current flat scheme (`/?channel=<ch>`, `/live/<ch>.json`, `/stream/<ch>`, `/publish/<ch>`) is
 replaced by the path model above. Single deployment + single operator, so a clean cut (no dual‑support
-needed); the gist path remains the only fallback transport.
+needed). The gist transport has since been removed — the self‑hosted server is the only transport.

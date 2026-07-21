@@ -45,18 +45,16 @@
 <script>
   var boats = [], started = false;
   var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
+  var pollMs = 500, haveData = false;        // poll cadence (feed.view.poll_s overrides) + first-data flag
 
   var ol = document.getElementById("order");
   var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
   var params = new URLSearchParams(location.search);
-  var gistId = params.get("gist"), token = params.get("token");   // gist fallback transport
   var src = params.get("src");                                    // explicit JSON URL (poll)
   // Served from the live server at /<event>/feed/<channel>/ -> data + stream live under that path.
   var feedPath = /^\/[a-z0-9][a-z0-9-]*\/feed\/[a-z0-9][a-z0-9-]*\/?$/.test(location.pathname)
                  ? location.pathname.replace(/\/?$/, "/") : null;
-  // Flags load from absolute /_flags/ when served by the live server (works at any depth); from
-  // relative flags/ on the GitHub-Pages gist fallback (Pages serves docs/flags/ under /cozer/).
-  var flagBase = feedPath ? "/_flags/" : "flags/";
+  var flagBase = "/_flags/";                 // flags served by the live server, shared at the root
 
   function natCell(nat){
     // Flags are shared static SVGs keyed by the 3-letter code; flagBase resolves to the right origin
@@ -103,7 +101,7 @@
     }
   }
 
-  // ---- live: poll the gist feed ----
+  // ---- apply a feed snapshot to the overlay ----
   function applyFeed(feed){
     if(feed.live === false){ boats = []; started = false; ol.className = "pre";
       ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:800;'
@@ -118,47 +116,13 @@
     });
     render();
   }
-  // Fetch mode (avoids the 60/hr unauthenticated gist-API rate limit):
-  //   &token=<pat>  -> authed API (freshest, 5000/hr);
-  //   &user=<login> -> the RAW gist file (no token, not rate-limited) — the default for a screen;
-  //   neither       -> unauthenticated API, polled slowly (a 403 shows a hint to add &user/&token).
-  var user = params.get("user"), cb = 0, haveData = false;
-  // Poll interval: token/&user paths use view.poll_s (default 3 s). With neither, we do ONE api call,
-  // learn the gist owner's login from it, then self-switch to the raw path at poll_s — so a plain
-  // ?gist=<id> URL polls fast without hitting the 60/hr anon-API limit. 8 s only while still learning.
-  var pollMs = (token || user) ? 3000 : 8000;
   function status(msg){
     ol.className = "pre";
     ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:700;'
       + 'font-size:14px;letter-spacing:.02em">'+msg+'</li>';
   }
-  async function poll(){
-    var raw = !token && user;
-    var url = raw ? ("https://gist.githubusercontent.com/"+encodeURIComponent(user)+"/"
-                     +encodeURIComponent(gistId)+"/raw/order.json?_="+(++cb))
-                  : ("https://api.github.com/gists/"+encodeURIComponent(gistId));
-    try{
-      var h = {}; if(!raw){ h["Accept"]="application/vnd.github+json"; if(token) h["Authorization"]="Bearer "+token; }
-      var r = await fetch(url, {headers:h, cache:"no-store"});
-      if(!r.ok){
-        if(!haveData) status(r.status===403
-          ? "GitHub rate limit — retrying; add &user=<github-login> to poll the raw feed"
-          : "Waiting for the feed… ("+r.status+")");
-        return;
-      }
-      var feed;
-      if(raw){ feed = await r.json(); }
-      else { var g = await r.json(), f = g.files && g.files["order.json"];
-             if(!(f && f.content)){ if(!haveData) status("Gist has no order.json"); return; }
-             feed = JSON.parse(f.content);
-             if(!token && !user && g.owner && g.owner.login) user = g.owner.login; }  // learn owner -> raw next poll
-      applyFeed(feed); haveData = true;
-      var ps = feed.view && feed.view.poll_s;             // cozer-set poll interval (seconds)
-      if(token || user) pollMs = (ps > 0) ? ps * 1000 : 3000;   // fast once token/&user/learned-owner
-    }catch(e){ if(!haveData) status("Can't reach the feed — check the network"); }
-  }
 
-  // ---- live: poll a JSON feed URL (the server's data.json, or ?src=) ----
+  // ---- poll a JSON feed URL (the server's data.json, or ?src=) ----
   async function pollServer(url){
     try{
       var r = await fetch(url, {cache:"no-store"});
@@ -187,10 +151,6 @@
   }
   else if(src){                                            // explicit JSON URL (poll)
     status("Connecting…"); startPolling(src);
-  }
-  else if(gistId){                                         // gist fallback
-    status("Connecting…");
-    (function tick(){ poll().then(function(){ setTimeout(tick, pollMs); }); })();
   }
   else {                                                   // root / no feed selected: a neutral landing
     ol.className = "pre";

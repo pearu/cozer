@@ -83,37 +83,6 @@ def test_stopped_snapshot():
     assert snap["class"] == "F 500" and snap["phase"] == "circuit"  # still identifies the heat
 
 
-def test_create_gist_returns_id_and_posts_order_file():
-    t = FakeTransport(resp={"id": "abc123"})
-    snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
-    assert live.create_gist("tok", snap, transport=t) == "abc123"
-    method, url, headers, body = t.calls[0]
-    assert method == "POST" and url.endswith("/gists")
-    assert headers["Authorization"] == "Bearer tok"
-    assert body["public"] is True and body["description"]
-    content = json.loads(body["files"]["order.json"]["content"])
-    assert content["class"] == "F 500" and content["order"][0]["surname"] == "Tamm"
-
-
-def test_update_gist_patches_by_id():
-    t = FakeTransport()
-    snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
-    live.update_gist("tok", "gid9", snap, transport=t)
-    method, url, _headers, body = t.calls[0]
-    assert method == "PATCH" and url.endswith("/gists/gid9")
-    assert "order.json" in body["files"]
-
-
-def test_publish_updates_when_id_else_creates():
-    snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
-    t1 = FakeTransport()
-    assert live.publish("tok", "g1", snap, transport=t1) == "g1"
-    assert t1.calls[0][0] == "PATCH"
-    t2 = FakeTransport(resp={"id": "new9"})
-    assert live.publish("tok", None, snap, transport=t2) == "new9"
-    assert t2.calls[0][0] == "POST"
-
-
 def test_publish_server_posts_snapshot_with_secret():
     snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
     t = FakeTransport(status=200)

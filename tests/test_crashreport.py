@@ -269,21 +269,6 @@ def test_device_flow(tmp_path, monkeypatch):
     assert token == "gho_test"
 
 
-def test_device_flow_requests_gist_scope(tmp_path, monkeypatch):
-    # issue #21: publishing the live order creates a gist, which needs the `gist` OAuth scope on top
-    # of public_repo -- so the device-flow authorization must request both.
-    _cfg(tmp_path, monkeypatch)
-    seen = {}
-
-    class Cap(FakeGitHub):
-        def __call__(self, method, url, headers, data):
-            if "device/code" in url:
-                seen["url"] = url
-            return super().__call__(method, url, headers, data)
-    cr.device_start("CID", transport=Cap())
-    assert "public_repo" in seen["url"] and "gist" in seen["url"]
-
-
 def test_device_poll_pending_then_success(tmp_path, monkeypatch):
     _cfg(tmp_path, monkeypatch)
 
