@@ -14,6 +14,9 @@ New to COZER? Follow the step-by-step **[Windows installation guide](docs/instal
 creating a GitHub account, downloading the installer, and starting the app, with no
 programming required.
 
+Used COZER before? **[What's new in COZER](docs/whats-new.md)** explains — in plain terms —
+what has changed and improved since the older COZER.
+
 ## Running COZER
 
 COZER is launched from the command line:
