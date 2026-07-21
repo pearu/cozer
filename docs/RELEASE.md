@@ -59,15 +59,15 @@
 ### Phase 2 — apply the update — ✅ DONE (2026-07-21, `189e718`)
 `update.recommend(check_result)` picks the action from `install_kind()`; the update-available
 dialog's **"Update now"** button dispatches `_apply_update`:
-- **`pip` (a plain pip install — the owner's path):** `pip install -U <release wheel>` in-app
-  (small; cozer's wheel declares no runtime deps, so only cozer's code is replaced) → restart prompt.
-- **`installer` (Windows constructor install — novice operators):** open the installer `.exe`
-  download in the browser (the OS fetches the ~276 MB bundle); run it to upgrade.
+- **`pip` (a plain pip install AND the Windows constructor install):** `pip install -U --no-deps
+  <release wheel>` in-app — small, behind the scenes, no browser. cozer's wheel is pure Python with
+  **no** runtime deps, so this replaces only cozer's own code (pyside6/weasyprint untouched) →
+  restart prompt. The Windows install is a real env with pip, so it gets the same fast update as a
+  pip install (owner call, 2026-07-21 — previously the Windows path opened the full installer).
+- **`installer` (Windows, fallback):** if the release has no wheel, or the fast update fails / the
+  bundled libraries changed, download + run the full installer (via **Open release page**).
 - **`source` (a checkout):** informational only (`git pull` / `pip install -U .`) — never mutate a
   working tree.
-- **Deferred:** the *fast-wheel-on-Windows* optimization (small update on the constructor env
-  instead of the full installer) — needs a deps-changed signal in the release to be safe; the full
-  installer is always correct, and Windows operators update rarely (between events), so this is fine.
 
 **Install-guide direct link (release convention).** `docs/install-windows.md` + `.et.md` link to
 `releases/latest/download/COZER-Setup-Windows.exe` — a **stable, version-independent** URL. So the

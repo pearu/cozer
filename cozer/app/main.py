@@ -838,13 +838,14 @@ class MainWindow(QMainWindow):
             open_in_viewer(url)
 
     def _run_pip_update(self, url):
-        """`pip install -U` the release wheel into the running interpreter, then prompt a restart.
-        Safe because cozer's wheel declares no runtime deps (they come from the env), so this only
-        replaces cozer's own code."""
+        """`pip install -U --no-deps` the release wheel into the running interpreter, then prompt a
+        restart. ``--no-deps`` keeps this to cozer's own code (its wheel is pure Python and declares
+        no runtime deps -- those come from the env); if a release ever needs newer bundled libraries,
+        the full installer is the fallback."""
         import subprocess
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            proc = subprocess.run([sys.executable, "-m", "pip", "install", "-U", url],
+            proc = subprocess.run([sys.executable, "-m", "pip", "install", "-U", "--no-deps", url],
                                   capture_output=True, text=True, timeout=300)
         except Exception as e:                       # network/timeout -> report, never crash
             QApplication.restoreOverrideCursor()
@@ -855,8 +856,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Update cozer",
                                     "cozer updated — restart cozer to use the new version.")
         else:
-            QMessageBox.warning(self, "Update cozer", "Update failed (pip exit %d):\n\n%s"
-                                % (proc.returncode, (proc.stderr or proc.stdout or "")[-800:]))
+            QMessageBox.warning(self, "Update cozer", "Update failed (pip exit %d):\n\n%s\n\nYou can "
+                                "also upgrade by downloading the installer from the release page."
+                                % (proc.returncode, (proc.stderr or proc.stdout or "")[-700:]))
 
     def _on_about(self):
         """The About box (cf. legacy Cozer): tagline, version, project link, author."""

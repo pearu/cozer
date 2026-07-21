@@ -103,19 +103,15 @@ GitHub and tells you either:
 - *"A newer version is available"* — with the new version number and a short summary of what
   changed (click **Show Details** to read it).
 
-**Get the update (upgrade).** In the *update available* box, click **Update now**. Your web
-browser downloads the newest installer — the same large file as the first install. Then:
-1. **Close COZER.**
-2. Open your **Downloads** folder and **double-click** `COZER-Setup-Windows.exe` (as in step 3 —
-   click **More info → Run anyway** if Windows warns).
-3. Follow **Next → Install → Finish**. It installs over the old version.
-4. **Start COZER** again (step 4).
+**Get the update.** In the *update available* box, click **Update now**. COZER downloads and
+installs the update **for you, behind the scenes** — no large file and no browser — then asks you
+to **restart COZER**. Close COZER and open it again, and you have the new version. Your **event
+files are not touched** — they stay wherever you saved them.
 
-Your **event files are not touched** by an update — they stay wherever you saved them, separate
-from the program.
-
-*(No **Update now** button, or prefer to do it by hand? Just download the newest installer from
-the same direct link as in step 2 and run it.)*
+**If a full reinstall is ever needed** — for example if COZER's bundled parts change, or if
+**Update now** reports a problem — download the newest installer instead: click **Open release
+page** in the same box (or use the direct link in step 2) and run the installer as in the first
+install (steps 2–3). It installs over the old version.
 
 ---
 

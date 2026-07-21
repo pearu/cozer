@@ -64,7 +64,12 @@ def test_recommend_by_install_kind():
     assert update.recommend(_res("source"))["action"] == "source"                  # informational
     r = update.recommend(_res("wheel", assets=["cozer-9.0.0-py3-none-any.whl"]))
     assert r["action"] == "pip" and r["url"].endswith(".whl")                       # pip -U the wheel
-    r = update.recommend(_res("windows-installer", assets=["COZER-9.0.0-Windows-x86_64.exe"]))
-    assert r["action"] == "installer" and r["url"].endswith(".exe")                # download installer
-    r = update.recommend(_res("windows-installer", assets=[]))                      # expected asset missing
+    # the Windows constructor install ALSO fast-updates via the wheel (it is a real env with pip)
+    r = update.recommend(_res("windows-installer",
+                              assets=["cozer-9.0.0-py3-none-any.whl", "COZER-Setup-Windows.exe"]))
+    assert r["action"] == "pip" and r["url"].endswith(".whl")
+    # a Windows install whose release has only the installer (no wheel) -> full installer download
+    r = update.recommend(_res("windows-installer", assets=["COZER-Setup-Windows.exe"]))
+    assert r["action"] == "installer" and r["url"].endswith(".exe")
+    r = update.recommend(_res("windows-installer", assets=[]))                      # nothing usable
     assert r["action"] == "link" and r["url"] == "https://rel"                      # -> release page

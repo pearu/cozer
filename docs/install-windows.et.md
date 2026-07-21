@@ -110,19 +110,15 @@ GitHubist ja ütleb kas:
 - *"A newer version is available"* (saadaval on uuem versioon) — koos uue versiooni numbri ja
   lühikese ülevaatega muudatustest (klõpsa **Show Details**, et seda lugeda).
 
-**Hangi uuendus (paigalda uuesti).** *Update available* aknas klõpsa **Update now**. Sinu
-veebibrauser laadib alla uusima paigaldusfaili — sama suur fail kui esmasel paigaldusel. Seejärel:
-1. **Sulge COZER.**
-2. Ava kaust **Downloads** (Allalaadimised) ja tee topeltklõps failil `COZER-Setup-Windows.exe`
-   (nagu sammus 3 — klõpsa **More info → Run anyway**, kui Windows hoiatab).
-3. Järgi **Next → Install → Finish**. See paigaldab vana versiooni peale.
-4. **Käivita COZER** uuesti (samm 4).
+**Hangi uuendus.** *Update available* aknas klõpsa **Update now**. COZER laadib ja paigaldab
+uuenduse **sinu eest, taustal** — ilma suure failita ja ilma brauserita — ning palub siis **COZER
+taaskäivitada**. Sulge COZER ja ava uuesti — nüüd on sul uus versioon. Sinu **sündmuste failid
+jäävad puutumata** — need püsivad seal, kuhu need salvestasid.
 
-Sinu **sündmuste failid jäävad uuendamisel puutumata** — need püsivad seal, kuhu need salvestasid,
-programmist eraldi.
-
-*(Kas **Update now** nuppu pole või soovid seda käsitsi teha? Laadi lihtsalt uusim paigaldusfail
-alla sama otselingi kaudu nagu sammus 2 ja käivita see.)*
+**Kui kunagi on vaja täielikku uuestipaigaldust** — näiteks kui COZERi kaasapandud osad muutuvad
+või kui **Update now** annab veateate — laadi selle asemel alla uusim paigaldusfail: klõpsa samas
+aknas **Open release page** (või kasuta sammu 2 otselinki) ja käivita paigaldusfail nagu esmasel
+paigaldusel (sammud 2–3). See paigaldab vana versiooni peale.
 
 ---
 

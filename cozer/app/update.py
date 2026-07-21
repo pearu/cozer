@@ -108,12 +108,15 @@ def recommend(res):
 
     - ``"none"``      — up to date / offline; nothing to do.
     - ``"source"``    — running from a checkout: informational only (never mutate a working tree).
-    - ``"pip"``       — a plain pip install: ``pip install -U`` the release wheel (``url``). Safe —
-                        cozer's wheel declares no runtime deps, so this only updates cozer's code.
-    - ``"installer"`` — the Windows constructor install: download + run the new installer (``url``).
-                        (A fast wheel path here is a future optimization, gated on a deps-changed
-                        signal; the full installer is always safe.)
-    - ``"link"``      — the expected asset is missing: just open the release page (``url``).
+    - ``"pip"``       — the fast update: ``pip install -U --no-deps`` the release wheel (``url``).
+                        Used for a plain pip install **and** the Windows constructor install (which
+                        is a real Python env with pip); cozer's wheel is pure Python with **no**
+                        runtime deps, so this replaces only cozer's own code -- no big download,
+                        pyside6/weasyprint untouched.
+    - ``"installer"`` — a Windows install when the release has no wheel: download + run the full
+                        installer (``url``). Also the manual fallback if the fast update ever isn't
+                        enough (e.g. the bundled libraries changed).
+    - ``"link"``      — no usable asset: just open the release page (``url``).
     """
     if not res.get("available") or not res.get("latest"):
         return {"action": "none", "url": None, "hint": ""}
@@ -121,8 +124,12 @@ def recommend(res):
     kind = res.get("kind")
     if kind == "source":
         return {"action": "source", "url": rel.get("url"), "hint": "git pull && pip install -U ."}
-    asset = _find_asset(rel, ".exe" if kind == "windows-installer" else ".whl")
-    if asset:
-        return {"action": "installer" if kind == "windows-installer" else "pip",
-                "url": asset.get("url"), "hint": asset.get("name") or ""}
-    return {"action": "link", "url": rel.get("url"), "hint": "release page"}   # asset missing
+    if kind in ("wheel", "windows-installer"):               # both have pip -> fast wheel update
+        wheel = _find_asset(rel, ".whl")
+        if wheel:
+            return {"action": "pip", "url": wheel.get("url"), "hint": wheel.get("name") or ""}
+    if kind == "windows-installer":                          # no wheel asset -> the full installer
+        exe = _find_asset(rel, ".exe")
+        if exe:
+            return {"action": "installer", "url": exe.get("url"), "hint": exe.get("name") or ""}
+    return {"action": "link", "url": rel.get("url"), "hint": "release page"}   # nothing usable
