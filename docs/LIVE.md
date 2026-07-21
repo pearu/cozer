@@ -61,7 +61,7 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 {
   "class": "F 500", "phase": "circuit", "heat": "2",
   "updated": "2026-08-15T14:32:05Z", "unofficial": true, "live": true, "started": true,
-  "view": {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6},
+  "view": {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 3},
   "order": [
     {"pos": 1, "boat": "7",  "surname": "Tamm",  "nat": "EST", "laps": 2, "time": 40.0},
     {"pos": 2, "boat": "14", "surname": "Ozols", "nat": "LAT", "laps": 2, "time": 41.5}
@@ -83,9 +83,9 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
   from `timer.standings(rec)`. The overlay shows `laps`, and the **gap** = this boat's `time` minus the
   time of the boat one place ahead (or `+N L` when a lap down). Absent for a not-yet-started boat.
 - **`view`** carries the **operator-configured display parameters, set *in cozer***: `page_size`
-  (rows per screen — the number of splits is ⌈field ÷ page_size⌉) and the dwell times
-  (`top_dwell_s`, `page_dwell_s`). The viewer obeys these and holds no view constants; absent or
-  `page_size: 0` ⇒ show the whole field, no paging. (Room here for future display params too.)
+  (rows per screen — the number of splits is ⌈field ÷ page_size⌉), the dwell times
+  (`top_dwell_s`, `page_dwell_s`), and **`poll_s`** (viewer poll interval, seconds; default 3). The
+  viewer obeys these and holds no view constants; absent or `page_size: 0` ⇒ show the whole field.
 
 ## 5. cozer side (publisher + Timer)
 
@@ -212,6 +212,30 @@ at a real event.
   the real OSY400 broadcast strip (`Pasted image.png`) — direction, not a copy. Feed gained
   `started`/`laps`/`time` (§4); Timer passes `standings(rec)` so those flow.
 
+## 13. Rate limits & the broadcast account (2026-07-21)
+
+The gist API has two limits: **60 req/hour anonymous** (per IP) and **5,000 req/hour authenticated**
+(per account). This decides how viewers fetch and whether a dedicated account is worth it.
+
+- **Viewers use the RAW gist file (`&user=<login>` → `gist.githubusercontent.com/<user>/<id>/raw/...`),
+  which is CDN-served and *not rate-limited at all*.** So an **anonymous** viewer is fine — no token
+  needed, no 60/hr wall. This is the URL cozer surfaces. Freshness is CDN-bounded (seconds-to-~1 min),
+  which is plenty for lap-line crossings. `poll_s` tunes cadence (default 3 s).
+- **Do NOT put a token in the surfaced/streamed URL.** A PAT in a URL shown on-screen/on-stream leaks.
+  `&token=` (authed API, freshest, 5,000/hr) stays a manual power-user option, not the default.
+- **cozer's publishing** is authed (the operator's signed-in account), a `PATCH` per crossing
+  debounced to ≤1/2.5 s → a few hundred/hour, a tiny slice of 5,000/hr. Never a problem.
+- **Estimate from cozer (recommended):** the gist API returns `X-RateLimit-Remaining` /
+  `X-RateLimit-Reset` on every publish response — cozer can surface those directly (accurate, no
+  guessing) instead of estimating. With raw-path viewers, the only API consumer is cozer's own
+  writes, so "remaining" stays near 5,000 all event.
+- **cozer-broadcast-bot account — optional, not needed for limits.** Since reads are raw (unlimited)
+  and writes are tiny, the operator's own account suffices. A dedicated bot account's value is
+  *identity + directory*: all channels live under one known account, so §11's directory can enumerate
+  `gists?per_page=100` for that single account, and operators' personal accounts stay out of it. Cost:
+  shared credentials on each timekeeper's machine. **Deferred** — revisit if/when the multi-station
+  directory (§11) is built; for the MVP each operator broadcasts under their own account.
+
 ## Change log
 - **2026-07-21** — Plan created; owner decisions D-LIVE-1..5 (gist MVP; controlled screens; event-driven
   cadence; class+phase header replacing the UIM logo, rows + COZER logo + update-time + unofficial
@@ -232,3 +256,8 @@ at a real event.
   uniform navy, NAT-flag · boat# · surname (+ laps · gap once started), flags bundled as docs/flags/<IOC>.svg (no CDN) + code fallback.
   Feed gained `started`/`laps`/`time`; `live.snapshot` accepts `standings()` dicts (back-compat with
   scalar ids); +tests (9 green). Timer to pass `standings(rec)`. Viewer + backend done (7948e787).
+- **2026-07-21** — **Empty-page fix + rate-limit design** (§13). Root cause: anonymous gist-API
+  polling hit 60/hr. Fix (pushed): viewer polls the **raw** gist file via `&user=<login>` (not
+  rate-limited, anonymous-safe, no token-in-URL), never-blanks (status + last-good render), and takes
+  its poll interval from **`view.poll_s`** (default 3 s). Recommend cozer surface the URL with
+  `&user=<login>` and read `X-RateLimit-*` headers for a live budget readout; a bot account deferred.
