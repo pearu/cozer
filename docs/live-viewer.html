@@ -50,6 +50,7 @@
     {no:"93",name:"Lauss",first:"Martins",nat:"LAT"},{no:"44",name:"Musts",first:"Kristers",nat:"LAT"},
   ];
   var boats = mock.slice(), started = false;
+  var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
 
   var ol = document.getElementById("order");
   var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
@@ -78,7 +79,7 @@
     var prevTops = {};
     [].forEach.call(ol.children, function(li){ prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
     ol.innerHTML = "";
-    boats.forEach(function(b, i){
+    boats.slice(0, maxRows).forEach(function(b, i){       // top-N only
       var li = document.createElement("li");
       li.dataset.no = b.no;
       var name = '<span class="name">'+(b.name||"")
@@ -108,6 +109,7 @@
         + 'letter-spacing:.14em;text-transform:uppercase;font-size:14px">Live stream disabled</li>';
       return; }
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
+    maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
     boats = (feed.order||[]).map(function(r){
       return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:r.laps, time:r.time};
     });
