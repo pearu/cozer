@@ -30,7 +30,7 @@
     width:100%; max-width:var(--tower-w);
     background:linear-gradient(180deg,#101a30 0%, #0c142a 100%);
     background-color:var(--tower);
-    border:1px solid var(--line);
+    border:3px solid #fff;      /* white box so a screenshot can be cropped to the tower */
     border-radius:14px;
     box-shadow:0 24px 70px -30px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.04);
     overflow:hidden;
@@ -74,7 +74,7 @@
 
   /* ---- column head ---- */
   .colhead{
-    display:grid; grid-template-columns:42px 54px 1fr 54px;
+    display:grid; grid-template-columns:42px 54px 54px 1fr;
     gap:10px; align-items:center;
     padding:9px 16px; font-size:10px; letter-spacing:.16em; text-transform:uppercase;
     color:var(--muted); border-bottom:1px solid var(--line);
@@ -84,7 +84,7 @@
   /* ---- rows ---- */
   ol{list-style:none;margin:0;padding:6px 8px 8px}
   li{
-    display:grid; grid-template-columns:42px 54px 1fr 54px;
+    display:grid; grid-template-columns:42px 54px 54px 1fr;
     gap:10px; align-items:center;
     padding:11px 8px; margin:2px 0; border-radius:9px;
     background:var(--row);
@@ -121,7 +121,7 @@
     text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .nat{
-    justify-self:end; font-size:12px; font-weight:800; letter-spacing:.06em;
+    justify-self:start; font-size:12px; font-weight:800; letter-spacing:.06em;
     color:var(--accent);
     background:rgba(47,224,207,.09); border:1px solid rgba(47,224,207,.22);
     border-radius:6px; padding:4px 6px;
@@ -158,7 +158,7 @@
   </header>
   <div class="pagebar" id="pagebar"></div>
   <div class="colhead" aria-hidden="true">
-    <div class="r">Pos</div><div>No.</div><div>Driver</div><div class="r">Nat</div>
+    <div class="r">Pos</div><div>No.</div><div>Nat</div><div>Driver</div>
   </div>
   <ol id="order"></ol>
   <footer>
@@ -212,7 +212,7 @@
       li.dataset.no = b.no;
       if(pos <= 3) li.classList.add("pod","p"+pos);
       li.innerHTML = '<div class="pos">'+pos+'</div><div class="boat">'+b.no+
-        '</div><div class="name">'+b.name+'</div><div class="nat">'+(b.nat||"")+'</div>';
+        '</div><div class="nat">'+(b.nat||"")+'</div><div class="name">'+b.name+'</div>';
       ol.appendChild(li);
     });
     const paged = boats.length > ps();
