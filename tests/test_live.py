@@ -35,6 +35,7 @@ def test_snapshot_shape():
     assert snap["heat"] == "2"
     assert snap["updated"] == "2026-08-15T14:32:05Z"
     assert snap["unofficial"] is True
+    assert snap["live"] is True
     assert snap["view"] == live.DEFAULT_VIEW and snap["view"] is not live.DEFAULT_VIEW  # a copy
     assert snap["order"] == [
         {"pos": 1, "boat": "7", "surname": "Tamm", "nat": "EST"},
@@ -49,6 +50,13 @@ def test_snapshot_custom_view_and_unknown_boat():
     assert snap["view"] == view
     # an id not in participants -> blank surname/nat, still positioned
     assert snap["order"][1] == {"pos": 2, "boat": "999", "surname": "", "nat": ""}
+
+
+def test_stopped_snapshot():
+    snap = live.stopped(ED, "F 500", "2", "T")
+    assert snap["live"] is False
+    assert snap["order"] == []
+    assert snap["class"] == "F 500" and snap["phase"] == "circuit"  # still identifies the heat
 
 
 def test_create_gist_returns_id_and_posts_order_file():

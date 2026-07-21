@@ -92,6 +92,8 @@
     will-change:transform;
   }
   li:nth-child(even){background:var(--row-alt)}
+  li.off{display:block;text-align:center;color:var(--muted);background:transparent;
+    font-size:14px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;padding:34px 8px}
   /* podium — the top 3 stand out (only ever on the top page) */
   li.pod{padding:13px 8px}
   li.pod .pos{font-size:24px}
@@ -238,11 +240,17 @@
 
   // ---- live mode: poll the gist feed ----
   function applyFeed(feed){
+    setHeader(feed.class, feed.phase, feed.heat);
+    stamp(feed.updated && /T\d\d:\d\d:\d\d/.test(feed.updated) ? feed.updated.slice(11,19) : null);
+    if(feed.live === false){                 // broadcast off -> disabled state, not stale positions
+      pagebar.style.display = "none";
+      ol.innerHTML = '<li class="off">Live stream disabled</li>';
+      dot(false);
+      return;
+    }
     view = feed.view || DEFAULT_VIEW;
     boats = (feed.order || []).map(r => ({no:String(r.boat), name:r.surname||"", nat:r.nat||""}));
-    setHeader(feed.class, feed.phase, feed.heat);
     render();
-    stamp(feed.updated && /T\d\d:\d\d:\d\d/.test(feed.updated) ? feed.updated.slice(11,19) : null);
   }
   async function poll(){
     try{

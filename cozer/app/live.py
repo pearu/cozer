@@ -20,7 +20,7 @@ GIST_FILE = "order.json"
 DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6}
 
 
-def snapshot(eventdata, cl, heat, order, updated, view=None):
+def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
     """The unofficial live-order snapshot ``dict`` for class ``cl`` heat ``heat``.
 
     ``order``   — boat ids leader-first (from :func:`timer.standings`).
@@ -42,9 +42,16 @@ def snapshot(eventdata, cl, heat, order, updated, view=None):
         "heat": str(heat),
         "updated": updated,
         "unofficial": True,
+        "live": live,
         "view": dict(view) if view else dict(DEFAULT_VIEW),
         "order": rows,
     }
+
+
+def stopped(eventdata, cl, heat, updated, view=None):
+    """A "broadcast off" snapshot — empty ``order`` + ``live: False`` — published when the operator
+    unticks, so the viewer shows a "live stream disabled" state instead of stale positions."""
+    return snapshot(eventdata, cl, heat, [], updated, view=view, live=False)
 
 
 def _files_payload(snap):

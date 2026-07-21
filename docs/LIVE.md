@@ -28,7 +28,9 @@ explicitly **unofficial** — distinct from the §209 official signed/posted res
   number · driver surname · 3-letter (IOC) nationality**; the **COZER logo** at the bottom (owner
   supplies); a small **"last updated HH:MM:SS"**; a clear **"unofficial"** label. Visually appealing
   (broadcast timing-tower look). Nationality codes come from `cozer/countries.py` (IOC set).
-- **D-LIVE-5 — Timer control:** a **"Broadcast live order"** checkbox in the Timer toggles publishing.
+- **D-LIVE-5 — Timer control + lifecycle:** a **"Broadcast live order"** checkbox — publishes **on tick**
+  (the current ladder, even pre-start), **updates on crossings**, and publishes a **"stopped"** snapshot
+  on **untick** (viewer shows "live stream disabled"). The clickable viewer URL sits next to it. See §5.
 - **D-LIVE-6 — Large fields page (viewer-side).** With more than ~10 boats the tower shows one page
   (**top 10 by default**) and **occasionally flips to the lower group**, then back — top-weighted
   dwell — with a page strip ("Positions 11–20 of 20"). This is purely a **viewer** behaviour: the
@@ -58,7 +60,7 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 ```json
 {
   "class": "F 500", "phase": "circuit", "heat": "2",
-  "updated": "2026-08-15T14:32:05Z", "unofficial": true,
+  "updated": "2026-08-15T14:32:05Z", "unofficial": true, "live": true,
   "view": {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6},
   "order": [
     {"pos": 1, "boat": "7",  "surname": "Tamm",  "nat": "EST"},
@@ -73,6 +75,8 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 - `phase` is the phase kind (`timetrial`/`qualification`/`circuit`/`endurance`); the viewer maps it
   to a display word ("Time Trial" / "Qualification" / "Final" / "Endurance").
 - `updated` is stamped at publish time.
+- **`live`** is `true` while broadcasting; a **`false`** snapshot (empty `order`) is published when the
+  operator unticks, so the viewer shows a *"live stream disabled"* state rather than stale positions.
 - **`view`** carries the **operator-configured display parameters, set *in cozer***: `page_size`
   (rows per screen — the number of splits is ⌈field ÷ page_size⌉) and the dwell times
   (`top_dwell_s`, `page_dwell_s`). The viewer obeys these and holds no view constants; absent or
@@ -80,11 +84,16 @@ Small, stable, viewer-agnostic JSON (the "machine feed"):
 
 ## 5. cozer side (publisher + Timer)
 
-- **`cozer/app/live.py`** — `snapshot(eventdata, cl, h)` (build the JSON from `ladder()` + participants
-  + `countries`), and a `GistSink` that PATCHes the gist via `crashreport._http("PATCH",
-  GITHUB_API+"/gists/"+gid, token, {"files": {"order.json": {"content": …}}})`.
-- **Timer checkbox "Broadcast live order"** — on: publish on each recorded crossing, **debounced** to
-  ~1 post / 2–3 s (D-LIVE-3), plus an optional periodic re-post; off: stop.
+- **`cozer/app/live.py`** (built) — `snapshot(eventdata, cl, heat, order, updated, view=None, live=True)`
+  builds the §4 feed (`order` = leader-first boat ids, e.g. `[b["id"] for b in standings(rec)]`);
+  `stopped(...)` is the `live:false` untick snapshot; `publish(token, gist_id, snap)` PATCHes the gist
+  (or creates one, returning the new id) via `crashreport._http`.
+- **Timer checkbox "Broadcast live order" — lifecycle (owner scenario):**
+  - **on tick:** publish **immediately** from the current ladder order — pre-start that's the field in
+    ladder order, so a viewer opened before the start already shows the grid;
+  - **on each crossing:** update (debounced ~1 post / 2–3 s, D-LIVE-3, off the timing path);
+  - **on untick:** publish `live.stopped(...)` → the viewer shows "live stream disabled".
+  The **clickable/copyable viewer URL** sits next to the checkbox once the gist exists (`e3dbe03`).
 - **Broadcast/view settings (in cozer)** — page size / number of splits + dwell times (the `view`
   block, §4) are set here and shipped in every snapshot, so the operator tunes the display without
   touching the viewer. Sensible per-event home; stored with the broadcast config.
@@ -151,3 +160,10 @@ When a public, sub-second, many-viewer feed is wanted, swap the sink (§3) — n
 - **2026-07-21** — Plan created; owner decisions D-LIVE-1..5 (gist MVP; controlled screens; event-driven
   cadence; class+phase header replacing the UIM logo, rows + COZER logo + update-time + unofficial
   label; Timer checkbox). Viewer design-preview artifact published. Seeded by `7948e787`.
+- **2026-07-21** — MVP built (both sessions): `live.py` backend (`6cd32a6`), Timer broadcast checkbox
+  (`852321a`), `docs/live-viewer.html` (`e7fab81`), Timer viewer-URL row (`e3dbe03`); GitHub Pages
+  enabled → viewer at `https://pearu.github.io/cozer/live-viewer.html`.
+- **2026-07-21** — **Broadcast lifecycle refined (owner):** publish **on tick** from the current ladder
+  (pre-start shows the field), not on first crossing; **on untick** publish a `live:false` "stopped"
+  snapshot → viewer shows "disabled". Added `live` field (§4) + `live.stopped()`; viewer renders the
+  disabled state. Backend + viewer done (7948e787, 615 green); Timer tick/untick wiring is b76f2173's.
