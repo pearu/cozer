@@ -5,13 +5,12 @@ Replaces the GitHub gist (which was ~60 s stale on its raw path). cozer POSTs a 
 viewers GET the latest. Fresh (viewers poll every few seconds and always see the newest), no rate
 limit, no token in any URL. Fronted by Caddy (HTTPS via Let's Encrypt) at https://live.cozer.ee/.
 
-Endpoints
-  POST /publish/<channel>   operator -> store the latest snapshot for <channel>. Auth: the shared
-                            secret in the `X-Publish-Secret` header (== env PUBLISH_SECRET). Body is
-                            the snapshot JSON. -> {"ok": true}
-  GET  /live/<channel>.json viewers -> the latest snapshot JSON (public, read-only, CORS: *). 404 if
-                            the channel has nothing yet.
-  GET  /healthz             -> "ok" (liveness).
+Endpoints (path model -- see docs/broadcast-urls.md)
+  GET  /<event>/feed/<channel>/           the viewer overlay (HTML)
+  GET  /<event>/feed/<channel>/data.json  the latest snapshot (public, read-only, CORS *); 404 if none
+  GET  /<event>/feed/<channel>/stream     Server-Sent Events -- pushes each snapshot (sub-second)
+  POST /_publish/<event>/feed/<channel>   store a snapshot. Auth: X-Publish-Secret == env PUBLISH_SECRET
+  GET  /_flags/<IOC>.svg                  bundled flag SVG (shared).    GET /_healthz  ->  "ok"
 
 Config (env): PUBLISH_SECRET (required), PORT (default 8099), BIND (default 127.0.0.1).
 Stdlib only; binds localhost -- Caddy is the only internet-facing process. Snapshots are held in
@@ -30,13 +29,24 @@ SECRET = os.environ.get("PUBLISH_SECRET", "")
 PORT = int(os.environ.get("PORT", "8099"))
 BIND = os.environ.get("BIND", "127.0.0.1")
 MAX_BODY = 256 * 1024                      # snapshots are tiny; cap to refuse abuse
-CHANNEL_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-FLAG_RE = re.compile(r"^/flags/([A-Za-z0-9_-]{1,16}\.svg)$")
-# Static web root -- the viewer + flags, so live.cozer.ee/?channel=X serves the overlay same-origin.
+# eventname / channel: strict lowercase slugs -- can't start with '_' (never collide with /_… paths)
+# and no dots/uppercase (never look like /favicon.ico etc.). See docs/broadcast-urls.md.
+_SLUG = r"[a-z0-9][a-z0-9-]{0,62}"
+FLAG_RE = re.compile(r"^/_flags/([A-Za-z0-9_-]{1,16}\.svg)$")             # shared bundled flags
+FEED_RE = re.compile(r"^/(%s)/feed/(%s)/?$" % (_SLUG, _SLUG))             # the viewer overlay
+FEED_DATA_RE = re.compile(r"^/(%s)/feed/(%s)/data\.json$" % (_SLUG, _SLUG))
+FEED_STREAM_RE = re.compile(r"^/(%s)/feed/(%s)/stream$" % (_SLUG, _SLUG))
+PUBLISH_RE = re.compile(r"^/_publish/(%s)/feed/(%s)$" % (_SLUG, _SLUG))
+# Static web root -- the viewer + flags, so live.cozer.ee/<event>/feed/<channel>/ serves the overlay.
 WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs"))
 
-_store = {}                                # channel -> (json_bytes, updated_epoch)
+
+def _feed_key(event, channel):
+    return "%s/feed/%s" % (event, channel)    # internal store/subscriber key for a live feed
+
+
+_store = {}                                # key -> (json_bytes, updated_epoch)
 _subscribers = {}                          # channel -> set of queue.Queue (open SSE streams)
 _lock = threading.Lock()
 
@@ -80,45 +90,41 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- GET: viewers read the latest snapshot -----------------------------------------------------
     def do_GET(self):
-        path = self.path.split("?", 1)[0]         # self.path includes the query (e.g. /?channel=X)
-        if path == "/healthz":
+        path = self.path.split("?", 1)[0]         # self.path includes the query string
+        if path == "/_healthz":
             return self._send(200, b"ok", "text/plain")
-        if path in ("/", "/index.html", "/live-viewer.html"):          # the viewer overlay
-            return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
         if path == "/favicon.ico":
             return self._send(204)
         mflag = FLAG_RE.match(path)
-        if mflag:                                                      # a bundled flag SVG
+        if mflag:                                                      # /_flags/<IOC>.svg (shared)
             return self._serve_static("flags/" + mflag.group(1), "image/svg+xml",
                                       cache="public, max-age=86400")
-        mstream = re.match(r"^/stream/([^/]+)$", path)
-        if mstream:                                                    # SSE push (sub-second)
-            return self._sse(mstream.group(1))
-        m = re.match(r"^/live/([^/]+)\.json$", path)
-        if not m:
-            return self._json(404, {"error": "not found"})
-        channel = m.group(1)
-        if not CHANNEL_RE.match(channel):
-            return self._json(400, {"error": "bad channel"})
-        with _lock:
-            entry = _store.get(channel)
-        if entry is None:
-            return self._json(404, {"error": "no data for channel", "channel": channel})
-        return self._send(200, entry[0])
+        if path in ("/", "/index.html") or FEED_RE.match(path):        # the viewer overlay
+            return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
+        md = FEED_DATA_RE.match(path)
+        if md:                                                         # the feed's latest snapshot
+            with _lock:
+                entry = _store.get(_feed_key(md.group(1), md.group(2)))
+            if entry is None:
+                return self._json(404, {"error": "no data yet"})
+            return self._send(200, entry[0])
+        ms = FEED_STREAM_RE.match(path)
+        if ms:                                                         # SSE push (sub-second)
+            return self._sse(_feed_key(ms.group(1), ms.group(2)))
+        return self._json(404, {"error": "not found"})
 
     def do_HEAD(self):
         self.do_GET()                              # same routing/headers; _send drops the body for HEAD
 
-    def _sse(self, channel):
-        """Server-Sent Events: push each new snapshot for <channel> the instant it's published, so the
-        viewer updates sub-second (LIVE.md §8). Chunked HTTP/1.1; one thread per open stream. Sends the
-        current snapshot immediately, then blocks on a per-stream queue that publish() feeds."""
-        if not CHANNEL_RE.match(channel):
-            return self._json(400, {"error": "bad channel"})
+    def _sse(self, key):
+        """Server-Sent Events: push each new snapshot for feed ``key`` (``<event>/feed/<channel>``,
+        already route-validated) the instant it's published, so the viewer updates sub-second
+        (LIVE.md §8). Chunked HTTP/1.1; one thread per open stream. Sends the current snapshot
+        immediately, then blocks on a per-stream queue that publish() feeds."""
         q = queue.Queue(maxsize=8)
         with _lock:
-            _subscribers.setdefault(channel, set()).add(q)
-            current = _store.get(channel)
+            _subscribers.setdefault(key, set()).add(q)
+            current = _store.get(key)
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache, no-store")
@@ -150,11 +156,11 @@ class Handler(BaseHTTPRequestHandler):
             pass                                             # the client went away
         finally:
             with _lock:
-                subs = _subscribers.get(channel)
+                subs = _subscribers.get(key)
                 if subs:
                     subs.discard(q)
                     if not subs:
-                        _subscribers.pop(channel, None)
+                        _subscribers.pop(key, None)
 
     # --- POST: operator publishes a snapshot -------------------------------------------------------
     def do_POST(self):
@@ -169,28 +175,26 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
             return self._json(413, {"error": "bad or too-large body"})
         body = self.rfile.read(n) if n else b""
-        m = re.match(r"^/publish/([^/]+)$", self.path.split("?", 1)[0])
+        m = PUBLISH_RE.match(self.path.split("?", 1)[0])       # /_publish/<event>/feed/<channel>
         if not m:
             return self._json(404, {"error": "not found"})
-        channel = m.group(1)
-        if not CHANNEL_RE.match(channel):
-            return self._json(400, {"error": "bad channel"})
         if not SECRET or self.headers.get("X-Publish-Secret", "") != SECRET:
             return self._json(401, {"error": "unauthorized"})
         try:
             json.loads(body.decode("utf-8"))       # validate it's JSON (store the raw bytes)
         except Exception:
             return self._json(400, {"error": "body is not valid JSON"})
+        key = _feed_key(m.group(1), m.group(2))
         with _lock:
-            _store[channel] = (body, time.time())
-            subs = list(_subscribers.get(channel, ()))
+            _store[key] = (body, time.time())
+            subs = list(_subscribers.get(key, ()))
         for sub in subs:                           # push to open SSE streams (sub-second)
             try:
                 sub.put_nowait(body)
             except queue.Full:                     # slow client -> drop; it gets the next/current on reconnect
                 pass
-        _log("publish %s (%d bytes) -> %d stream(s)" % (channel, len(body), len(subs)))
-        return self._json(200, {"ok": True, "channel": channel, "bytes": len(body)})
+        _log("publish %s (%d bytes) -> %d stream(s)" % (key, len(body), len(subs)))
+        return self._json(200, {"ok": True, "channel": key, "bytes": len(body)})
 
 
 def main():
