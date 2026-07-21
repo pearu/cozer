@@ -649,8 +649,10 @@ class TimerPanel(QWidget):
 
     # ---- live-order broadcast (Phase 7, LIVE.md) ----
     def _on_broadcast_toggled(self, on):
-        """Turn the unofficial live-order feed on/off. It publishes to a GitHub gist, so it needs
-        sign-in; turning it on while signed out just prompts to sign in and clears the checkbox."""
+        """Turn the unofficial live-order feed on/off (LIVE.md §5). It publishes to a GitHub gist, so
+        it needs sign-in; turning it on while signed out prompts and clears the checkbox. On -> publish
+        the current field **immediately** (so the gist + viewer URL appear at once, no crossing needed);
+        off -> publish a `stopped` snapshot so the viewer shows the stream disabled."""
         if on:
             from cozer.app import crashreport
             if not crashreport.load_config().get("token"):
@@ -660,41 +662,64 @@ class TimerPanel(QWidget):
                 self.broadcast_cb.setChecked(False)
                 self.broadcast_cb.blockSignals(False)
                 return
-            self.status.setText("Broadcasting the unofficial live order.")
+            if self._heats:                 # publish the current field now (gist + URL appear at once)
+                self._broadcast_target = self._heats[0]
+                cl, h = self._broadcast_target
+                self._publish_order(cl, h, self._broadcast_order(cl, h))
+                self.status.setText("Broadcasting the unofficial live order.")
+            else:
+                self.status.setText("Broadcasting on — select a race to publish the live order.")
         else:
             self._broadcast_timer.stop()
+            if self._heats:                 # let the viewer know the stream stopped
+                cl, h = self._broadcast_target or self._heats[0]
+                self._publish_stopped(cl, h)
             self.status.setText("Live broadcast off.")
 
     def _do_broadcast(self):
-        """(debounce fired) Publish the current order of the heat that last changed. If a publish is
-        still in flight, re-arm and retry shortly — never overlap (which could double-create the gist)."""
-        if self._publishing:
-            self._broadcast_timer.start()
-            return
+        """(debounce fired after a crossing) Publish the current order of the heat that last changed."""
         if self._broadcast_target is None:
             return
         cl, h = self._broadcast_target
+        self._publish_order(cl, h, self._broadcast_order(cl, h))
+
+    def _broadcast_order(self, cl, h):
+        """The order to publish for ``(cl, h)``: the live standings once crossings exist, else the
+        full field in boat-number order — so a viewer opened before the start already shows the grid."""
         rec = self._rec(cl, h)
-        if not rec:
-            return
-        self._publishing = True
-        self._publish_order(cl, h, [b["id"] for b in standings(rec)])
+        if rec and rec[1]:
+            st = standings(rec)
+            if st:
+                return [str(b["id"]) for b in st]
+        return [str(pid) for pid in self._heat_ids(cl, h)]
 
     def _publish_order(self, cl, h, order):
-        """Publish the live order in a background thread, so a slow/failed post never blocks timing
-        (LIVE.md §5). The gist id (created on the first publish) is persisted in the user config."""
         from datetime import datetime, timezone
+        from cozer.app import live
+        self._publish_snap(live.snapshot(
+            self.eventdata, cl, h, order,
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), live.DEFAULT_VIEW))
+
+    def _publish_stopped(self, cl, h):
+        from datetime import datetime, timezone
+        from cozer.app import live
+        self._publish_snap(live.stopped(
+            self.eventdata, cl, h, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+
+    def _publish_snap(self, snap):
+        """Publish a prebuilt snapshot in a background thread, so a slow/failed post never blocks
+        timing (LIVE.md §5). Skips only a concurrent gist-*create* (no id yet) so two publishes can't
+        create two gists; once the id exists, overlapping PATCHes are harmless."""
         import threading
         from cozer.app import crashreport, live
         cfg = crashreport.load_config()
         token = cfg.get("token")
         if not token:                       # signed out mid-broadcast -> skip quietly
-            self._publishing = False
             return
         gid = cfg.get("live_gist_id")
-        snap = live.snapshot(self.eventdata, cl, h, order,
-                             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                             live.DEFAULT_VIEW)
+        if self._publishing and not gid:
+            return
+        self._publishing = True
 
         def worker():
             try:

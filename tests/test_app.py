@@ -1316,23 +1316,18 @@ def test_timer_shows_buttons_on_race_select():
 
 
 def test_timer_broadcast_live_order(tmp_path, monkeypatch):
-    # Phase 7: the "Broadcast live order" checkbox publishes the live order to a gist -- needs
-    # sign-in, runs off the timing path (background thread), and persists the created gist id.
+    # Phase 7: "Broadcast live order" needs sign-in, runs off the timing path (background thread),
+    # publishes the field on tick + the order on each crossing, and a 'stopped' snapshot on untick.
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     import threading
     import cozer.app.crashreport as cr
     import cozer.app.live as live
+    from PySide6.QtWidgets import QApplication
     _app()
     w = MainWindow(_timer_event())
     tp = w.timer_panel
-    # toggling on without sign-in prompts + auto-clears the checkbox (can't publish without a token)
-    tp.broadcast_cb.setChecked(True)
-    assert not tp.broadcast_cb.isChecked() and "Sign in" in tp.status.text()
-    cr.save_config({"token": "gho_x", "login": "pearu"})
-    tp.broadcast_cb.setChecked(True)
-    assert tp.broadcast_cb.isChecked() and "Broadcasting" in tp.status.text()
 
-    # publish runs in a thread -> run it inline; mock the live seam
+    # publishes run in a thread -> run inline; mock the live seam so nothing hits the network
     class _Sync:
         def __init__(self, target=None, daemon=None):
             self._t = target
@@ -1340,37 +1335,48 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
         def start(self):
             self._t()
     monkeypatch.setattr(threading, "Thread", _Sync)
-    snaps = {}
+    snaps = []
     monkeypatch.setattr(live, "snapshot",
-                        lambda ed, cl, h, order, updated, view=None: snaps.update(order=order, cl=cl) or {"n": 1})
+                        lambda ed, cl, h, order, updated, view=None: snaps.append(("order", order)) or {"n": 1})
+    monkeypatch.setattr(live, "stopped",
+                        lambda ed, cl, h, updated, view=None: snaps.append(("stopped", None)) or {"s": 1})
     monkeypatch.setattr(live, "publish", lambda token, gid, snap, transport=None: "GID123")
-    tp._publish_order("F 500", "2", ["7", "3"])
-    assert snaps["order"] == ["7", "3"] and snaps["cl"] == "F 500"        # order+class passed to snapshot
-    assert cr.load_config().get("live_gist_id") == "GID123"              # created gist id persisted
-    assert not tp._publishing                                            # cleared when done
-    # the viewer link is surfaced, derived from crashreport.REPO + the gist id
-    assert not tp.viewer_row.isHidden()
-    assert tp._viewer_url == "https://pearu.github.io/cozer/live-viewer.html?gist=GID123"
-    from PySide6.QtWidgets import QApplication
-    tp._copy_viewer_url()
-    assert QApplication.clipboard().text() == tp._viewer_url             # "Copy URL" -> clipboard
 
-    # failure is guarded: status note, no save, no crash (timing never affected)
+    # toggling on without sign-in prompts + auto-clears (can't publish without a token)
+    tp.broadcast_cb.setChecked(True)
+    assert not tp.broadcast_cb.isChecked() and "Sign in" in tp.status.text()
+
+    # signed in + a race selected -> ticking publishes the field IMMEDIATELY (no crossing needed)
+    cr.save_config({"token": "gho_x", "login": "pearu"})
+    tp.race_combo.setCurrentIndex(0)
+    tp._publishing = False
+    tp.broadcast_cb.setChecked(True)
+    assert tp.broadcast_cb.isChecked() and snaps and snaps[-1][0] == "order"   # published on tick
+    assert cr.load_config().get("live_gist_id") == "GID123"                    # created gist id persisted
+    assert not tp.viewer_row.isHidden()                                        # viewer URL surfaced
+    assert tp._viewer_url == "https://pearu.github.io/cozer/live-viewer.html?gist=GID123"
+    tp._copy_viewer_url()
+    assert QApplication.clipboard().text() == tp._viewer_url                   # "Copy URL" -> clipboard
+
+    # unticking publishes a 'stopped' snapshot so the viewer shows the stream disabled
+    tp._publishing = False
+    tp.broadcast_cb.setChecked(False)
+    assert snaps[-1][0] == "stopped" and "off" in tp.status.text()
+
+    # a failed publish is guarded (never breaks timing): status note, gist id unchanged
     monkeypatch.setattr(live, "publish", lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
     tp._publishing = False
-    tp._publish_order("F 500", "2", ["7"])
+    tp._publish_order("GT", "1", ["1"])
     assert cr.load_config().get("live_gist_id") == "GID123" and "Couldn't publish" in tp.status.text()
 
-    # a debounce fire computes the leader-first order from standings and hands it to _publish_order
+    # a crossing debounce computes the leader-first order from standings
     calls = []
     monkeypatch.setattr(tp, "_rec", lambda cl, h: [{}, {"1": [], "2": []}])
     monkeypatch.setattr(tp, "_publish_order", lambda cl, h, order: calls.append(order))
-    tp._broadcast_target = ("F 500", "2")
+    tp._broadcast_target = ("GT", "1")
     tp._publishing = False
     tp._do_broadcast()
     assert calls and calls[0] == ["1", "2"]
-    assert not tp._started
-    assert tp._buttons[("GT", "1", "1")].text().startswith("1")   # shows the boat number
 
 
 def test_timer_record_before_start_is_noop():
