@@ -1,0 +1,40 @@
+name: Release (wheel)
+
+# Every v* tag publishes a fast, WHEEL-ONLY GitHub Release. That release is `releases/latest`, which
+# the in-app updater reads -- so existing installs (pip AND the Windows constructor install) fast-
+# update to it via `pip -U` with no big download. cozer's wheel is pure Python, so this builds on
+# Linux in seconds; the Windows installer is separate + on-demand (installer.yml), rebuilt only when
+# its environment changes.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # create the GitHub Release + upload the wheel
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build the cozer wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel --outdir dist
+
+      # On a v* tag, publish the wheel as `releases/latest` (NOT --prerelease: update.py reads
+      # releases/latest, and an rc still needs to be visible to the updater -- the version string
+      # already signals "rc"). Create the release if the tag is new, else clobber the asset.
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" --title "cozer ${{ github.ref_name }}" \
+            --generate-notes dist/cozer-*.whl \
+          || gh release upload "${{ github.ref_name }}" --clobber dist/cozer-*.whl
