@@ -666,7 +666,8 @@ class TimerPanel(QWidget):
                 self._broadcast_target = self._heats[0]
                 cl, h = self._broadcast_target
                 self._publish_order(cl, h, self._broadcast_order(cl, h))
-                self.status.setText("Broadcasting the unofficial live order.")
+                self.status.setText("Broadcasting the live order — the viewer link will appear here "
+                                    "in a moment.")
             else:
                 self.status.setText("Broadcasting on — select a race to publish the live order.")
         else:
@@ -694,24 +695,22 @@ class TimerPanel(QWidget):
         return [str(pid) for pid in self._heat_ids(cl, h)]
 
     def _publish_order(self, cl, h, order):
-        from datetime import datetime, timezone
-        from cozer.app import live
-        self._publish_snap(live.snapshot(
-            self.eventdata, cl, h, order,
-            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), live.DEFAULT_VIEW))
+        self._publish("order", cl, h, order)
 
     def _publish_stopped(self, cl, h):
-        from datetime import datetime, timezone
-        from cozer.app import live
-        self._publish_snap(live.stopped(
-            self.eventdata, cl, h, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+        self._publish("stopped", cl, h, None)
 
-    def _publish_snap(self, snap):
-        """Publish a prebuilt snapshot in a background thread, so a slow/failed post never blocks
-        timing (LIVE.md §5). Skips only a concurrent gist-*create* (no id yet) so two publishes can't
-        create two gists; once the id exists, overlapping PATCHes are harmless."""
+    def _publish(self, kind, cl, h, order):
+        """Build + publish a snapshot for ``(cl, h)`` in a background thread. Crucially BOTH the build
+        and the network post run off the GUI thread: the build's first ``import cozer.app.live`` pulls
+        in the report helpers (weasyprint), which is slow the first time and slower still over a network
+        filesystem (sshfs), so doing it on the GUI thread froze cozer for seconds when Broadcast was
+        first ticked (issue #20). ``kind`` is ``"order"`` (publish ``order``) or ``"stopped"`` (untick).
+        Skips only a concurrent gist-*create* (no id yet) so two publishes can't create two gists; once
+        the id exists, overlapping PATCHes are harmless."""
         import threading
-        from cozer.app import crashreport, live
+        from datetime import datetime, timezone
+        from cozer.app import crashreport
         cfg = crashreport.load_config()
         token = cfg.get("token")
         if not token:                       # signed out mid-broadcast -> skip quietly
@@ -720,9 +719,14 @@ class TimerPanel(QWidget):
         if self._publishing and not gid:
             return
         self._publishing = True
+        ed = self.eventdata
+        updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         def worker():
             try:
+                from cozer.app import live  # heavy import (weasyprint) -> keep it OFF the GUI thread
+                snap = (live.stopped(ed, cl, h, updated) if kind == "stopped"
+                        else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW))
                 new_gid = live.publish(token, gid, snap)
             except Exception:               # never breaks timing; retried on the next crossing
                 new_gid = False

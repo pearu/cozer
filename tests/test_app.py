@@ -1379,6 +1379,32 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
     assert calls and calls[0] == ["1", "2"]
 
 
+def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
+    # issue #20: building the snapshot does `import cozer.app.live`, which pulls in weasyprint --
+    # slow the first time, and much slower over a network filesystem (sshfs). So both the build AND
+    # the network post must run on a background thread; ticking Broadcast must never do them on the
+    # GUI thread (it froze cozer for seconds). Guard: `live.snapshot` runs off the calling thread.
+    monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
+    import threading
+    import cozer.app.crashreport as cr
+    import cozer.app.live as live
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+    cr.save_config({"token": "gho_x", "login": "pearu"})
+    built = {}
+    done = threading.Event()
+
+    def snap(*a, **k):
+        built["ident"] = threading.get_ident()
+        return {"n": 1}
+    monkeypatch.setattr(live, "snapshot", snap)
+    monkeypatch.setattr(live, "publish", lambda *a, **k: done.set() or "GID123")
+
+    tp._publish_order("GT", "1", ["1"])                 # real background thread (not mocked here)
+    assert done.wait(5), "the publish worker never ran"
+    assert built.get("ident") and built["ident"] != threading.get_ident()   # built off the GUI thread
+
+
 def test_timer_record_before_start_is_noop():
     _app()
     w = MainWindow(_timer_event())
