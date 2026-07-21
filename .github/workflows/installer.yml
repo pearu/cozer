@@ -1,0 +1,79 @@
+name: Windows installer (on demand)
+
+# The Windows installer is the ENVIRONMENT bootstrap (Python + PySide6 + WeasyPrint + ca-certificates
+# + the launcher/shortcut files). cozer's own code is updated in-app (the wheel), so the installer is
+# rebuilt ONLY when its environment changes -- not on every cozer release. Hence: manual dispatch, or
+# an `installer-*` tag. It publishes to a FIXED `windows-installer` release (see the release step),
+# which the install guides + the in-app installer-fallback link to.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['installer-*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write          # create/refresh the `windows-installer` release + upload the .exe
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build environment (constructor + wheel tooling)
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: build
+          create-args: >-
+            python=3.13 constructor conda-standalone nsis python-build
+          cache-environment: true
+
+      - name: Build the cozer wheel (bundled into the installer)
+        run: python -m build --wheel --outdir installer/dist
+
+      - name: Build the installer (.exe)
+        run: constructor installer --output-dir dist-installer
+
+      - name: Locate the installer
+        id: find
+        run: echo "exe=$(ls dist-installer/COZER-*.exe)" >> "$GITHUB_OUTPUT"
+
+      - name: Silent install to C:\cozer
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath ".\${{ steps.find.outputs.exe }}" -ArgumentList '/S','/D=C:\cozer'
+          if (!(Test-Path 'C:\cozer\python.exe')) { throw 'install failed: no python.exe' }
+
+      - name: Smoke test (offscreen — no display in CI)
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          # Mirrors cozer-launch.pyw: prepend <prefix>\Library\bin to PATH (cffi's find_library, which
+          # resolves WeasyPrint's bare-name dlopens, searches PATH) + a bound add_dll_directory for Qt.
+          # Verifies the bundled env end-to-end: cozer imports, Qt inits, WeasyPrint renders a PDF.
+          C:\cozer\python.exe -c "import os,sys; d=os.path.join(sys.prefix,'Library','bin'); os.environ['PATH']=d+os.pathsep+os.environ.get('PATH',''); _h=os.add_dll_directory(d); import cozer, weasyprint; from PySide6 import QtWidgets; QtWidgets.QApplication([]); weasyprint.HTML(string='<p>ok</p>').write_pdf('smoke.pdf'); print('smoke OK')"
+
+      - name: Publish the installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cozer-windows-installer
+          path: ${{ steps.find.outputs.exe }}
+          if-no-files-found: error
+
+      # Publish to a FIXED `windows-installer` release (stable download URL:
+      # releases/download/windows-installer/COZER-Setup-Windows.exe -- what docs/install-windows.md,
+      # .et.md, and update.py's installer fallback link to). Marked --latest=false + --prerelease so it
+      # NEVER becomes releases/latest, which update.py reads for the newest WHEEL (a v* release from
+      # release.yml). Create it once, then clobber the asset on every rebuild.
+      - name: Publish / refresh the Windows-installer release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.find.outputs.exe }}" COZER-Setup-Windows.exe
+          gh release create windows-installer --title "COZER Windows installer" \
+            --notes "The current COZER Windows installer (environment bootstrap). cozer updates itself in-app." \
+            --latest=false --prerelease COZER-Setup-Windows.exe \
+          || gh release upload windows-installer --clobber COZER-Setup-Windows.exe
