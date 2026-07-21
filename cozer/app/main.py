@@ -1004,7 +1004,6 @@ class MainWindow(QMainWindow):
             "finished short of the distance. Enable this to show it for every finisher in the "
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
-        v.addWidget(opts)
 
         # Live broadcast (docs/broadcast-urls.md §4): all the live.cozer.ee settings live here (broadcast
         # and reports are both *outputs*). The server URL + publish secret go to cozer config (per
@@ -1038,7 +1037,13 @@ class MainWindow(QMainWindow):
         live_save = QPushButton("Save broadcast settings")
         live_save.clicked.connect(self._save_broadcast_settings)
         lf.addRow("", live_save)
-        v.addWidget(live)
+
+        # Report options + Live broadcast are both per-render *outputs* -> place them side by side,
+        # top-aligned, so neither pushes the classes/heats tree down (owner's layout request).
+        optsrow = QHBoxLayout()
+        optsrow.addWidget(opts, 1, Qt.AlignTop)
+        optsrow.addWidget(live, 1, Qt.AlignTop)
+        v.addLayout(optsrow)
 
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
         self.report_tree = QTreeWidget()
