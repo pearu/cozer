@@ -47,3 +47,4 @@ extra_files:
   - cozer-launch.pyw            # GUI launcher: adds Library\bin to the DLL path
   - make_shortcut.ps1           # creates the Desktop + Start-menu shortcuts (post_install)
   - make_shortcut.bat           # double-clickable re-run if the icons are ever missing
+  - cozer-debug.bat             # double-clickable launcher that shows/logs any startup error
