@@ -112,3 +112,19 @@ def test_publish_updates_when_id_else_creates():
     t2 = FakeTransport(resp={"id": "new9"})
     assert live.publish("tok", None, snap, transport=t2) == "new9"
     assert t2.calls[0][0] == "POST"
+
+
+def test_publish_server_posts_snapshot_with_secret():
+    snap = live.snapshot(ED, "F 500", "1", ["7"], "T")
+    t = FakeTransport(status=200)
+    assert live.publish_server("https://live.cozer.ee/", "harku", "s3cr3t", snap, transport=t) == "harku"
+    method, url, headers, body = t.calls[0]
+    assert method == "POST" and url == "https://live.cozer.ee/publish/harku"    # trailing '/' stripped
+    assert headers["X-Publish-Secret"] == "s3cr3t"                              # secret in the header
+    assert body == snap                                                        # snapshot JSON is the body
+
+
+def test_publish_server_raises_on_non_2xx():
+    import pytest
+    with pytest.raises(RuntimeError):
+        live.publish_server("https://x", "c", "bad", {"a": 1}, transport=FakeTransport(status=401))

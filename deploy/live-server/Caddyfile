@@ -1,0 +1,16 @@
+# cozer live feed — HTTPS reverse proxy to the local live-server.
+#
+# Install: put this at /etc/caddy/Caddyfile (or `import` it from there), then
+#   sudo systemctl reload caddy
+# Caddy automatically obtains and renews a free Let's Encrypt certificate for
+# live.cozer.ee (needs :80 reachable — done — and live.cozer.ee resolving — done).
+#
+# Optional: uncomment to get Let's Encrypt expiry-reminder emails (not required; Caddy auto-renews):
+# {
+#     email you@example.com
+# }
+
+live.cozer.ee {
+    encode gzip
+    reverse_proxy 127.0.0.1:8099
+}

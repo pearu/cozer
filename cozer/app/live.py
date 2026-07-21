@@ -94,3 +94,25 @@ def publish(token, gist_id, snap, transport=None):
         update_gist(token, gist_id, snap, transport=transport)
         return gist_id
     return create_gist(token, snap, transport=transport)
+
+
+def _http_post(method, url, headers, data):        # pragma: no cover - real network
+    import urllib.request
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.status, resp.read()
+
+
+def publish_server(base_url, channel, secret, snap, transport=None):
+    """Publish ``snap`` to the self-hosted live server (deploy/live-server): POST the snapshot JSON to
+    ``<base_url>/publish/<channel>`` with the shared secret in the ``X-Publish-Secret`` header. This is
+    the primary transport -- fresh (viewers see the newest within their poll interval), no token in any
+    URL, no rate limit -- with the gist path above kept as a fallback. ``transport(method, url, headers,
+    data)`` is injectable for tests. Raises on a non-2xx or network error (the Timer guards it)."""
+    url = "%s/publish/%s" % (base_url.rstrip("/"), channel)
+    body = json.dumps(snap, ensure_ascii=False).encode("utf-8")
+    headers = {"Content-Type": "application/json", "X-Publish-Secret": secret, "User-Agent": "cozer"}
+    status, _ = (transport or _http_post)("POST", url, headers, body)
+    if not 200 <= (status or 0) < 300:
+        raise RuntimeError("live server publish failed: HTTP %s" % status)
+    return channel

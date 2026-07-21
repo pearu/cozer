@@ -1,0 +1,21 @@
+[Unit]
+Description=cozer live-order server (Phase 7 broadcast transport)
+Documentation=https://github.com/pearu/cozer/blob/main/docs/LIVE.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Runs as an ordinary user; the process only reads server.py and binds 127.0.0.1 (Caddy fronts it).
+# Adjust User + the two paths to your checkout if they differ.
+User=pearu
+EnvironmentFile=/etc/cozer-live.env
+ExecStart=/usr/bin/python3 /home/pearu/git/pearu/cozer/deploy/live-server/server.py
+Restart=always
+RestartSec=2
+# light hardening (safe for a localhost-only, read-only-FS service)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
