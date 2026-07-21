@@ -1395,7 +1395,8 @@ def test_timer_broadcast_live_order(tmp_path, monkeypatch):
     tp._broadcast_target = ("GT", "1")
     tp._publishing = False
     tp._do_broadcast()
-    assert calls and calls[0] == ["1", "2"]
+    # once racing, the order is the standings dicts (so laps/time/started reach the viewer), leader-first
+    assert calls and [str(b["id"]) for b in calls[0]] == ["1", "2"]
 
 
 def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
