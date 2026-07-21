@@ -138,4 +138,6 @@ superseded.
     launcher/shortcut files), with a **separate date-based installer version** (e.g. `2026.07`) and
     the installer download **decoupled** from `releases/latest` (a fixed `windows-installer` release/
     tag) so wheel-only releases don't break the fresh-install link. Owner idea to fold in: installer
-    = **cozer-environment only**, self-updating to the latest wheel (resolve offline-first-run).
+    = **cozer-environment only**, self-updating to the latest cozer wheel on install/first run.
+    **Offline first-run (owner-decided):** if there's no internet, use a cozer wheel sitting in the
+    same directory as the installer if present, otherwise fail gracefully with a clear message.
