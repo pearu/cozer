@@ -462,15 +462,14 @@ class TimerPanel(QWidget):
         grid = self._grids.get((cl, h))
         if grid is not None and pid in grid.own:
             grid.restyle(pid)
+        b = self._ladder_boats.get((cl, h, pid))    # keep the ladder button in step with the grid
+        if b is not None:
+            b.setStyleSheet(_btn_qss(self._boat_color(cl, h, pid), 12))
 
     def _arm_all_predictions(self):
         for cl, h in self._heats:
             for pid in self._heat_ids(cl, h):
                 self._arm_prediction(cl, h, pid)
-
-    def _boat_style(self, s):       # ladder boat button (fixed font)
-        color = C_FINISH if s["finished"] else (C_INPROGRESS if s["laps"] else C_WAITING)
-        return _btn_qss(color, 12)
 
     # ---- widget building ----
     def _clear(self):
@@ -546,7 +545,7 @@ class TimerPanel(QWidget):
                 pid = s["id"]
                 b = QPushButton(str(pid))
                 b.setMinimumHeight(26)
-                b.setStyleSheet(self._boat_style(s))
+                b.setStyleSheet(_btn_qss(self._boat_color(cl, h, pid), 12))   # same colour as the grid
                 b.clicked.connect(lambda _=False, cc=cl, hh=h, p=pid: self.record_lap(cc, hh, p))
                 self._ladder_boats[(cl, h, pid)] = b
                 lv.addWidget(b)

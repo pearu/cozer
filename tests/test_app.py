@@ -1378,6 +1378,20 @@ def test_timer_shows_buttons_on_race_select():
     assert ("GT", "1", "1") in tp._ladder_boats and ("GT", "1", "2") in tp._ladder_boats
 
 
+def test_timer_ladder_and_grid_boat_colours_match():
+    # the ladder + grid buttons for a boat must colour identically; a restyle (e.g. the closing-hint)
+    # updates BOTH, not just the grid.
+    from cozer.app.timer import C_COMING
+    _app()
+    tp = MainWindow(_timer_event()).timer_panel
+    tp.race_combo.setCurrentIndex(0)                       # draws both the grid and the ladder
+    grid_btn = tp._buttons[("GT", "1", "1")]
+    ladder_btn = tp._ladder_boats[("GT", "1", "1")]
+    tp._phase[("GT", "1", "1")] = "coming"                 # a closing-hint phase
+    tp._restyle_boat("GT", "1", "1")
+    assert C_COMING in grid_btn.styleSheet() and C_COMING in ladder_btn.styleSheet()
+
+
 def test_timer_broadcast_builds_off_gui_thread(tmp_path, monkeypatch):
     # issue #20: building the snapshot does `import cozer.app.live`, which pulls in weasyprint --
     # slow the first time, and much slower over a network filesystem (sshfs). So both the build AND
