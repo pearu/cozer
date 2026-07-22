@@ -122,16 +122,24 @@ def calclayout(ids):
 
 def standings(rec):
     """Running order for a heat record ``[info, {id: marks}]`` — a list of
-    ``{id, laps, time, finished}`` sorted leader-first (finished first, then more
-    laps, then less elapsed time). Disabled laps are excluded (via gettimes)."""
+    ``{id, laps, time, finished, laptimes}`` sorted leader-first (finished first, then more laps, then
+    less elapsed time). Disabled laps are excluded (via gettimes). ``gettimes`` yields per-lap
+    *durations*; ``laptimes`` is their running sum — the **cumulative** elapsed time at each lap line
+    the boat crossed (``laptimes[n-1]`` = when it crossed lap ``n``), so the broadcast can show the
+    catch-up *interval* to the boat ahead at the same lap line (a real time even a lap down, not
+    "+1L"). ``time`` == ``laptimes[-1]`` — its latest crossing."""
     info, boats = rec[0], rec[1]
     need = len(info.get("course", []))
     rows = []
     for pid, marks in boats.items():
         times = gettimes(marks)
         laps = len(times)
+        cum, s = [], 0.0
+        for t in times:
+            s += t
+            cum.append(round2(s))
         rows.append({"id": pid, "laps": laps, "time": round2(sum(times)),
-                     "finished": bool(need) and laps >= need})
+                     "finished": bool(need) and laps >= need, "laptimes": cum})
     rows.sort(key=lambda r: (0 if r["finished"] else 1, -r["laps"], r["time"], _idkey(r["id"])))
     return rows
 

@@ -49,6 +49,8 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
                 row["time"] = item["time"]          # cumulative seconds at the last crossing
             if item.get("finished"):
                 row["finished"] = True              # crossed the last lap-line -> viewer shows 🏁
+            if item.get("laptimes"):
+                row["laptimes"] = list(item["laptimes"])   # per-lap crossing times -> catch-up interval
         rows.append(row)
     return {
         "class": getclass(cl),

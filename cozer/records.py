@@ -84,7 +84,9 @@ def insertmark(rec, code, ct, mess=''):
 
 
 def gettimes(race, stime=-1):
-    """Cumulative completed-lap times (legacy ``prefs.gettimes``)."""
+    """Per-lap **durations** of the completed laps (legacy ``prefs.gettimes``) — each entry is one
+    lap's time (with any disabled-lap time rolled into the next kept lap), NOT a running total. Sum
+    them for the cumulative elapsed time; accumulate them for each lap-line crossing time."""
     ret = []
     dt = 0
     t = 0

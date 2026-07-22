@@ -73,9 +73,17 @@
       + '<span class="code">'+nat+'</span></span>';
   }
   function gapText(row, prev){
+    // The catch-up interval to the boat just ahead: the time between the two boats crossing the SAME
+    // lap line (row's current lap n) — i.e. how long row would take to reach prev if prev halted.
+    // prev.laptimes[n-1] is prev's crossing time at lap n (in the past if prev is a lap up), so this
+    // is a real time even a lap down — no "+1L". Falls back to the old scheme for a feed w/o laptimes.
     if(!prev) return "";                                   // leader — no one ahead
-    var rl = row.laps||0, pl = prev.laps||0;
-    if(rl < pl){ var d = pl-rl; return "+"+d+"L"; }        // a lap (or more) down
+    var n = row.laps||0;
+    if(n < 1) return "";                                   // row hasn't crossed a lap line yet
+    var pa = prev.laptimes;
+    if(pa && pa.length >= n && row.time!=null) return "+"+(row.time - pa[n-1]).toFixed(2);
+    var pl = prev.laps||0;                                 // fallback (feed without per-lap times)
+    if(n < pl) return "+"+(pl-n)+"L";
     if(row.time!=null && prev.time!=null) return "+"+(row.time-prev.time).toFixed(2);
     return "";
   }
@@ -121,7 +129,7 @@
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
     boats = (feed.order||[]).map(function(r){
       return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:r.laps,
-              time:r.time, finished:r.finished};
+              time:r.time, finished:r.finished, laptimes:r.laptimes};
     });
     render();
   }

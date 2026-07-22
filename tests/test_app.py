@@ -1064,6 +1064,9 @@ def test_standings_orders_by_progress():
     assert [s["id"] for s in order] == ["2", "1", "3"]    # finished, then 2 laps, then 1
     by = {s["id"]: s for s in order}
     assert by["2"]["finished"] and by["2"]["laps"] == 3 and not by["1"]["finished"]
+    # laptimes = cumulative crossing time at each lap (running sum of the per-lap durations)
+    assert by["1"]["laptimes"] == [20.0, 41.0] and by["1"]["time"] == 41.0
+    assert by["2"]["laptimes"] == [19.0, 39.0, 61.0]
 
 
 def test_standings_same_laps_by_time():
