@@ -32,7 +32,7 @@ from cozer.app.grids import (
 )
 from cozer.app.timer import TimerPanel
 from cozer.phases import class_phase_map, phase_heat_ids
-from cozer.racepattern import get_classes
+from cozer.racepattern import get_classes, race_kind
 from cozer.native import to_native
 from cozer.store import EventStore, load_event, read_legacy_coz
 from cozer import validate
@@ -1127,7 +1127,10 @@ class MainWindow(QMainWindow):
         buckets = {h: [] for h in self._PHASE_ORDER}
         for cl in get_classes(self.eventdata):
             ph = phase_map.get(cl)
-            kind = ph.kind if ph is not None else None
+            # Group by the phase inferred from the class name/pattern (race_kind), NOT the recorded
+            # phase -- so a defined-but-not-yet-raced /T or /Q class still lands under its phase header
+            # (class_phase_map returns None until a heat is recorded).
+            kind = race_kind(self.eventdata, cl)
             buckets[self._PHASE_HEADER.get(kind, "Other")].append((cl, ph))
         for header in self._PHASE_ORDER:
             items = buckets[header]
