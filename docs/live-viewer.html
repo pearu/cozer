@@ -22,7 +22,7 @@
     will-change:transform;
   }
   ol.pre li{ grid-template-columns:34px 44px 1fr }
-  ol.run li{ grid-template-columns:34px 44px 1fr 116px }
+  ol.run li{ grid-template-columns:30px 38px 1fr 92px 56px; gap:8px }
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -35,7 +35,8 @@
   .name{ font-size:20px; font-weight:750; letter-spacing:.01em;
          white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   .name .first{ font-weight:400; color:var(--dim) }
-  .timing{ font-size:16px; font-weight:700; text-align:right; white-space:nowrap }
+  .timing{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }
+  .catch{ font-size:14px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -51,6 +52,9 @@
 <script>
   var boats = [], started = false;
   var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
+  var course = [];                           // per-lap lengths (distance model for the live catch-up)
+  var raceAnchor = null;                     // {elapsed, at} race-clock anchor -> live extrapolation
+  var catchSpans = {};                       // boat no -> its live catch-up cell (ticked between renders)
   var pollMs = 500, haveData = false;        // poll cadence (feed.view.poll_s overrides) + first-data flag
 
   var ol = document.getElementById("order");
@@ -90,11 +94,53 @@
     return txt + (b.finished ? " 🏁" : "");
   }
 
+  // ---- live catch-up-to-the-leader model (continuously updating) ----
+  // Each boat has a piece-wise-linear distance D(t): on lap k it moves at that lap's speed
+  // v[k] = (lap-k length)/(lap-k time), and past its last crossing it extrapolates at the last lap's
+  // speed. The catch-up column = (D_leader(t) - D_boat(t)) / v_boat = the seconds the boat needs to
+  // reach the leader's current position if the leader froze at time t. Ticks a few times a second.
+  function perfNow(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function raceTime(){
+    // Current race-elapsed seconds: from the publish anchor (advances live), else the latest crossing
+    // among the boats (static — the feed wasn't timing).
+    if(raceAnchor) return raceAnchor.elapsed + (perfNow() - raceAnchor.at) / 1000;
+    var mx = 0; boats.forEach(function(b){ var lt = b.laptimes; if(lt && lt.length) mx = Math.max(mx, lt[lt.length-1]); });
+    return mx || null;
+  }
+  function boatModel(b){
+    // {tLast, distLast, v}: the last crossing time + cumulative distance there + the last lap's speed.
+    // null until the boat has a lap (no speed yet) or the speed is non-positive.
+    var lt = b.laptimes;
+    if(!lt || !lt.length || !course.length) return null;
+    var k = lt.length, dist = 0;
+    for(var j = 0; j < k; j++) dist += course[Math.min(j, course.length - 1)];   // dist at lap k
+    var lapDur = k >= 2 ? (lt[k-1] - lt[k-2]) : lt[0];                            // last lap duration
+    var v = lapDur > 0 ? course[Math.min(k-1, course.length-1)] / lapDur : 0;     // last lap speed
+    return v > 0 ? {tLast: lt[k-1], distLast: dist, v: v} : null;
+  }
+  function distAt(m, t){ return m.distLast + m.v * (t - m.tLast); }
+  function catchupCell(b, i, leaderModel, t){
+    if(i === 0) return "—";                                // the leader is the reference
+    var m = boatModel(b);
+    if(!m || !leaderModel || t == null) return "…";        // no speed yet -> unknown
+    var gap = distAt(leaderModel, t) - distAt(m, t);       // distance the leader is ahead, right now
+    return (gap > 0 ? gap / m.v : 0).toFixed(1);           // seconds to cover it at this boat's speed
+  }
+  function tickCatch(){                                     // refresh the live column between renders
+    if(!started) return;
+    var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
+    boats.slice(0, maxRows).forEach(function(b, i){
+      var s = catchSpans[b.no];
+      if(s) s.textContent = catchupCell(b, i, leaderModel, t);
+    });
+  }
+
   function render(){
     ol.className = started ? "run" : "pre";
     var prevTops = {};
     [].forEach.call(ol.children, function(li){ prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
     ol.innerHTML = "";
+    catchSpans = {};
     boats.slice(0, maxRows).forEach(function(b, i){       // top-N only
       var li = document.createElement("li");
       li.dataset.no = b.no;
@@ -103,11 +149,14 @@
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;
       if(started){
-        html += '<span class="timing">'+timingCell(b, i, boats[0])+'</span>';
+        html += '<span class="timing">'+timingCell(b, i, boats[0])+'</span>'
+              + '<span class="catch"></span>';
       }
       li.innerHTML = html;
+      if(started) catchSpans[b.no] = li.querySelector(".catch");
       ol.appendChild(li);
     });
+    tickCatch();                                           // fill the live catch-up column now
     if(!reduce){                                           // FLIP: slide rows to new slots
       [].forEach.call(ol.children, function(li){
         var o = prevTops[li.dataset.no]; if(o==null) return;
@@ -128,12 +177,15 @@
       return; }
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
+    course = feed.course || [];                             // per-lap lengths for the distance model
+    raceAnchor = (feed.elapsed != null) ? {elapsed: feed.elapsed, at: perfNow()} : null;   // live clock
     boats = (feed.order||[]).map(function(r){
       return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:r.laps,
               time:r.time, finished:r.finished, laptimes:r.laptimes};
     });
     render();
   }
+  setInterval(tickCatch, 250);                 // keep the live catch-up column ticking between snapshots
   function status(msg){
     ol.className = "pre";
     ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:700;'

@@ -19,16 +19,22 @@ from cozer.reports.common import nationalities_index, participants_index
 DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 0.5}
 
 
-def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
+def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=None, elapsed=None):
     """The unofficial live-order snapshot ``dict`` for class ``cl`` heat ``heat``.
 
     ``order`` — leader-first, one item per boat. Each item is either a **boat id** (scalar) or a
-    **standings dict** ``{"id"|"boat", "laps", "time", "finished"}`` (pass ``timer.standings(rec)``).
-    When laps/time are present they flow into the feed so the viewer can show laps-completed + the
-    time gap to the boat one place ahead, and switch from the pre-start (nat/boat/surname) layout to
-    the running layout once the field has started.
+    **standings dict** ``{"id"|"boat", "laps", "time", "finished", "laptimes"}`` (pass
+    ``timer.standings(rec)``). When laps/time are present they flow into the feed so the viewer can
+    show laps-completed + the time gap to the leader, and switch from the pre-start (nat/boat/surname)
+    layout to the running layout once the field has started.
     ``updated`` — the publish timestamp (ISO-8601 string; the caller stamps it).
     ``view``    — the operator's display config (page size / dwell times); ``DEFAULT_VIEW`` if None.
+    ``course``  — the per-lap lengths of this heat; with each boat's ``laptimes`` the viewer builds a
+    piece-wise-linear distance model per boat (lap speed = lap length / lap time) to show a live
+    catch-up-to-the-leader time.
+    ``elapsed`` — the current **race-elapsed** seconds at publish (the timer's race clock); the viewer
+    anchors its own clock to it so it can extrapolate each boat's distance forward between crossings.
+    ``None`` when not timing (the viewer then falls back to the latest crossing — a static value).
 
     The ``order`` carries the **full** field; paging is the viewer's job (LIVE.md §7).
     """
@@ -61,6 +67,8 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True):
         "live": live,
         "started": started,                          # any boat has completed >=1 lap
         "view": dict(view) if view else dict(DEFAULT_VIEW),
+        "course": [c for c in course] if course else [],   # per-lap lengths -> distance model
+        "elapsed": elapsed,                          # race-elapsed at publish (viewer clock anchor)
         "order": rows,
     }
 

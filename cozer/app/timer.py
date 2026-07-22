@@ -783,13 +783,19 @@ class TimerPanel(QWidget):
         eventname = broadcast.event_name(ed)      # per-event (lives in the .coz), not config
         channel = broadcast.event_channel(ed)
         updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # For the live catch-up-to-leader column: the heat's per-lap lengths + the current race-elapsed
+        # time (only while timing) so the viewer can extrapolate each boat's distance between crossings.
+        rec = self._rec(cl, h)
+        course = (rec[0].get("course") if rec else None) or heat_course(ed, cl, h)[0]
+        elapsed = round2(self._clock.read_ns() / 1e9) if self._started else None
 
         def worker():
             result = None
             try:
                 from cozer.app import live  # heavy import (weasyprint) -> keep it OFF the GUI thread
                 snap = (live.stopped(ed, cl, h, updated) if kind == "stopped"
-                        else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW))
+                        else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW,
+                                           course=course, elapsed=elapsed))
                 live.publish_server(server_url, eventname, channel, secret, snap)
                 result = True               # success
             except Exception as exc:        # surfaced to the operator; never breaks timing

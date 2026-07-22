@@ -67,6 +67,14 @@ def test_snapshot_standings_dicts_laps_time_and_started():
     assert snap["order"][2]["laps"] == 1 and snap["order"][2]["time"] == 22.0
 
 
+def test_snapshot_carries_course_and_elapsed():
+    # the live catch-up column needs the per-lap lengths + the current race-elapsed time
+    snap = live.snapshot(ED, "F 500", "1", ["7"], "T", course=[1000, 1000], elapsed=42.5)
+    assert snap["course"] == [1000, 1000] and snap["elapsed"] == 42.5
+    snap2 = live.snapshot(ED, "F 500", "1", ["7"], "T")   # defaults when omitted
+    assert snap2["course"] == [] and snap2["elapsed"] is None
+
+
 def test_snapshot_not_started_when_no_laps():
     order = [{"id": "7", "laps": 0, "time": 0.0}, {"id": "14", "laps": 0, "time": 0.0}]
     snap = live.snapshot(ED, "F 500", "1", order, "T")
