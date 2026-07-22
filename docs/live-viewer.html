@@ -39,7 +39,14 @@
   .catch{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
   .catch.overtake{ color:#ffd24a }   /* projected ahead of a boat ranked above -> overtake brewing */
   .startmsg{ grid-column:4 / -1; text-align:right; font-weight:800; font-size:13px;
-             letter-spacing:.04em; white-space:nowrap }   /* pre-race WAITING TO START / START */
+             letter-spacing:.04em; white-space:nowrap }   /* pre-race WAITING TO START */
+  /* START: a big, bright-green, pulsing banner across the whole first row — text-only (no background
+     or shadow, which would key through as a band on the chroma-keyed overlay). */
+  .startmsg.go{ grid-column:1 / -1; text-align:center; font-size:34px; font-weight:900;
+                letter-spacing:.32em; color:#39ff14;
+                animation:gopulse .5s ease-in-out infinite alternate }
+  @keyframes gopulse{ from{ transform:scale(.92); color:#2bd60f } to{ transform:scale(1.12); color:#b6ff98 } }
+  @media (prefers-reduced-motion:reduce){ .startmsg.go{ animation:none } }
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -176,8 +183,8 @@
       if(started){
         html += '<span class="laps">'+lapsCell(b)+'</span>'
               + '<span class="catch"></span>';
-      } else if(msg && i === 0){                           // pre-race: status in the first row, spans right cols
-        html += '<span class="startmsg">'+msg+'</span>';
+      } else if(msg && i === 0){                           // pre-race status in the first row
+        html += '<span class="startmsg' + (msg === "START" ? " go" : "") + '">'+msg+'</span>';
       }
       li.innerHTML = html;
       if(started) catchSpans[b.no] = li.querySelector(".catch");
