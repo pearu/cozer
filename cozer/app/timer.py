@@ -133,6 +133,9 @@ def standings(rec):
     rows = []
     for pid, marks in boats.items():
         times = gettimes(marks)
+        if need and len(times) > need:      # finished, then clicked again past the finish line: freeze at
+            times = times[:need]            # lap `need` so a spurious extra click can't out-rank the real
+                                            # winner (would make it "leader" -> all margins 0.0, issue #26)
         laps = len(times)
         cum, s = [], 0.0
         for t in times:

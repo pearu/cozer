@@ -1075,6 +1075,22 @@ def test_standings_same_laps_by_time():
     assert [s["id"] for s in standings(rec)] == ["2", "1"]     # equal laps -> faster leads
 
 
+def test_standings_freezes_finished_boat_at_course_length():
+    # issue #26: a finished boat clicked again past the line must NOT out-rank the real winner. Boat 2
+    # finished 3 laps first (61s); boat 1 finished 3 laps at 66s then got a spurious 4th click (a 0.3s
+    # bounce). Without the freeze, boat 1 (4 "laps") sorts first as the "leader" and every gap goes to
+    # 0.0. With it, both are capped at need=3 and ranked by their real finish time.
+    from cozer.app.timer import standings
+    rec = [{"course": [1000, 1000, 1000]},
+           {"1": [[1, 20.0], [1, 21.0], [1, 25.0], [1, 0.3]],   # 3 laps @66s + spurious 4th click
+            "2": [[1, 19.0], [1, 20.0], [1, 22.0]]}]            # 3 laps @61s (the real winner)
+    order = standings(rec)
+    assert [s["id"] for s in order] == ["2", "1"]               # real winner leads, not the extra-click boat
+    by = {s["id"]: s for s in order}
+    assert by["1"]["laps"] == 3 and by["1"]["time"] == 66.0     # frozen at the finish (4th click dropped)
+    assert by["1"]["laptimes"] == [20.0, 41.0, 66.0]
+
+
 def test_calclayout_keeps_all_ids():
     from cozer.app.timer import calclayout
     rows = calclayout(["1", "2", "3", "11", "12", "23"])
