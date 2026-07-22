@@ -78,6 +78,33 @@ def git(*args, check=True):
     return _run(["git", *args], check=check)
 
 
+def tag_exists(tag):
+    """Where ``tag`` already exists: 'local', 'remote', or None. Checks origin too (read-only, so it
+    works under --dry-run and before any fetch) — we must never advance main and only then discover the
+    tag is a duplicate at push time."""
+    if git("tag", "--list", tag):
+        return "local"
+    if git("ls-remote", "--tags", "origin", "refs/tags/%s" % tag, check=False).strip():
+        return "remote"
+    return None
+
+
+def is_newer(version, last_tag):
+    """True if ``version`` is strictly newer than ``last_tag`` (e.g. 'v3.0.0rc6'); False if not; None
+    when it can't be decided (no prior tag, or no version-comparison library available)."""
+    if not last_tag or last_tag == "(none)":
+        return None
+    prev = last_tag[1:] if last_tag.startswith("v") else last_tag
+    try:
+        from packaging.version import InvalidVersion, Version
+    except ImportError:
+        return None
+    try:
+        return Version(version) > Version(prev)
+    except InvalidVersion:
+        return None
+
+
 # --- file editing (dry-run aware, idempotent) -------------------------------
 def _read(p):
     return p.read_text(encoding="utf-8")
@@ -140,7 +167,8 @@ def _curated_template(version, monthyear, anchor):
         "## COZER %s (%s)\n\n" % (version, monthyear)
         + "%s\n" % anchor
         + "<!-- %s: write the plain-terms, organizer-facing \"what's new\" for %s here (newest first),\n"
-        "     then delete this comment. release.py tags once no \"%s\" marker remains in this file. -->\n"
+        "     then delete this TODO comment (keep the release-notes anchor line above). release.py\n"
+        "     tags once no \"%s\" marker remains in this file. -->\n"
         % (TODO_MARK, version, TODO_MARK)
     )
 
@@ -176,8 +204,9 @@ def preflight(version, touched, dry_run):
         die("must be on 'main' (currently %r) — switch first." % branch)
 
     tag = "v%s" % version
-    if git("tag", "--list", tag):
-        die("tag %s already exists — pick a new version (or delete the tag)." % tag)
+    where = tag_exists(tag)
+    if where:
+        die("tag %s already exists (%s) — pick a new version, or delete the tag to re-cut." % (tag, where))
 
     # Clean tree, ignoring untracked cruft and the files this script itself edits ("bar the files it
     # will touch" — so a re-run after a curated-docs block, with the notes already written, is clean).
@@ -331,6 +360,9 @@ def main(argv):
                         "TODO(release) marker is gone")
     ap.add_argument("--allow-todo", action="store_true",
                     help="with --curated-docs: tag even though a TODO(release) placeholder remains")
+    ap.add_argument("--allow-downgrade", action="store_true",
+                    help="allow a version that is not newer than the last tag (re-publishes a lower "
+                         "releases/latest — use only to deliberately re-cut)")
     ap.add_argument("--dry-run", action="store_true", help="print every step; mutate nothing")
     ap.add_argument("--no-verify", action="store_true", help="don't poll `gh release view` after tagging")
     ap.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
@@ -356,6 +388,15 @@ def main(argv):
                     if s.strip()]
     else:
         subjects = []
+
+    newer = is_newer(version, last_tag)
+    if newer is False and not args.allow_downgrade:
+        die("version %s is NOT newer than the last tag %s — refusing to publish a lower "
+            "`releases/latest`. Pass --allow-downgrade to override (deliberate re-cut only)." % (version, last_tag))
+    if newer is None and last_tag != "(none)":
+        warn("could not verify %s > %s (packaging.version unavailable) — skipping the downgrade check."
+             % (version, last_tag))
+
     today = datetime.date.today()
     monthyear = today.strftime("%B %Y")
     isodate = today.isoformat()

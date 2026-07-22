@@ -113,6 +113,11 @@ It runs: preflight (on `main`, tree clean bar the files it edits, in sync with o
 - Either way `docs/whats-new.et.md` gets only a `TODO(release)` stub — the Estonian is **never**
   auto-translated (the owner verifies it); that stub does not block the tag.
 
+**Guards** (all pure-Python — they hold whether or not AI is in the loop): must be on `main`; the tag
+must not already exist **locally or on `origin`** (checked before `main` is advanced); the version must
+be **newer than the last tag** (no accidental lower `releases/latest`; `--allow-downgrade` to override);
+tree clean bar the files it edits; not behind `origin`; tests green before commit/tag.
+
 Run it as the human/session holding git ownership — it makes real commits, a push, and a tag.
 `--installer <YYYY.MM>` also bumps the (separate, date-based) Windows-installer version.
 
