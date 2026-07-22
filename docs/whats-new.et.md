@@ -19,11 +19,26 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
-## COZER 3.0.0rc7 (July 2026)
+## Ajavõtuvigade püüdmine ja puhtam otseülekanne (juuli 2026)
 
 <!-- release-notes:3.0.0rc7 -->
-<!-- TODO(release): eestikeelne tõlge puudub — translate the 3.0.0rc7 section from whats-new.md. Do NOT
-     auto-generate; the owner verifies the Estonian. -->
+
+- **Otseülekanne ei näita enam finiši järel "kõik 0.0".** Kui paati vajutati veel korra kohe pärast
+  finišijoone ületamist, võis edetabel kokku kukkuda nii, et iga vahe näitas **+0.0**. See on nüüd
+  parandatud — üleliigne vajutus ei riku enam lõpetanute järjestust. Ülekanne toob ka **START**- ja
+  **FINISH**-hetke selgemalt esile, tõstab esile paadi, kes on möödumas, külmutab iga paadi aja
+  finišihetkel ning näitab **DNF**, kui paadil pole ühtki aega hetkeks, mil võitja on lõpetanud.
+- **Edit Records (kirjete muutmine) osutab nüüd tõenäolistele valevajutustele.** Ring, mis tundub vale —
+  paadi tavalisest palju lühem (topeltvajutus), palju pikem (vahelejäänud ületus) või võimatu aeg —
+  **vilgub** ajateljel ja **kursoriga peale minnes selgitab, miks**. Paremklõps margil keelab selle, nii
+  et sõidu (heat) korrastamine enne tulemusi on palju kiirem.
+- **"Data warnings" (andmehoiatused) on targemad.** Varem hoiatasid nad *iga* ringi puhul, kui sisestatud
+  raja pikkus ei sobinud paatide tegeliku kiirusega. Nüüd võrreldakse iga paati **tema enda tempoga**, nii
+  et hoiatuste arv märgib vaid tõelisi kummalisusi — ja see langeb täpselt kokku Edit Records'i vilkuvate
+  markidega.
+- **Timeri pisiparandused.** Paadi nupule vajutamine muudab selle õrnalt halliks ja veidi väiksemaks
+  (kaitse juhusliku topeltvajutuse vastu), redeli- ja ruudustikunupud on sama värvi, lõpetanud paadid
+  langevad edetabelis **Finish**-joone alla ning täielik edetabel (redel) ilmub kohe, kui valid sõidu.
 
 ## COZER 3 — kaasaegne COZER (2026)
 
