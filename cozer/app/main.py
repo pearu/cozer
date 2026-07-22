@@ -52,6 +52,11 @@ APP_QSS = (
     " QMenuBar::item:selected { background: #2b3a67; color: #ffffff; }"
     " QComboBox QAbstractItemView { background: #fbf7e6; color: #1a1a1a;"
     " selection-background-color: #2b3a67; selection-color: #ffffff; }"
+    # the explicit ::item:selected form is what reliably colours the highlighted/hovered row -- the
+    # selection-* properties above are ignored by some styles once a stylesheet is set on the view, so
+    # the current item was invisible (same fix the menus use). Covers EVERY QComboBox drop-down (Timer
+    # race, class/phase/heat, report, nationality) since they all share this app stylesheet.
+    " QComboBox QAbstractItemView::item:selected { background: #2b3a67; color: #ffffff; }"
 )
 
 DEFAULT_EVENT = {
