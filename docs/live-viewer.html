@@ -105,11 +105,18 @@
   }
   function distAt(m, t){ return m.distLast + m.v * (t - m.tLast); }
   function catchupCell(b, i, leaderModel, t){
-    // Live catch-up-to-leader time, "+"-prefixed. When a boat crosses the finish line the clock stops:
-    // it then shows the exact finish margin behind the winner (its finish time − the winner's) with the
-    // 🏁 at the very end. The leader is the reference (blank while racing, "🏁" once it wins).
+    // First place has no gap to show, so instead show its laps remaining to the end (course length −
+    // laps done): "<n> TO GO", "LAST LAP" on the final lap, "FINISH" once done. Followers show the
+    // live catch-up-to-leader time ("+…"); the moment a boat finishes its clock stops and it shows the
+    // exact finish margin behind the winner (its finish time − the winner's) with 🏁 at the very end;
+    // "…" before a boat's first crossing.
+    if(i === 0){                                           // the leader / first place
+      var N = course.length, togo = N - (b.laps || 0);
+      if(!N) return "";
+      if(b.finished || togo <= 0) return "FINISH";
+      return togo === 1 ? "LAST LAP" : (togo + " TO GO");
+    }
     if(b.finished){
-      if(i === 0) return "🏁";                             // the winner (reference — no gap)
       var lt = b.laptimes || [], wt = (boats[0] || {}).laptimes || [];
       if(lt.length && wt.length){
         var margin = lt[lt.length-1] - wt[wt.length-1];    // finish time behind the winner (frozen)
@@ -117,7 +124,6 @@
       }
       return "🏁";
     }
-    if(i === 0) return "";                                 // leader still racing: reference (blank)
     var m = boatModel(b);
     if(!m || !leaderModel || t == null) return "…";        // no speed yet -> unknown
     var gap = distAt(leaderModel, t) - distAt(m, t);       // distance the leader is ahead, right now
