@@ -17,13 +17,14 @@ operations are module-level pure functions, exercised headlessly by the tests;
 the widget paints them and turns mouse events into those operations.
 """
 import copy
+import statistics
 import time
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QToolTip, QVBoxLayout, QWidget,
 )
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
@@ -36,6 +37,7 @@ LAP = QColor(255, 127, 0)
 INSLAP = QColor(90, 190, 60)
 DISABLED = QColor(150, 150, 150)
 RACETIME = QColor(220, 0, 0)
+WARN = QColor(230, 30, 30)       # suspect (blinking) mark: likely-erroneous lap data
 BASELINE = QColor(60, 60, 120)
 CODE_COLORS = {
     "LL": QColor(230, 200, 0), "LL2": QColor(230, 200, 0), "PL": QColor(230, 210, 90),
@@ -84,6 +86,58 @@ def mark_positions(marks):
             label = invreccodemap.get(abs(code), str(abs(code)))
             out.append(("event" if code > 0 else "disevent", t, code,
                         ("%s %s" % (label, note)).strip()))
+    return out
+
+
+_OUTLIER_LOW = 0.5       # a lap under 50% of the median lap looks like a double-click / merged crossing
+_OUTLIER_HIGH = 1.75     # ...and over 175% like a missed crossing (owner-confirmed thresholds)
+
+
+def suspect_marks(marks, need):
+    """Indices (into ``marks``) of enabled lap marks that look like operator mis-clicks, each mapped to
+    a plain hint for the hover tooltip. Two signals (owner-confirmed):
+
+    * **out-of-order** — a crossing whose time does not advance (duration <= 0): an impossible ordering
+      (a timing glitch, not a normal click). Flagged so the operator can disable it.
+    * **outlier** — a lap whose duration is < ``_OUTLIER_LOW`` or > ``_OUTLIER_HIGH`` x the boat's median
+      lap (a double-click, or a missed crossing merging two laps).
+
+    Only the first ``need`` laps are examined — clicks *past the finish line* are ignored (they are
+    frozen out by ``standings()``, not an operator error). The **first** lap is excluded from the outlier
+    test and its median: it is the shorter start-line-to-first-lap-line leg, not a full lap, so it is
+    legitimately faster and must not be flagged. Disabled laps and event marks are never flagged.
+    """
+    laps = []                        # (mark_index, effective_duration) for the enabled laps, in order
+    dt = 0.0                         # time of any disabled laps, rolled into the next enabled lap
+    for i, m in enumerate(marks):
+        code = m[0]
+        t = m[1] if len(m) > 1 else 0
+        if abs(code) in (1, 2):
+            if code in (1, 2):       # enabled lap
+                laps.append((i, t + dt))
+                dt = 0.0
+            else:                    # disabled lap -> its time belongs to the next enabled lap
+                dt += t
+    if need:
+        laps = laps[:need]           # ignore clicks past the finish line
+    out = {}
+    for idx, dur in laps:            # out-of-order: the crossing time did not advance
+        if dur <= 0:
+            out[idx] = ("Crossing time does not advance (%.2fs) — an impossible ordering (a timing "
+                        "glitch, not a normal click). Right-click the mark to disable it." % dur)
+    body = [(idx, dur) for idx, dur in laps[1:] if idx not in out]   # skip lap 1 (the start leg)
+    durs = [dur for _, dur in body]
+    if len(durs) >= 3:               # need enough laps for a median that one outlier can't skew
+        med = statistics.median(durs)
+        if med > 0:
+            for idx, dur in body:
+                if dur < _OUTLIER_LOW * med:
+                    out[idx] = ("This lap (%.2fs) is far shorter than the ~%.1fs median — likely a "
+                                "double-click or two merged crossings. Right-click to disable it."
+                                % (dur, med))
+                elif dur > _OUTLIER_HIGH * med:
+                    out[idx] = ("This lap (%.2fs) is far longer than the ~%.1fs median — a crossing may "
+                                "have been missed. Right-click to check/disable." % (dur, med))
     return out
 
 
@@ -237,15 +291,31 @@ class TimelineWidget(QWidget):
         super().__init__()
         self.panel = panel
         self._rows = []          # [(pid, header, marks)]
+        self._suspects = []      # parallel to _rows: {mark_index: hint} of likely-erroneous marks
         self._coef = 1.0
         self._maxtime = 1.0
         self._racetime = 0.0
         self._drag = False
+        self._blink = True       # toggled by _blink_timer -> suspect marks pulse a warning halo
+        self._blink_timer = QTimer(self)
+        self._blink_timer.setInterval(550)
+        self._blink_timer.timeout.connect(self._on_blink)
         self.setMouseTracking(True)
 
-    def set_data(self, rows, maxtime, racetime, coef):
+    def _on_blink(self):
+        self._blink = not self._blink
+        self.update()
+
+    def set_data(self, rows, maxtime, racetime, coef, suspects=None):
         self._rows, self._maxtime, self._racetime, self._coef = rows, maxtime, racetime, coef
+        self._suspects = suspects if suspects is not None else [{} for _ in rows]
         self.setMinimumSize(int(PAD + coef * maxtime + 40), TOP + len(rows) * ROW_H + 20)
+        if any(self._suspects):          # only spend repaints blinking when something is flagged
+            self._blink = True
+            if not self._blink_timer.isActive():
+                self._blink_timer.start()
+        else:
+            self._blink_timer.stop()
         self.update()
 
     def x_of(self, t):
@@ -265,18 +335,25 @@ class TimelineWidget(QWidget):
         for ri, (pid, header, marks) in enumerate(self._rows):
             y = TOP + ri * ROW_H + ROW_H // 2
             positions = mark_positions(marks)
+            suspects = self._suspects[ri] if ri < len(self._suspects) else {}
             end = positions[-1][1] if positions else 0
             p.setPen(QPen(BASELINE, 2))
             p.drawLine(int(self.x_of(0)), y, int(self.x_of(end if end else 0)), y)
-            for kind, t, code, label in positions:
+            for mi, (kind, t, code, label) in enumerate(positions):
                 x = int(self.x_of(t))
+                suspect = mi in suspects
                 color = {"lap": LAP, "inslap": INSLAP, "displap": DISABLED,
                          "disevent": DISABLED}.get(kind)
                 if color is None:
                     color = CODE_COLORS.get(invreccodemap.get(abs(code), ""), QColor(80, 80, 80))
+                if suspect:                                  # likely-erroneous mark -> red + a halo
+                    color = WARN
                 p.fillRect(x - 2, y - TICK // 2, 4, TICK, QBrush(color))
+                if suspect and self._blink:                  # pulsing warning ring (drops out each blink)
+                    p.setPen(QPen(WARN, 2))
+                    p.drawRect(x - 5, y - TICK // 2 - 4, 10, TICK + 8)
                 if label:
-                    p.setPen(QPen(QColor(40, 40, 40)))
+                    p.setPen(QPen(WARN if suspect else QColor(40, 40, 40)))
                     p.drawText(x + 3, y + 14, label)
         # race-stop line
         rx = int(self.x_of(self._racetime))
@@ -299,6 +376,24 @@ class TimelineWidget(QWidget):
         if self._drag:
             self._racetime = round(self.t_of(evt.position().x()), 2)
             self.update()
+            return
+        self._hover_tip(evt)          # not dragging -> show why a hovered mark is flagged
+
+    def _hover_tip(self, evt):
+        x, y = evt.position().x(), evt.position().y()
+        ri = self.row_at(y)
+        hint = None
+        if 0 <= ri < len(self._rows):
+            suspects = self._suspects[ri] if ri < len(self._suspects) else {}
+            if suspects:
+                for mi, (_kind, t, _code, _label) in enumerate(mark_positions(self._rows[ri][2])):
+                    if mi in suspects and abs(self.x_of(t) - x) < 8:
+                        hint = suspects[mi]
+                        break
+        if hint:
+            QToolTip.showText(evt.globalPosition().toPoint(), hint, self)
+        else:
+            QToolTip.hideText()
 
     def mouseReleaseEvent(self, evt):
         if self._drag:
@@ -473,8 +568,10 @@ class EditRecordsPanel(QWidget):
         width = int((1.4 ** self._zoom) * 600)
         coef = width / maxtime
         self._coef = coef
+        need = len(rec[0].get("course", []))
+        suspects = [suspect_marks(marks, need) for (_pid, _hdr, marks) in rows]
         self.header_col.set_data(rows)
-        self.timeline.set_data(rows, maxtime, racetime, coef)
+        self.timeline.set_data(rows, maxtime, racetime, coef, suspects)
         self._sync_header_scroll(self.area.verticalScrollBar().value())
         start = rec[0].get("starttime")
         starttxt = ("Start: %s      " % time.ctime(start)) if start else ""

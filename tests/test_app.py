@@ -1610,6 +1610,50 @@ def test_mark_positions():
     assert mark_positions([[1]])[0][1] == 0        # bare code, no time -> t=0
 
 
+def test_suspect_marks_flags_outliers_and_out_of_order():
+    from cozer.app.editor import suspect_marks
+    # clean 6-lap boat: short start leg (3.5s) then ~11s laps -> nothing flagged, incl. the start lap
+    clean = [[1, 3.5], [1, 11.0], [1, 10.8], [1, 11.2], [1, 10.9], [1, 11.1]]
+    assert suspect_marks(clean, 6) == {}
+    # a mid-race double-click (a 0.3s lap among ~11s laps) is flagged as far-shorter (index 3)
+    dbl = [[1, 3.5], [1, 11.0], [1, 10.8], [1, 0.3], [1, 11.2], [1, 10.9]]
+    s = suspect_marks(dbl, 6)
+    assert set(s) == {3} and "shorter" in s[3]
+    # a missed crossing (two laps merged ~24s) is flagged as far-longer (index 2)
+    miss = [[1, 3.5], [1, 11.0], [1, 24.0], [1, 11.2], [1, 10.9], [1, 11.1]]
+    s = suspect_marks(miss, 6)
+    assert set(s) == {2} and "longer" in s[2]
+    # a non-advancing crossing (duration 0) is flagged as an impossible ordering (index 2)
+    ooo = [[1, 3.5], [1, 11.0], [1, 0.0], [1, 11.2], [1, 10.9], [1, 11.1]]
+    s = suspect_marks(ooo, 6)
+    assert set(s) == {2} and "advance" in s[2]
+
+
+def test_suspect_marks_ignores_past_finish_disabled_and_short_fields():
+    from cozer.app.editor import suspect_marks
+    # a spurious extra click past the 5-lap finish (a 0.3s "6th lap") is NOT flagged (issue #26 case)
+    extra = [[1, 3.5], [1, 11.0], [1, 10.8], [1, 11.2], [1, 10.9], [1, 0.3]]
+    assert suspect_marks(extra, 5) == {}
+    # a disabled lap is never flagged; its time rolls into the next enabled lap
+    dis = [[1, 3.5], [1, 11.0], [-1, 0.3], [1, 10.8], [1, 11.2], [1, 10.9]]
+    assert suspect_marks(dis, 6) == {}
+    # too few laps for a reliable median -> no outlier flag (avoids false positives on tiny fields)
+    short = [[1, 3.5], [1, 0.3], [1, 11.0]]
+    assert suspect_marks(short, 3) == {}
+
+
+def test_timeline_widget_stores_suspects_and_blinks():
+    _app()
+    from cozer.app.editor import TimelineWidget
+    tw = TimelineWidget(None)
+    rows = [("1", "", [[1, 3.5], [1, 11.0], [1, 0.3], [1, 11.2], [1, 10.9], [1, 11.1]])]
+    tw.set_data(rows, 40.0, 40.0, 5.0, [{2: "double-click"}])
+    assert tw._suspects == [{2: "double-click"}]
+    assert tw._blink_timer.isActive()              # blinking because a mark is flagged
+    tw.set_data(rows, 40.0, 40.0, 5.0, [{}])       # nothing flagged -> stop wasting repaints
+    assert not tw._blink_timer.isActive()
+
+
 def test_insert_lap_split_unit():
     from cozer.app.editor import insert_lap_split
     marks = [[1, 20.0], [1, 20.0]]            # cumulative 20, 40
