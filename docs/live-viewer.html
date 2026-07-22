@@ -37,7 +37,7 @@
   .name .first{ font-weight:400; color:var(--dim) }
   .laps{ font-size:16px; font-weight:700; text-align:center }
   .catch{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
-  .catch.neg{ color:#ffd24a }   /* projected AHEAD of the leader -> overtake brewing */
+  .catch.overtake{ color:#ffd24a }   /* projected ahead of a boat ranked above -> overtake brewing */
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -133,12 +133,20 @@
   function tickCatch(){                                     // refresh the live column between renders
     if(!started) return;
     var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
+    var maxAbove = 0;                                        // the leader is the 0 reference
     boats.slice(0, maxRows).forEach(function(b, i){
-      var s = catchSpans[b.no];
-      if(!s) return;
-      var txt = catchupCell(b, i, leaderModel, t);
-      s.textContent = txt;
-      s.classList.toggle("neg", txt.charAt(0) === "-");     // negative -> projected overtake (highlight)
+      var s = catchSpans[b.no]; if(!s) return;
+      s.textContent = catchupCell(b, i, leaderModel, t);
+      var v = null;                                          // this row's numeric time-behind-leader (racing)
+      if(i > 0 && !b.finished){
+        var m = boatModel(b);
+        if(m && leaderModel && t != null) v = (distAt(leaderModel, t) - distAt(m, t)) / m.v;
+      }
+      // Amber when this boat is projected AHEAD of a boat ranked above it (the leader counts as 0): a
+      // negative gap (overtaking the leader) OR a smaller time than a higher-ranked boat (overtaking
+      // it) -> an overtake is brewing.
+      s.classList.toggle("overtake", v != null && v < maxAbove);
+      if(v != null) maxAbove = Math.max(maxAbove, v);
     });
   }
 
