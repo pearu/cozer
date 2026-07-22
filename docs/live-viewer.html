@@ -22,7 +22,7 @@
     will-change:transform;
   }
   ol.pre li{ grid-template-columns:34px 44px 1fr }
-  ol.run li{ grid-template-columns:34px 44px 1fr 42px 70px }
+  ol.run li{ grid-template-columns:34px 44px 1fr 116px }
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -35,8 +35,7 @@
   .name{ font-size:20px; font-weight:750; letter-spacing:.01em;
          white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   .name .first{ font-weight:400; color:var(--dim) }
-  .laps{ font-size:17px; font-weight:700; text-align:center }
-  .gap{ font-size:16px; font-weight:700; text-align:right; color:var(--dim) }
+  .timing{ font-size:16px; font-weight:700; text-align:right; white-space:nowrap }
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -72,20 +71,23 @@
       + 'onerror="this.parentNode.classList.add(\'noflag\')">'
       + '<span class="code">'+nat+'</span></span>';
   }
-  function gapText(row, prev){
-    // The catch-up interval to the boat just ahead: the time between the two boats crossing the SAME
-    // lap line (row's current lap n) — i.e. how long row would take to reach prev if prev halted.
-    // prev.laptimes[n-1] is prev's crossing time at lap n (in the past if prev is a lap up), so this
-    // is a real time even a lap down — no "+1L". Falls back to the old scheme for a feed w/o laptimes.
-    if(!prev) return "";                                   // leader — no one ahead
-    var n = row.laps||0;
-    if(n < 1) return "";                                   // row hasn't crossed a lap line yet
-    var pa = prev.laptimes;
-    if(pa && pa.length >= n && row.time!=null) return "+"+(row.time - pa[n-1]).toFixed(2);
-    var pl = prev.laps||0;                                 // fallback (feed without per-lap times)
-    if(n < pl) return "+"+(pl-n)+"L";
-    if(row.time!=null && prev.time!=null) return "+"+(row.time-prev.time).toFixed(2);
-    return "";
+  function timingCell(b, i, leader){
+    // The lap/timing column: "<laps>/<gap to the LEADER at this boat's lap>[-<laps down>L]".
+    //  · gap = this boat's crossing time at lap L − the leader's crossing time at lap L (≥ 0, since the
+    //    leader reaches every lap line first). Frozen at the last crossing until the boat crosses again.
+    //  · "-kL" = laps the leader is ahead (leader.laps − L); bumps up each time the leader laps it.
+    //  · the leader itself is the reference → just "<laps>/".
+    // Needs per-lap crossing times (laptimes) in the feed; degrades to "<laps>/" without them.
+    var L = b.laps||0;
+    if(L < 1) return "";                                   // hasn't crossed a lap line yet
+    var txt = L + "/";
+    if(i > 0){                                             // non-leader: time behind the leader at lap L
+      var ld = leader.laptimes||[], ra = b.laptimes||[];
+      if(ld.length >= L && ra.length >= L) txt += (ra[L-1] - ld[L-1]).toFixed(2);
+    }
+    var down = (leader.laps||0) - L;                       // laps the leader is ahead of this boat
+    if(down > 0) txt += "-" + down + "L";
+    return txt + (b.finished ? " 🏁" : "");
   }
 
   function render(){
@@ -101,8 +103,7 @@
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;
       if(started){
-        html += '<span class="laps">'+(b.laps!=null?b.laps:"")+(b.finished?" 🏁":"")+'</span>'
-              + '<span class="gap">'+gapText(b, boats[i-1])+'</span>';
+        html += '<span class="timing">'+timingCell(b, i, boats[0])+'</span>';
       }
       li.innerHTML = html;
       ol.appendChild(li);
