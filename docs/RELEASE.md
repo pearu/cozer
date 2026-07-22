@@ -92,6 +92,18 @@ superseded.
 - The installer path is inherently safest (same signed CI pipeline); prefer it when unsure.
 - `install_kind() == "source"` → informational only; never touch a git working tree.
 
+## Per-release doc checklist
+
+Cutting a release is more than the version bump + tag — each release also updates:
+- **`docs/whats-new.md`** (+ **`docs/whats-new.et.md`** in sync) — a short, plain-terms **"what's new"
+  section**, newest first, summarising the important changes **for organizers** since the previous
+  release. This is the user-facing summary.
+- **This file's `## Change log`** — a developer-facing line recording what the release contains.
+
+`tools/bump_version.py` prints a reminder for the whats-new step. The wheel GitHub Release itself gets
+auto-generated notes from the commit/PR titles (`gh release create --generate-notes`), so the curated
+per-release summary lives in `whats-new.md` (users) + the Change log (devs).
+
 ## Change log
 - **2026-07-21** — Plan created; owner decisions D-REL-1..3 recorded (adaptive action; `3.0.0rc1`;
   push after reviewer sign-off).
@@ -165,3 +177,12 @@ superseded.
     installer version lands in a fresh dir (never collides), versions coexist, and the fixed-name
     Desktop/Start shortcut (`COZER.lnk`) is repointed to the newest by `post_install`. Old env dirs
     can be deleted at leisure. (Windows-only.)
+- **2026-07-22** — **`v3.0.0rc6` cut** — the self-hosted **path-based live broadcast** (URLs
+  `/<event>/feed/<channel>/`, SSE, settings under Reports, one Timer toggle; gist transport retired)
+  + the broadcast viewer (laps + a live catch-up-to-leader with an overtake highlight, leader
+  countdown / WAITING-START / finish margins), **Edit Records "Delete race data"** (restore a heat to
+  pre-Start), and the Timer/Reports polish batch. Wheel-only (the env-only installer is unchanged from
+  the last installer build). 635 green.
+- **2026-07-22** — **Release process:** per-release **`docs/whats-new.md`** (user-facing "what's new",
+  Estonian kept in sync) is now a documented release step — `tools/bump_version.py` prints a reminder
+  and the "Per-release doc checklist" above records it alongside this Change log.

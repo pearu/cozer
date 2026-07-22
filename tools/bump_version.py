@@ -82,6 +82,10 @@ def main(argv):
         print("set version %s in %s" % (version, os.path.relpath(f, ROOT)))
     if not changed:
         print("version already %s everywhere" % version)
+    print("\n  RELEASE STEP: before tagging, add a short '## ...' section for this release to\n"
+          "  docs/whats-new.md (newest first) summarising the important changes since the previous\n"
+          "  release in plain terms, keep docs/whats-new.et.md in sync, and add a change-log line to\n"
+          "  docs/RELEASE.md.\n")
     return 0
 
 

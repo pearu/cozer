@@ -12,8 +12,26 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
 
 ---
 
-<!-- As each new version comes out, add a short "## COZER X.Y (month year)" section here,
-     newest first, above the "Coming from the old COZER" overview. -->
+<!-- RELEASE STEP: as each new version comes out, add a short "## COZER … (month year)" section here,
+     newest first (above the "Coming from the old COZER" overview), summarising the important changes
+     since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
+     `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
+
+## Live broadcast, and a smoother timing screen (July 2026)
+
+- **Live broadcast.** COZER can now show the **unofficial running order live on a web page** — point a
+  venue screen or a stream overlay at it. Set it up under **Reports ▸ Live broadcast** (your live-server
+  address, a publish secret, and a short event name), then switch it on with the **Broadcast** button on
+  the Timer. The overlay shows each boat's place, laps completed, and a live **time to catch the
+  leader** — boats about to overtake are highlighted, and it counts the leader down to **LAST LAP** and
+  **FINISH**.
+- **Delete race data.** The Edit Records tab has a **Delete** button that clears a heat's recorded laps
+  and returns it to its just-before-Start state — with a clear warning when there is timed data to lose.
+- **A smoother timing screen.** The full running-order ladder appears the moment you pick a race (before
+  Start), the boat buttons stand out when pressed, and a small button copies the broadcast link for the
+  display screens.
+
+---
 
 ## COZER 3 — the modern COZER (2026)
 
