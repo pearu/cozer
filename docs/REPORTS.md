@@ -29,6 +29,7 @@ filename carries the phase kind). Current report set (menu in `cozer/app/main.py
 | Endurance Full Final | `build_endurance_final` | endurance |
 | Laps Protocol | `build_laps_protocol` | any (per-lap crossing tally) |
 | Check List / Letters | `build_checklist` / `build_*_letter` | operational, kind-agnostic |
+| Inspection (Cockpit / Non-cockpit) | `build_inspection_cockpit` / `build_inspection_open` | pre-race scrutineering (UIM 2026 §503.02 + §509); operator picks the variant + classes |
 
 **There is no qualification report** — a qualification phase currently falls through to
 the intermediate/finals builders as circuit-style tables (see §5.2).

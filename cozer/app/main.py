@@ -93,6 +93,8 @@ _REPORTS = [
     ("Laps Protocol", "render_laps_protocol", True, True, False),
     ("Info Letter", "render_info_letter", False, False, False),
     ("Registration Letter", "render_registration_letter", False, False, False),
+    ("Inspection (Cockpit)", "render_inspection_cockpit", True, False, False),
+    ("Inspection (Non-cockpit)", "render_inspection_open", True, False, False),
 ]
 
 

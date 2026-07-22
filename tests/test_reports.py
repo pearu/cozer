@@ -442,6 +442,38 @@ def test_letters():
     assert "ENTRY" in reg and "DRIVER" in reg and "Perekonnanimi" in reg
 
 
+def test_inspection_forms():
+    from cozer.reports.inspection import (
+        build_inspection_cockpit, inspection_cockpit_html,
+        build_inspection_open, inspection_open_html,
+    )
+    ed = read_legacy_coz(EVENT)
+
+    # Cockpit form: general items + the §509 cockpit block; lists the operator-selected classes.
+    cm = build_inspection_cockpit(ed, classes=["F2", "F4", "F 500"])
+    assert cm["orientation"] == "portrait" and cm["cockpit"] is True
+    ctext = _fits_portrait(render_pdf_bytes(inspection_cockpit_html(cm)))
+    assert "Cockpit Classes" in ctext and "Technical Officer" in ctext
+    assert "509.03" in ctext and "509.20" in ctext                 # §509 cockpit block present
+    assert "F 500" in ctext                                        # selected classes listed
+    assert "immersion-training certificate" in ctext              # cockpit-only document
+    assert "522.03" not in ctext and "Paddle" not in ctext        # open-only items absent
+    # 2026 renumbering: current 504.xx equipment articles, no stale 503.0x equipment ref
+    assert "504.05" in ctext and "503.05" not in ctext
+
+    # Non-cockpit form: general + open-boat items; no §509 block, no cockpit-only docs.
+    om = build_inspection_open(ed, classes=["GT15", "OSY 400"])
+    assert om["cockpit"] is False
+    otext = _fits_portrait(render_pdf_bytes(inspection_open_html(om)))
+    assert "Non-cockpit Classes" in otext
+    assert "522.03" in otext and "Paddle" in otext                 # open-boat-only items
+    assert "509.03" not in otext and "509.20" not in otext         # no cockpit block
+    assert "immersion-training certificate" not in otext           # no cockpit-only docs
+
+    # classes=None (e.g. the report sweep) lists all event classes and still builds.
+    assert build_inspection_open(ed)["classes"]
+
+
 def test_intermediate_timetrial_and_multidriver():
     from cozer.reports.intermediate import build_intermediate, intermediate_html
     # A time-trial is a /T class (get_allowed_heats only permits a '1t' heat under a

@@ -30,6 +30,10 @@ from cozer.reports.letters import (
     build_info_letter, info_letter_html, render_info_letter,
     build_registration_letter, registration_letter_html, render_registration_letter,
 )
+from cozer.reports.inspection import (
+    build_inspection_cockpit, inspection_cockpit_html, render_inspection_cockpit,
+    build_inspection_open, inspection_open_html, render_inspection_open,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
@@ -44,4 +48,6 @@ __all__ = [
     "build_endurance_final", "endurance_final_html", "render_endurance_final",
     "build_info_letter", "info_letter_html", "render_info_letter",
     "build_registration_letter", "registration_letter_html", "render_registration_letter",
+    "build_inspection_cockpit", "inspection_cockpit_html", "render_inspection_cockpit",
+    "build_inspection_open", "inspection_open_html", "render_inspection_open",
 ]
