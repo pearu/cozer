@@ -8,14 +8,19 @@ own recommended list (§503.02) plus the reinforced-cockpit block (§509):
   * **Non-cockpit** (open) classes (e.g. F 125/F 250/OSY 400/GT15/GT30): general items + the open-boat
     items (paddle, lanyard kill-cord, sponson-fin system).
 
-The operator chooses the variant (two entries in the Reports combo) and marks the specific classes in
-the Reports tab; the form lists whatever was selected. English-only (UIM official-form language); the
-article numbers are universal. A static form — no scoring — styled like ``letters.py``.
+The operator chooses the variant (two entries in the Reports combo). Each form is a compact **single
+page**. Behaviour by class selection in the Reports tab:
+
+  * **class(es) selected** -> a multi-page PDF with **one page per registered boat**, the *Class* and
+    *Boat number* (and driver) pre-filled from the registration data — every boat needs a form.
+  * **nothing selected** (``classes`` is ``None``) -> a single blank page whose *Class* and *Boat
+    number* are filled in by hand.
+
+English-only (UIM official-form language); the article numbers are universal.
 """
-from cozer.racepattern import get_classes
-from cozer.reports.common import esc, meta_of, document_html
+from cozer.reports.common import esc, display, meta_of, participants_by_class, get_fullname
 from cozer.reports.labels import get_labels
-from cozer.reports.render import render_pdf
+from cozer.reports.render import render_pdf, page_css, TABLE_CSS
 
 # Checklist items as (description, UIM 2026 article). GENERAL applies to every boat; COCKPIT is the
 # reinforced-cockpit-only §509 block; OPEN is the items that apply only to boats WITHOUT a reinforced
@@ -79,63 +84,108 @@ _DOCS_TAIL = [
     "(mentioning any special conditions)",
 ]
 
-_CSS = (
-    "<style>"
-    ".ins-field{font-size:11pt;margin:.18cm 0} "
-    ".ins-fbox{display:inline-block;border-bottom:1px solid #333;min-width:5cm;height:.55cm;"
-    "vertical-align:bottom} "
-    ".ins-ck{border-collapse:collapse;width:100%;table-layout:fixed;margin:.2cm 0} "
-    ".ins-ck th,.ins-ck td{border:1px solid #333;padding:3px 6px;font-size:9.5pt;vertical-align:middle} "
-    ".ins-ck th{background:#eee;text-align:left} "
-    ".ins-ck td.art{text-align:center;white-space:nowrap} "
-    ".ins-ck tr.grp td{background:#ddd;font-weight:bold} "
-    ".ins-docs{border:1px solid #333;padding:6px 6px 6px 4px;font-size:9pt;margin-top:.25cm} "
-    ".ins-docs ul{margin:.15cm 0 0 .5cm;padding-left:.6cm} .ins-docs li{margin:2px 0} "
-    ".ins-sig{margin-top:.7cm} .ins-sigline{border-bottom:1px solid #333;width:60%;height:1cm} "
-    ".ins-sig .role{font-weight:bold;margin-top:2px}"
-    "</style>"
+# Compact styling so the whole form (incl. the §509 cockpit block, the longest) fits ONE A4 page;
+# one <section class="ins-page"> per boat, each starting on a fresh page.
+_CSS_BODY = (
+    ".ins-page + .ins-page{page-break-before:always}"
+    "h2.report-heading{font-size:12pt;margin:.05cm 0 .28cm 0}"
+    ".ins-field{font-size:10pt;margin:.1cm 0}"
+    ".ins-fbox{display:inline-block;border-bottom:1px solid #333;min-width:3.4cm;height:.42cm;"
+    "vertical-align:bottom}"
+    ".ins-ck{border-collapse:collapse;width:100%;table-layout:fixed;margin:.12cm 0}"
+    ".ins-ck th,.ins-ck td{border:1px solid #555;padding:1.5px 5px;font-size:8.5pt;"
+    "vertical-align:middle}"
+    ".ins-ck th{background:#e8e8e8;text-align:left}"
+    ".ins-ck td.art{text-align:center;white-space:nowrap}"
+    ".ins-ck tr.grp td{background:#dcdcdc;font-weight:bold;padding:1px 5px}"
+    ".ins-docs{border:1px solid #333;padding:4px 4px 4px 2px;font-size:8pt;margin-top:.18cm}"
+    ".ins-docs b{font-size:8.5pt} .ins-docs ul{margin:.08cm 0 0 .4cm;padding-left:.5cm}"
+    ".ins-docs li{margin:1px 0}"
+    ".ins-sig{margin-top:.4cm} .ins-sigline{border-bottom:1px solid #333;width:60%;height:.85cm}"
+    ".ins-sig .role{font-weight:bold;margin-top:2px;font-size:9pt}"
 )
 
 
+def _boatkey(rec):
+    pid = rec[4]
+    try:
+        return (0, int(pid))
+    except (TypeError, ValueError):
+        return (1, str(pid))
+
+
+def _boats_for(eventdata, classes):
+    """One (class, boat_number, driver) tuple per registered boat in the selected classes, boat-number
+    order. Empty list when ``classes`` is falsy (None / nothing selected) -> caller emits one blank
+    template page."""
+    if not classes:
+        return []
+    by = participants_by_class(eventdata)
+    boats = []
+    for cl in classes:
+        for _key, first, last, _club, pid in sorted(by.get(cl, []), key=_boatkey):
+            driver = get_fullname(first, last).split(";")[0].strip()
+            boats.append((cl, str(pid), driver))
+    return boats
+
+
 def _build(eventdata, classes, cockpit):
-    labels = get_labels(eventdata)
-    names = list(classes) if classes else list(get_classes(eventdata))
     sections = [("General", _GENERAL)]
-    sections.append(("Reinforced cockpit (§509)", _COCKPIT) if cockpit
-                    else ("Open boats", _OPEN))
+    sections.append(("Reinforced cockpit (§509)", _COCKPIT) if cockpit else ("Open boats", _OPEN))
     docs = _DOCS_HEAD + (_DOCS_COCKPIT if cockpit else []) + _DOCS_TAIL
     heading = "Pre-Race Technical Inspection — %s" % (
         "Cockpit Classes" if cockpit else "Non-cockpit Classes")
-    return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
-            "cockpit": cockpit, "classes": names, "sections": sections, "docs": docs,
-            "heading": heading}
+    return {"meta": meta_of(eventdata), "labels": get_labels(eventdata), "orientation": "portrait",
+            "cockpit": cockpit, "sections": sections, "docs": docs, "heading": heading,
+            "boats": _boats_for(eventdata, classes)}
+
+
+def _fields_html(cl, boat, driver):
+    def val(x):
+        return esc(x) if x else '<span class="ins-fbox"></span>'
+    row = ('<div class="ins-field"><b>Class:</b> %s&nbsp;&nbsp;&nbsp;<b>Boat number:</b> %s'
+           % (val(cl), val(boat)))
+    if driver:
+        row += '&nbsp;&nbsp;&nbsp;<b>Driver:</b> %s' % display(driver)
+    return row + "</div>"
+
+
+def _checklist_html(sections):
+    colg = ('<colgroup><col style="width:60%"><col style="width:15%">'
+            '<col style="width:25%"></colgroup>')
+    head = '<tr><th>Item</th><th class="art">U.I.M. art.</th><th>Check</th></tr>'
+    rows = []
+    for title, items in sections:
+        rows.append('<tr class="grp"><td colspan="3">%s</td></tr>' % esc(title))
+        for item, art in items:
+            rows.append('<tr><td>%s</td><td class="art">%s</td><td></td></tr>' % (esc(item), esc(art)))
+    return ('<table class="ins-ck">%s<thead>%s</thead><tbody>%s</tbody></table>'
+            % (colg, head, "".join(rows)))
 
 
 def _html(model):
-    classes_txt = " / ".join(esc(c) for c in model["classes"]) or "&nbsp;"
-    fields = ('<div class="ins-field"><b>Classes:</b> %s</div>'
-              '<div class="ins-field"><b>Class:</b> <span class="ins-fbox"></span>'
-              '&nbsp;&nbsp;&nbsp;<b>Boat number:</b> <span class="ins-fbox"></span></div>'
-              % classes_txt)
-
-    colg = ('<colgroup><col style="width:60%"><col style="width:16%">'
-            '<col style="width:24%"></colgroup>')
-    head = '<tr><th>Item</th><th class="art">U.I.M. art.</th><th>Check</th></tr>'
-    rows = []
-    for title, items in model["sections"]:
-        rows.append('<tr class="grp"><td colspan="3">%s</td></tr>' % esc(title))
-        for item, art in items:
-            rows.append('<tr style="height:0.7cm"><td>%s</td><td class="art">%s</td><td></td></tr>'
-                        % (esc(item), esc(art)))
-    table = ('<table class="ins-ck">%s<thead>%s</thead><tbody>%s</tbody></table>'
-             % (colg, head, "".join(rows)))
-
+    L, meta = model["labels"], model["meta"]
+    header = ('<h1 class="event-title">%s</h1>'
+              '<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
+              '<h2 class="report-heading">%s</h2>'
+              % (display(meta["title"]), display(meta["venue"]), display(meta["date"]),
+                 esc(model["heading"])))
+    checklist = _checklist_html(model["sections"])
     docs = ('<div class="ins-docs"><b>The driver must be able to show:</b><ul>%s</ul></div>'
             % "".join("<li>%s</li>" % esc(d) for d in model["docs"]))
-    sig = '<div class="ins-sig"><div class="ins-sigline"></div><div class="role">Technical Officer</div></div>'
+    sig = ('<div class="ins-sig"><div class="ins-sigline"></div>'
+           '<div class="role">Technical Officer</div></div>')
 
-    return _CSS + document_html(model["orientation"], model["labels"], model["meta"],
-                                model["heading"], [fields, table, docs, sig])
+    pages = []
+    for cl, boat, driver in (model["boats"] or [("", "", "")]):   # [] -> one blank template page
+        pages.append('<section class="ins-page">%s%s%s%s%s</section>'
+                     % (header, _fields_html(cl, boat, driver), checklist, docs, sig))
+
+    css = page_css(model["orientation"],
+                   footer_left="%s  /%s/" % (meta["officer"], L["OfficeroftheDay"]),
+                   footer_center=L["Page"],
+                   footer_right="%s  /%s/" % (meta["secretary"], L["SecretaryoftheRace"]))
+    return "<style>%s\n%s\n%s</style>%s" % (css, TABLE_CSS, _CSS_BODY, "".join(pages))
 
 
 def build_inspection_cockpit(eventdata, classes=None):
