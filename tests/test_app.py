@@ -1365,8 +1365,11 @@ def test_closing_hint_arms_after_first_lap_and_colors_button(tmp_path, monkeypat
     assert not tp._predict and key not in tp._phase   # cancelled on Stop
 
 
-def test_grid_button_shrinks_on_click_restores_on_coming(tmp_path, monkeypatch):
-    # owner: a just-clicked grid button shrinks (mis-click guard) until the boat is next "coming"
+def test_grid_button_shrinks_and_greys_on_click_restores_on_coming(tmp_path, monkeypatch):
+    # owner: a just-clicked grid button shrinks (subtle mis-click guard) AND turns gray (in-progress) --
+    # even if it was showing the green "coming" hint at the click; it restores to full size when the
+    # boat is next "coming".
+    from cozer.app.timer import C_COMING, C_INPROGRESS
     _app()
     w = MainWindow(_timer_event())
     _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
@@ -1377,11 +1380,15 @@ def test_grid_button_shrinks_on_click_restores_on_coming(tmp_path, monkeypatch):
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
     grid = tp._grids[("GT", "1")]
+    key = ("GT", "1", "1")
     assert "1" not in grid.pressed                        # full size before any click
+    tp._phase[key] = "coming"                             # boat was showing the green closing hint
+    assert tp._boat_color(*key) == C_COMING
     clock[0] = 1030.0
     tp.record_lap("GT", "1", "1")
     assert "1" in grid.pressed                            # shrunk right after the crossing
-    tp._on_coming(("GT", "1", "1"), 20.0)
+    assert tp._boat_color(*key) == C_INPROGRESS           # ...and gray, not the stale green
+    tp._on_coming(key, 20.0)
     assert "1" not in grid.pressed                        # restored when the boat is closing again
 
 

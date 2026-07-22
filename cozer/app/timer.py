@@ -255,7 +255,8 @@ class GridButtons(QWidget):
         b, r, c = self.own[pid]
         g = max(4, self.sz // 8)               # gap ~1/8 of the button size
         full = self.sz - g
-        s = int(full * 0.75) if pid in self.pressed else full   # just-clicked -> 75% (mis-click guard)
+        s = int(full * 0.85) if pid in self.pressed else full   # just-clicked -> 85%: a subtle mis-click
+                                                                # nudge (the gray colour is the main cue)
         off = (full - s) // 2                  # keep it centred in its cell
         b.setGeometry(c * self.sz + g // 2 + off, r * self.sz + g // 2 + off, s, s)
         self.restyle(pid)
@@ -671,10 +672,12 @@ class TimerPanel(QWidget):
             return
         self.window.store.record({"op": "lap", "cl": cl, "h": h, "id": pid,
                                   "mark": [1, laptime]})
+        self._cancel_prediction((cl, h, pid))   # just crossed -> drop the stale 'coming'/'late' phase so
+                                                 # the button re-colours in-progress (gray), not stale green
         grid = self._grids.get((cl, h))
         if grid is not None:
-            grid.restyle(pid)
-            grid.set_pressed(pid, True)    # shrink the just-clicked button (mis-click guard) until 'coming'
+            grid.restyle(pid)                    # -> (small, gray): in-progress, not the pre-crossing green
+            grid.set_pressed(pid, True)          # shrink the just-clicked button (subtle mis-click guard)
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
         self._arm_prediction(cl, h, pid)   # predict the next crossing -> closing hint
         if self.broadcast_btn.isChecked():  # the order changed -> (throttled) publish the live feed
