@@ -233,6 +233,16 @@
       return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:laps,
               time:time, finished:r.finished, laptimes:lt};
     });
+    if(started){                                          // issue #26: after the finish-freeze above,
+      // re-rank so a boat clicked past the line (its laps/time capped to N) can't stay ahead of the
+      // real winner. Mirrors cozer's standings order: finished first, then more laps, then less time.
+      boats.sort(function(a,b){
+        var fa = a.finished?0:1, fb = b.finished?0:1;
+        if(fa!==fb) return fa-fb;
+        if((b.laps||0)!==(a.laps||0)) return (b.laps||0)-(a.laps||0);
+        return (a.time||0)-(b.time||0);
+      });
+    }
     render();
   }
   setInterval(tickCatch, 250);                 // keep the live catch-up column ticking between snapshots
