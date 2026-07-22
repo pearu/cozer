@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>COZER — Live Order</title>
 <style>
   /* Chroma-key overlay: EVERYTHING that is not text/flag is the single --key navy, which the
@@ -59,7 +61,26 @@
   .p1 .name{ color:#ffce5c }   /* gold   */
   .p2 .name{ color:#e6edf7 }   /* silver */
   .p3 .name{ color:#e0a46b }   /* bronze */
-  @media (prefers-reduced-motion:reduce){ }
+
+  /* ---- Smartphone / narrow screens --------------------------------------------------------------
+     The layout above is the stream-compositor overlay (OBS/vMix browser source renders at a fixed,
+     large resolution), so this breakpoint NEVER triggers on the broadcast — only on a genuinely
+     narrow viewport (a phone). Off-broadcast, a phone gets a full-width, larger, readable list on the
+     same dark background (no chroma-key needed here), with row separators for scannability. */
+  @media (max-width:640px){
+    body{ display:block; padding:16px 14px }
+    ol#order{ max-width:none; width:100% }
+    li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,.10) }
+    ol.pre li{ grid-template-columns:30px 50px 1fr; gap:12px }
+    ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
+    .nat,.flag{ height:24px }
+    .code{ font-size:14px }
+    .boat{ font-size:23px } .boat::before{ font-size:14px }
+    .name{ font-size:23px }
+    .laps{ font-size:21px } .catch{ font-size:19px }
+    .p1 .name,.p2 .name,.p3 .name{ font-size:25px }
+    .p1 .boat,.p2 .boat,.p3 .boat{ font-size:23px }
+  }
 </style>
 
 <ol id="order" class="pre" role="table" aria-label="Live running order"></ol>
