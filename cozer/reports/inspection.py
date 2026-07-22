@@ -85,7 +85,9 @@ _DOCS_TAIL = [
 ]
 
 # Compact styling so the whole form (incl. the §509 cockpit block, the longest) fits ONE A4 page;
-# one <section class="ins-page"> per boat, each starting on a fresh page.
+# one <section class="ins-page"> per boat, each starting on a fresh page. The 9.5pt table font is the
+# largest that still keeps the cockpit form on one page even with a multi-line event title (the header
+# repeats per boat page) — a bigger font spills to a 2nd page for such events, so don't raise it.
 _CSS_BODY = (
     ".ins-page + .ins-page{page-break-before:always}"
     "h2.report-heading{font-size:12pt;margin:.05cm 0 .28cm 0}"
@@ -93,7 +95,7 @@ _CSS_BODY = (
     ".ins-fbox{display:inline-block;border-bottom:1px solid #333;min-width:3.4cm;height:.42cm;"
     "vertical-align:bottom}"
     ".ins-ck{border-collapse:collapse;width:100%;table-layout:fixed;margin:.12cm 0}"
-    ".ins-ck th,.ins-ck td{border:1px solid #555;padding:1.5px 5px;font-size:8.5pt;"
+    ".ins-ck th,.ins-ck td{border:1px solid #555;padding:1.5px 5px;font-size:9.5pt;"
     "vertical-align:middle}"
     ".ins-ck th{background:#e8e8e8;text-align:left}"
     ".ins-ck td.art{text-align:center;white-space:nowrap}"
