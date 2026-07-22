@@ -66,6 +66,10 @@ def test_report_output_paths():
     import tempfile
     from cozer.reports.output import report_stem, report_dir, report_output_paths
     assert report_stem("Full Final") == "full_final"
+    # a label with a slash must stay ONE filename component -- not a subdirectory (issue #31)
+    assert report_stem("Practice / Time-trial") == "practice_time-trial"
+    assert os.path.basename(
+        report_output_paths("e.cozj", "Practice / Time-trial", "0726")[0]) == "practice_time-trial.pdf"
     ev = os.path.join("events", "demo", "sample.cozj")
     assert report_dir(ev) == os.path.abspath(os.path.join("events", "demo", "sample.reports"))
     latest, posting = report_output_paths(ev, "Intermediate", "0726-1432")

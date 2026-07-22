@@ -13,8 +13,14 @@ import tempfile
 
 
 def report_stem(label):
-    """Report display label -> file stem, e.g. 'Full Final' -> 'full_final'."""
-    return "_".join(str(label).lower().split())
+    """Report display label -> a single safe filename component, e.g. 'Full Final' -> 'full_final',
+    'Practice / Time-trial' -> 'practice_time-trial'. Path separators (/ \\ :) in a label must NOT
+    become directories (issue #31 crashed on 'practice_/_time-trial.pdf'), so they are flattened to
+    whitespace before words are joined with underscores."""
+    s = str(label).lower()
+    for sep in "/\\:":
+        s = s.replace(sep, " ")
+    return "_".join(s.split())
 
 
 def report_dir(event_path):

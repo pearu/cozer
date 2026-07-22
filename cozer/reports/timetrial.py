@@ -79,6 +79,8 @@ def timetrial_html(model):
     L = model["labels"]
     show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     body = []
+    if not model["tables"]:                                     # no recorded time-trial heats -> a clear
+        body.append('<p class="event-meta">%s</p>' % esc(L["NoTimeTrialData"]))   # note, not a blank page
     for t in model["tables"]:
         cols = ['<col style="width:7%">', '<col>']                       # Place, Name (absorbs width)
         head = ['<th class="num">%s</th>' % esc(L["Place"]), '<th>%s</th>' % esc(L["Name"])]
