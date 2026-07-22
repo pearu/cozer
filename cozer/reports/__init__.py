@@ -34,6 +34,9 @@ from cozer.reports.inspection import (
     build_inspection_cockpit, inspection_cockpit_html, render_inspection_cockpit,
     build_inspection_open, inspection_open_html, render_inspection_open,
 )
+from cozer.reports.timetrial import (
+    build_timetrial, timetrial_html, render_timetrial,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
@@ -50,4 +53,5 @@ __all__ = [
     "build_registration_letter", "registration_letter_html", "render_registration_letter",
     "build_inspection_cockpit", "inspection_cockpit_html", "render_inspection_cockpit",
     "build_inspection_open", "inspection_open_html", "render_inspection_open",
+    "build_timetrial", "timetrial_html", "render_timetrial",
 ]

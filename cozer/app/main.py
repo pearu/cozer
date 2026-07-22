@@ -86,6 +86,7 @@ _REPORTS = [
     ("Qualification", "render_qualification", True, False, False),
     ("Full Final", "render_full_final", True, True, True),
     ("Short Final", "render_short_final", True, True, True),
+    ("Practice / Time-trial", "render_timetrial", True, True, False),
     ("Full Final (legacy)", "render_full_final_legacy", True, True, False),
     ("Short Final (legacy)", "render_short_final_legacy", True, True, False),
     ("Endurance Full Final", "render_endurance_final", True, True, False),

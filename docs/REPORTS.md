@@ -25,6 +25,7 @@ filename carries the phase kind). Current report set (menu in `cozer/app/main.py
 | Participants | `build_participants` | (entry list, kind-agnostic) |
 | Intermediate | `build_intermediate` | any single heat; **istt mode** → time trial |
 | Full / Short Final | `build_full_final` / `build_short_final` | circuit (finals) |
+| Practice / Time-trial | `build_timetrial` | time trial: best full lap across heats, fastest first (issue #29) |
 | Full / Short Final (legacy) | `*_legacy` | byte-faithful legacy output |
 | Endurance Full Final | `build_endurance_final` | endurance |
 | Laps Protocol | `build_laps_protocol` | any (per-lap crossing tally) |

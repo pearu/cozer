@@ -510,6 +510,31 @@ def test_intermediate_timetrial_and_multidriver():
     assert "Lap Time = best full lap [s]" in html and "AverSpeed" not in html
 
 
+def test_timetrial_report_best_lap_ranking():
+    from cozer.reports.timetrial import build_timetrial, timetrial_html
+    # The dedicated "Practice / Time-trial" report: ranked by best FULL lap across heats. Lap 1 is the
+    # Start->line run-up (excluded, issue #29); a boat with only the run-up has no timed lap -> last.
+    ed = {
+        "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
+        "classes": [["x", "TT/T", "3*(1000):1"]],
+        "participants": [["x", "A", "Fast", "EST", "TT", "1"],
+                         ["x", "B", "Slow", "FIN", "TT", "2"],
+                         ["x", "C", "Nolap", "LAT", "TT", "3"]],
+        "record": {"TT/T": {"1t": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                                   {"1": [(1, 7.0), (1, 18.0), (1, 20.0)],   # best timed 18
+                                    "2": [(1, 7.0), (1, 22.0)],              # best timed 22
+                                    "3": [(1, 7.0)]}]}},                     # only the run-up -> no time
+    }
+    model = build_timetrial(ed)
+    rows = model["tables"][0]["rows"]
+    assert [r["id"] for r in rows] == ["1", "2", "3"]       # fastest best-lap first; no-time last
+    assert rows[0]["laptime"] == "18.000" and rows[1]["laptime"] == "22.000"
+    assert rows[2]["place"] == "" and rows[2]["laptime"] == "-"
+    html = timetrial_html(model)
+    assert "Practice / Time-trial" in html and "Lap Time" in html
+    assert "18.000" in html and "7.000" not in html         # the run-up leg is never shown
+
+
 def test_intermediate_qualification_shows_qdnq():
     # A qualification qheat: the Intermediate report (printed after each qheat) marks the top-N
     # finishers Q and the rest DNQ (the per-qheat advancement, UIM §4.1 / 209).

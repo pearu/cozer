@@ -11,6 +11,7 @@ LABELS = {
         "UIMCommissioner": "UIM Sports Commissioner", "PostedAt": "Posted at", "PrintedOn": "Printed on",
         "Page": "Page", "Registeredcompetitors": "Registered competitors",
         "IntermediateResults": "Intermediate Results", "FinalResults": "Final Results",
+        "PracticeTimeTrial": "Practice / Time-trial",
         "DriversMeetingChecklist": "Drivers Meeting Checklist",
         "LapsCounterProtocol": "Laps Counter Protocol", "Inspection": "Inspection",
         "Meeting": "Meeting", "Class": "Class", "Name": "Name", "Country": "Country",
@@ -43,6 +44,7 @@ LABELS = {
         "UIMCommissioner": "UIM spordikomissar", "PostedAt": "Postitatud", "PrintedOn": "Prinditud",   # ET verified by owner
         "Page": "Leht", "Registeredcompetitors": "Registreeritud võistlejad",
         "IntermediateResults": "Vahetulemused", "FinalResults": "Tulemused",
+        "PracticeTimeTrial": "Treening / ajasõit",
         "DriversMeetingChecklist": "Võistlejate koosoleku kontrolltabel",
         "LapsCounterProtocol": "Ringilugeja protokoll", "Inspection": "Ülevaatus",
         "Meeting": "Koosolek", "Class": "Klass", "Name": "Nimi", "Country": "Linn",

@@ -31,7 +31,7 @@ def test_window_builds_and_populates():
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
     assert w.report_tree.topLevelItemCount() == len(get_classes(ed))  # class/heat tree populated
-    assert w.report_combo.count() == 14                    # all reports offered (incl. 2 legacy Final + 2 Inspection)
+    assert w.report_combo.count() == 15                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial)
 
 
 def test_event_field_edits_update_eventdata():
@@ -114,10 +114,10 @@ def test_report_options_laps_toggle_reaches_render(tmp_path, monkeypatch):
     for fn in ("render_full_final", "render_full_final_legacy"):
         monkeypatch.setattr(R, fn, (lambda name: (lambda *a, **k: seen.__setitem__(name, k)))(fn))
 
-    w.report_combo.setCurrentIndex(3)                      # Full Final (native) -> gets options
+    w.report_combo.setCurrentIndex(w.report_combo.findText("Full Final"))         # native -> gets options
     w.on_export()
     assert seen["render_full_final"].get("options") == {"show_laps": True}
-    w.report_combo.setCurrentIndex(5)                      # Full Final (legacy) -> no options kwarg
+    w.report_combo.setCurrentIndex(w.report_combo.findText("Full Final (legacy)"))  # -> no options kwarg
     w.on_export()
     assert "options" not in seen["render_full_final_legacy"]
 
