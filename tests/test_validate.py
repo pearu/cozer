@@ -126,32 +126,39 @@ def _race_event(marks_by_boat, pattern="1*(6*1000):1", classname="C"):
             "scoringsystem": [400, 300, 225], "races": [], "rules": [], "participants": []}
 
 
-def test_misclick_too_fast_flagged():
-    # 1000m @150km/h -> fastest possible lap 24s; a 10s lap is physically impossible
-    rec = {"7": [(1, 40.0), (1, 10.0), (1, 41.0)]}
-    assert [f.code for f in _misclick_findings("C", "1", rec, 24.0, False)] == ["misclick"]
+def test_misclick_too_short_flagged():
+    # median-based (self-calibrating): a 10s lap among ~40s laps is far shorter than the boat's own
+    # median -> a mis-click. Needs a few laps for a stable median (the first lap is the start leg).
+    rec = {"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}
+    assert [f.code for f in _misclick_findings("C", "1", rec, 6, "circuit")] == ["misclick"]
 
 
 def test_misclick_disabled_click_absorbed_not_flagged():
     # a spurious click the operator already disabled: gettimes rolls its time into the
-    # next lap, so nothing looks impossible -- no false positive
-    rec = {"7": [(1, 40.0), (-1, 10.0), (1, 31.0), (1, 40.0)]}       # effective: 40, 41, 40
-    assert _misclick_findings("C", "1", rec, 24.0, False) == []
+    # next lap, so nothing looks off -- no false positive
+    rec = {"7": [(1, 40.0), (-1, 10.0), (1, 31.0), (1, 40.0), (1, 40.0)]}   # effective 40, 41, 40, 40
+    assert _misclick_findings("C", "1", rec, 6, "circuit") == []
+
+
+def test_misclick_out_of_order_flagged():
+    # a crossing whose time does not advance (duration 0) is an impossible ordering -> flagged
+    rec = {"7": [(1, 40.0), (1, 40.0), (1, 0.0), (1, 41.0), (1, 40.0)]}
+    assert [f.code for f in _misclick_findings("C", "1", rec, 6, "circuit")] == ["misclick"]
 
 
 def test_missed_click_circuit_is_unbounded():
     # circuit boats don't pit: both a 2x and a 5x lap read as a possible missed crossing
     for slow in (80.0, 200.0):
         rec = {"7": [(1, 40.0)] * 3 + [(1, slow)]}
-        assert [f.code for f in _misclick_findings("C", "1", rec, 12.0, False)] == ["missed-click"]
+        assert [f.code for f in _misclick_findings("C", "1", rec, 6, "circuit")] == ["missed-click"]
 
 
 def test_missed_click_endurance_bands_out_pit_stops():
     # endurance: a 2x lap is a possible missed click; a 5x lap is a pit/breakdown, NOT
     # flagged -- the two disciplines use separate rules so pits don't shape circuit
     assert [f.code for f in _misclick_findings(
-        "P", "1", {"7": [(1, 40.0)] * 3 + [(1, 80.0)]}, 12.0, True)] == ["missed-click"]
-    assert _misclick_findings("P", "1", {"7": [(1, 40.0)] * 3 + [(1, 200.0)]}, 12.0, True) == []
+        "P", "1", {"7": [(1, 40.0)] * 3 + [(1, 80.0)]}, 6, "endurance")] == ["missed-click"]
+    assert _misclick_findings("P", "1", {"7": [(1, 40.0)] * 3 + [(1, 200.0)]}, 6, "endurance") == []
 
 
 def test_check_results_flags_circuit_misclick():
@@ -159,14 +166,14 @@ def test_check_results_flags_circuit_misclick():
     assert "misclick" in _codes(check_results(ed))
 
 
-def test_time_trial_gets_physics_only_misclick():
-    # §4.1: a time trial IS checked for a too-fast (physically impossible) lap -- it would
-    # corrupt the best-lap metric -- but not the median-based missed-click (solo best-lap run).
+def test_time_trial_gets_misclick_not_missed_click():
+    # a time trial IS checked for a too-short lap (it would corrupt the best-lap metric) but not the
+    # median missed-click -- a solo best-lap run has no useful missed-click distribution (§4.1).
     ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}, classname="C/T")
     assert race_kind(ed, "C/T") == "timetrial"
     codes = _codes(check_results(ed))
-    assert "misclick" in codes                                     # too-fast lap flagged (physics)
-    assert "missed-click" not in codes                             # no median check for a solo run
+    assert "misclick" in codes                                     # too-short lap flagged
+    assert "missed-click" not in codes                             # no missed-click for a solo run
 
 
 def test_time_trial_skips_median_missed_click():
@@ -177,17 +184,21 @@ def test_time_trial_skips_median_missed_click():
 
 
 def test_qualification_heat_gets_misclick():
-    # §4.1: a qheat is a mass start -> the fast mis-click check applies (unlike a time trial,
-    # it can also be a wrong-boat click, and the full missed-click check runs too)
+    # §4.1: a qheat is a mass start -> the mis-click check applies (like a circuit heat)
     ed = _race_event({"7": [(1, 40.0), (1, 10.0), (1, 41.0), (1, 40.0)]}, classname="C/Q")
     assert race_kind(ed, "C/Q") == "qualification"
     assert "misclick" in _codes(check_results(ed))
 
 
-def test_per_class_speed_hint_raises_the_bar():
-    marks = {"7": [(1, 40.0), (1, 15.0), (1, 41.0), (1, 40.0)]}     # a 15s lap
-    assert "misclick" in _codes(check_results(_race_event(marks)))                        # 150 -> min 24s -> flagged
-    assert "misclick" not in _codes(check_results(_race_event(marks, "1*(6*1000):1@300")))  # 300 -> min 12s -> ok
+def test_misclick_needs_a_stable_median_not_a_physics_limit():
+    # self-calibrating: a boat whose laps are all ~40s is NEVER flagged, even if an (over-large)
+    # entered course length would make a physics minimum call them "impossible" -- the false-positive
+    # that motivated the switch away from the physics check (issue #26 had 26s minimums vs 11s laps).
+    steady = {"7": [(1, 40.0), (1, 40.0), (1, 41.0), (1, 39.0), (1, 40.0)]}
+    assert _codes(check_results(_race_event(steady))) == []
+    # but a single lap far off that median still stands out
+    off = {"7": [(1, 40.0), (1, 40.0), (1, 12.0), (1, 39.0), (1, 40.0)]}
+    assert "misclick" in _codes(check_results(_race_event(off)))
 
 
 @pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])

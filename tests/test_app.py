@@ -1611,6 +1611,7 @@ def test_mark_positions():
 
 
 def test_suspect_marks_flags_outliers_and_out_of_order():
+    # suspect_marks lives in validate (shared detector); editor re-exports it. Returns {idx: (cat, hint)}.
     from cozer.app.editor import suspect_marks
     # clean 6-lap boat: short start leg (3.5s) then ~11s laps -> nothing flagged, incl. the start lap
     clean = [[1, 3.5], [1, 11.0], [1, 10.8], [1, 11.2], [1, 10.9], [1, 11.1]]
@@ -1618,15 +1619,15 @@ def test_suspect_marks_flags_outliers_and_out_of_order():
     # a mid-race double-click (a 0.3s lap among ~11s laps) is flagged as far-shorter (index 3)
     dbl = [[1, 3.5], [1, 11.0], [1, 10.8], [1, 0.3], [1, 11.2], [1, 10.9]]
     s = suspect_marks(dbl, 6)
-    assert set(s) == {3} and "shorter" in s[3]
+    assert set(s) == {3} and s[3][0] == "short" and "shorter" in s[3][1]
     # a missed crossing (two laps merged ~24s) is flagged as far-longer (index 2)
     miss = [[1, 3.5], [1, 11.0], [1, 24.0], [1, 11.2], [1, 10.9], [1, 11.1]]
     s = suspect_marks(miss, 6)
-    assert set(s) == {2} and "longer" in s[2]
+    assert set(s) == {2} and s[2][0] == "long" and "longer" in s[2][1]
     # a non-advancing crossing (duration 0) is flagged as an impossible ordering (index 2)
     ooo = [[1, 3.5], [1, 11.0], [1, 0.0], [1, 11.2], [1, 10.9], [1, 11.1]]
     s = suspect_marks(ooo, 6)
-    assert set(s) == {2} and "advance" in s[2]
+    assert set(s) == {2} and s[2][0] == "order" and "advance" in s[2][1]
 
 
 def test_suspect_marks_ignores_past_finish_disabled_and_short_fields():
@@ -1647,8 +1648,8 @@ def test_timeline_widget_stores_suspects_and_blinks():
     from cozer.app.editor import TimelineWidget
     tw = TimelineWidget(None)
     rows = [("1", "", [[1, 3.5], [1, 11.0], [1, 0.3], [1, 11.2], [1, 10.9], [1, 11.1]])]
-    tw.set_data(rows, 40.0, 40.0, 5.0, [{2: "double-click"}])
-    assert tw._suspects == [{2: "double-click"}]
+    tw.set_data(rows, 40.0, 40.0, 5.0, [{2: ("short", "double-click")}])
+    assert tw._suspects == [{2: ("short", "double-click")}]
     assert tw._blink_timer.isActive()              # blinking because a mark is flagged
     tw.set_data(rows, 40.0, 40.0, 5.0, [{}])       # nothing flagged -> stop wasting repaints
     assert not tw._blink_timer.isActive()

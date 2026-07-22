@@ -15,34 +15,74 @@ from collections import namedtuple
 
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
 from cozer.phases import class_phase_map, phase_heat_map
-from cozer.racepattern import crack_race_pattern, get_classes, pattern_speed
-from cozer.records import gettimes
+from cozer.racepattern import get_classes
 
 # severity is advisory only; cl/heat may be None for event-level findings.
 Finding = namedtuple("Finding", "severity cl heat code message")
 
-# A recorded lap FASTER than the class could physically go is a MIS-CLICK: the
-# operator clicked the wrong boat (a spurious crossing at another boat's line time)
-# or double-tapped when several boats cross close together. The fastest possible lap
-# is the class's shortest lap length / its top speed (the pattern's '@<speed>' km/h
-# hint, default DEFAULT_CLASS_SPEED); a lap under that is impossible. Per-class speed
-# beats a fixed window -- an F-500 runs ~3x a GT-15, so a "short" lap differs by
-# class. Reported for Edit-Records review, NEVER auto-corrected (scoring stays the
-# analyzer's). Uses gettimes, so a mis-click the operator already disabled is
-# absorbed into the next lap and not re-flagged. Time-trials excluded (solo runs).
+# Mis-click detection is SELF-CALIBRATING: each enabled lap is compared to the boat's OWN median lap,
+# not to a physics limit derived from the entered course length + class speed. Operators routinely enter
+# an approximate course length (a real event had 1100m laps that boats ran in ~11s -> a physics minimum
+# of 26s flagged EVERY normal lap), so a per-boat median is far more robust. The SAME detector drives the
+# Edit-Records timeline (blink + hover) and this status-bar summary, so they always agree.
 #
-# The opposite mis-click is a MISSED click: the operator didn't click a crossing, so
-# one recorded lap spans two -- it reads ~2x the boat's median. This can't be decided
-# physically (a boat CAN run slow), so it is only a POSSIBLE finding, corrected by
-# INSERTING a mark in Edit Records. Circuit and endurance need SEPARATE handling
-# because their lap-time distributions differ completely: a circuit boat never pits,
-# so any lap well above typical is worth a look (unbounded); an endurance boat pits
-# and breaks down (huge laps that are NOT missed clicks -- clear outliers that must
-# not be allowed to shape the circuit rule), so only a lap in a narrow band around 2x
-# counts.
-_MISSED_CLICK_FACTOR = 1.8      # lower edge, both disciplines (~2x with margin)
-_ENDURANCE_MISSED_MAX = 2.5     # endurance upper edge: above this it's a pit/breakdown, not a miss
-_MISSED_CLICK_MIN_LAPS = 4      # need a few laps for a stable median
+#   * too-short  (< _OUTLIER_LOW x median): a double-click, or two crossings merged into one tiny lap.
+#   * out-of-order (duration <= 0): the crossing time does not advance -- an impossible ordering.
+#   * too-long   (> _OUTLIER_HIGH x median): a MISSED crossing (one lap spans two). A boat CAN run slow,
+#     so this is only POSSIBLE. Disciplines differ: a circuit boat never pits, so any lap well above
+#     typical is worth a look (unbounded); an endurance boat pits / breaks down (huge legit outliers), so
+#     only a lap in a band up to _ENDURANCE_HIGH_MAX x median counts. A time-trial is a solo best-lap run
+#     with no useful missed-click distribution, so it gets the too-short/out-of-order checks only.
+#
+# gettimes absorbs a disabled (already-corrected) click into the next lap, so it is never re-flagged.
+# The FIRST lap is the shorter start-line-to-first-lap-line leg (legitimately faster) -> excluded from
+# the median and never flagged. Only the first `need` laps are examined; clicks past the finish line are
+# ignored (frozen out by the running order, not an operator error). NEVER auto-corrected.
+_OUTLIER_LOW = 0.5              # < 50% of the median lap -> a double-click / merged crossing
+_OUTLIER_HIGH = 1.75           # > 175% -> a missed crossing (owner-confirmed thresholds)
+_ENDURANCE_HIGH_MAX = 2.5      # endurance: a lap past 250% of the median is a pit/breakdown, not a miss
+_MIN_BODY_LAPS = 3             # laps (excluding the start leg) needed for a median one outlier can't skew
+
+
+def suspect_marks(marks, need, kind="circuit"):
+    """Enabled lap marks that look like operator mis-clicks: ``{mark_index: (category, hint)}`` where
+    category is ``"short"`` / ``"long"`` / ``"order"`` and hint is a plain-terms tooltip. See the module
+    comment for the model. Pure; shared by ``check_results`` (status-bar count) and the Edit-Records
+    timeline (blink + hover)."""
+    laps = []                        # (mark_index, effective_duration) for the enabled laps, in order
+    dt = 0.0                         # a disabled lap's time is rolled into the next enabled lap
+    for i, m in enumerate(marks):
+        code = m[0]
+        t = m[1] if len(m) > 1 else 0
+        if abs(code) in (LAP, INSERTED_LAP):
+            if code > 0:             # enabled lap
+                laps.append((i, t + dt))
+                dt = 0.0
+            else:                    # disabled lap
+                dt += t
+    if need:
+        laps = laps[:need]           # ignore clicks past the finish line
+    out = {}
+    for idx, dur in laps:            # out-of-order: the crossing time did not advance
+        if dur <= 0:
+            out[idx] = ("order", "Crossing time does not advance (%.2fs) — an impossible ordering (a "
+                        "timing glitch, not a normal click). Right-click the mark to disable it." % dur)
+    body = [(idx, dur) for idx, dur in laps[1:] if idx not in out]   # skip lap 1 (the start leg)
+    durs = [dur for _, dur in body]
+    if len(durs) >= _MIN_BODY_LAPS:
+        med = statistics.median(durs)
+        if med > 0:
+            solo = kind in ("timetrial", "training")
+            hi_max = _ENDURANCE_HIGH_MAX * med if kind == "endurance" else float("inf")
+            for idx, dur in body:
+                if dur < _OUTLIER_LOW * med:
+                    out[idx] = ("short", "This lap (%.2fs) is far shorter than the ~%.1fs median — "
+                                "likely a double-click or two merged crossings. Right-click to disable "
+                                "it." % (dur, med))
+                elif not solo and _OUTLIER_HIGH * med < dur <= hi_max:
+                    out[idx] = ("long", "This lap (%.2fs) is far longer than the ~%.1fs median — a "
+                                "crossing may have been missed. Right-click to check/disable." % (dur, med))
+    return out
 
 
 def _laps(marks):
@@ -107,25 +147,19 @@ def check_results(eventdata):
                 continue
             for h in sorted(heats):
                 info, rec = heats[h]
+                need = len(info.get("course", []) or [])
 
                 if ph.kind in ("timetrial", "training"):
-                    min_lap = _pattern_min_lap_time(ph.pattern)
-                    if min_lap:
-                        findings.extend(_misclick_findings(
-                            cl, h, rec, min_lap, False, physics_only=True))
+                    findings.extend(_misclick_findings(cl, h, rec, need, ph.kind))
                     continue                        # best-lap scoring: no restart / place-gap
                 if ph.kind not in ("circuit", "endurance", "qualification"):
                     continue                        # unknown kind: no click checks
 
-                # Mis-click detection: a boat whose EFFECTIVE lap (gettimes absorbs a
-                # disabled/already-corrected click) is faster than physically possible (or,
-                # for a missed click, ~2x its median) likely got a spurious/absent crossing.
-                # Runs independent of analyze/placements (a heat where everyone DNF'd can
-                # still have a click error). Report for Edit-Records review; scoring unchanged.
-                min_lap = _pattern_min_lap_time(ph.pattern)
-                if min_lap:
-                    findings.extend(_misclick_findings(
-                        cl, h, rec, min_lap, ph.kind == "endurance"))
+                # Mis-click detection (shared self-calibrating detector, see suspect_marks): a boat with a
+                # lap far off its OWN median -- too short (double-click) or too long (missed crossing) --
+                # or a crossing that doesn't advance. Runs independent of analyze/placements (a heat where
+                # everyone DNF'd can still have a click error). Report for Edit-Records review; unchanged.
+                findings.extend(_misclick_findings(cl, h, rec, need, ph.kind))
 
                 try:
                     res = analyze(h, heats[h], ss, rulecodes)
@@ -174,47 +208,27 @@ def check_results(eventdata):
     return findings
 
 
-def _pattern_min_lap_time(pattern):
-    """Fastest physically-possible lap (seconds) for a class with race ``pattern``:
-    its shortest lap length / its top speed (the pattern's ``'@<speed>'`` km/h hint,
-    default 150). ``None`` if the pattern is missing or unusable."""
-    if not pattern:
-        return None
-    try:
-        lengths = [x for hh in crack_race_pattern(pattern)[0] for x in hh if x > 0]
-        speed_ms = pattern_speed(pattern) / 3.6
-    except Exception:
-        return None
-    return min(lengths) / speed_ms if lengths and speed_ms > 0 else None
-
-
-def _misclick_findings(cl, h, rec, min_lap, endurance, physics_only=False):
+def _misclick_findings(cl, h, rec, need, kind):
+    """Per-boat mis-click findings from the shared ``suspect_marks`` detector (see the module comment).
+    Two codes for continuity: ``misclick`` (a lap far shorter than the boat's median, or a crossing that
+    doesn't advance) and ``missed-click`` (a lap well above typical). The per-mark detail is shown on
+    hover in Edit Records; this is the status-bar summary."""
     out = []
     for pid in sorted(rec, key=str):
-        laps = gettimes(rec[pid])
-        fast = [round(t, 2) for t in laps if 0 <= t < min_lap]
-        if fast:
+        cats = [c for c, _hint in suspect_marks(rec[pid], need, kind).values()]
+        n_low = cats.count("short") + cats.count("order")
+        n_high = cats.count("long")
+        if n_low:
             out.append(Finding(
                 "warning", cl, h, "misclick",
-                "boat %s has %d lap(s) faster than physically possible for this class (< %.0fs, "
-                "%s) — likely a mis-click (wrong boat / double tap when boats cross together); "
-                "review and correct in Edit Records" % (pid, len(fast), min_lap, fast)))
-        if physics_only:
-            continue        # time-trial: best-lap run has no useful missed-click distribution
-        # Missed click: a lap ~2x the boat's median. Circuit (no pits) flags any lap
-        # well above typical; endurance (pits are huge legit outliers) only a narrow band.
-        if len(laps) >= _MISSED_CLICK_MIN_LAPS:
-            med = statistics.median(laps)
-            if med > 0:
-                lo, hi = _MISSED_CLICK_FACTOR * med, (_ENDURANCE_MISSED_MAX * med if endurance
-                                                      else float("inf"))
-                slow = [round(t, 2) for t in laps if lo <= t <= hi]
-                if slow:
-                    out.append(Finding(
-                        "warning", cl, h, "missed-click",
-                        "boat %s has %d lap(s) roughly 2x its typical %.0fs (%s) — a lap crossing "
-                        "may have been MISSED (or the boat ran slow); if a click was missed, insert "
-                        "a mark in Edit Records" % (pid, len(slow), med, slow)))
+                "boat %s has %d suspect lap mark%s — a lap far shorter than its median, or a crossing "
+                "that doesn't advance (likely a double-click / wrong-boat click); review and disable in "
+                "Edit Records" % (pid, n_low, "" if n_low == 1 else "s")))
+        if n_high:
+            out.append(Finding(
+                "warning", cl, h, "missed-click",
+                "boat %s has %d lap%s well above its typical time — a crossing may have been MISSED; if "
+                "so, insert a mark in Edit Records" % (pid, n_high, "" if n_high == 1 else "s")))
     return out
 
 
