@@ -445,10 +445,15 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                         else:
                             distcovered = distcovered + course[li]
                         lapspeed = round2(3.6 * course[li] / float(dt), roundopt)
-                        if lapspeed > maxlapspeed:
+                        # A time-trial is scored on the best FULL lap. Lap 1 is the Start->first-lap-line
+                        # leg (shorter than a lap), so its course[0]/dt reads as an inflated speed and
+                        # would win as the "best lap" -- exclude lap 1 from the best lap / max speed for
+                        # TIME-TRIALS ONLY (issue #29; other kinds keep lap 1 exactly as before).
+                        if (not istimetrial or laps > 1) and lapspeed > maxlapspeed:
                             maxlapspeed = lapspeed
                             bestlaptime = dt          # the best (fastest) lap's measured time
-                        esttime = round2(3.6 * course[min(len(course) - 1, li + 1)] / float(maxlapspeed), roundopt)
+                        if maxlapspeed:               # a skipped time-trial lap 1 leaves it 0 until lap 2
+                            esttime = round2(3.6 * course[min(len(course) - 1, li + 1)] / float(maxlapspeed), roundopt)
                         lapstime.append(t)
                     dt = 0
                 else:

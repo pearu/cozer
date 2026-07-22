@@ -65,28 +65,32 @@ def test_unraced_predecessor_falls_back_to_base_case():
 
 # --- cross-phase: time-trial -> finals (decision A / 307.01) ---------------------
 
-_TT_INFO = {"course": [1000], "sheats": 1, "duration": None}
-_TT_CLASSES = [["", "C/T", "1*(1000):1"], ["", "C", "2*(3*1000):1"]]
+# A time-trial always has >= 2 laps: the first lap is the Start->first-lap-line run-up (excluded from
+# the best lap, issue #29), the timed lap(s) follow. So a boat's TT record is [run-up, timed...], the
+# best lap = the fastest timed lap, and the course has >= 2 laps.
+_TT_INFO = {"course": [1000, 1000], "sheats": 1, "duration": None}
+_TT_CLASSES = [["", "C/T", "2*(1000):1"], ["", "C", "2*(3*1000):1"]]
+_TTRUN = 8.0        # the Start->first-lap-line run-up leg (excluded); shorter than any timed lap here
 
 
 def test_finals_heat1_seeds_from_preceding_timetrial():
     # boat 3's best time-trial lap (18) beats boat 7's (22) -> 3 seeds ahead in the final
-    tt = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 18.0)]}]
+    tt = [dict(_TT_INFO), {"7": [(1, _TTRUN), (1, 22.0)], "3": [(1, _TTRUN), (1, 18.0)]}]
     ed = _ev(_PARTS, {"C/T": {"1t": tt}}, classes=_TT_CLASSES)   # only the time-trial is raced
     assert start_order(ed, "C", "1") == ["3", "7"]              # final grid = time-trial order
 
 
 def test_timetrial_ranking_takes_best_lap_across_heats():
     # two time-trial heats; boat 7's best (17 in 2t) beats boat 3's best (19 in 1t)
-    tt1 = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 19.0)]}]
-    tt2 = [dict(_TT_INFO), {"7": [(1, 17.0)], "3": [(1, 30.0)]}]
+    tt1 = [dict(_TT_INFO), {"7": [(1, _TTRUN), (1, 22.0)], "3": [(1, _TTRUN), (1, 19.0)]}]
+    tt2 = [dict(_TT_INFO), {"7": [(1, _TTRUN), (1, 17.0)], "3": [(1, _TTRUN), (1, 30.0)]}]
     classes = [["", "C/T", "2*(1000):1"], ["", "C", "2*(3*1000):1"]]
     ed = _ev(_PARTS, {"C/T": {"1t": tt1, "2t": tt2}}, classes=classes)
-    assert start_order(ed, "C", "1") == ["7", "3"]              # best-lap across heats
+    assert start_order(ed, "C", "1") == ["7", "3"]              # best-lap across heats (7's 17 beats 3's 19)
 
 
 def test_timetrial_ranking_skips_empty_heats():
-    tt1 = [dict(_TT_INFO), {"7": [(1, 22.0)], "3": [(1, 18.0)]}]
+    tt1 = [dict(_TT_INFO), {"7": [(1, _TTRUN), (1, 22.0)], "3": [(1, _TTRUN), (1, 18.0)]}]
     empty = [dict(_TT_INFO), {"7": [], "3": []}]                 # materialized, no laps
     classes = [["", "C/T", "2*(1000):1"], ["", "C", "2*(3*1000):1"]]
     ed = _ev(_PARTS, {"C/T": {"1t": tt1, "2t": empty}}, classes=classes)
@@ -114,14 +118,16 @@ def _qh(fast, slow):
     return [info, {fast: [(1, 20.0)] * 3, slow: [(1, 25.0)] * 3}]
 
 
-def _tt_one_lap(secs_by_boat):
-    return [dict(_TT_INFO), {b: [(1, s)] for b, s in secs_by_boat.items()}]
+def _tt(secs_by_boat):
+    """A time-trial heat: each boat runs the run-up leg then a single timed lap of the given seconds,
+    so its best (only) timed lap equals that value."""
+    return [dict(_TT_INFO), {b: [(1, _TTRUN), (1, s)] for b, s in secs_by_boat.items()}]
 
 
 def _qual_ev(record, with_tt):
     classes = [["", "C/Q", "3*(1000):1!qualification[1,1,1]"], ["", "C", "2*(3*1000):1"]]
     if with_tt:
-        classes.insert(0, ["", "C/T", "1*(1000):1"])
+        classes.insert(0, ["", "C/T", "2*(1000):1"])
     parts = [["", "A", "One", "X", "C", str(b)] for b in (10, 20, 30, 40)]
     return {"classes": classes, "record": record, "scoringsystem": [400, 300, 225],
             "participants": parts, "races": [], "rules": []}
@@ -134,7 +140,7 @@ _QHEATS = {"C/Q": {"1q": _qh("10", "20"), "2q": _qh("30", "40"), "3q": _qh("20",
 def test_qualification_to_finals_ordered_by_timetrial():
     # time-trial best laps: 10 fastest, then 30, then 20, then 40
     rec = dict(_QHEATS)
-    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    rec["C/T"] = {"1t": _tt({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
     ed = _qual_ev(rec, with_tt=True)
     # [primary by TT: 10,30] then [repechage by TT: 20]; DNQ 40 excluded
     assert start_order(ed, "C", "1") == ["10", "30", "20"]
@@ -142,7 +148,7 @@ def test_qualification_to_finals_ordered_by_timetrial():
 
 def test_qualification_to_finals_dnq_excluded():
     rec = dict(_QHEATS)
-    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    rec["C/T"] = {"1t": _tt({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
     ed = _qual_ev(rec, with_tt=True)
     assert "40" not in start_order(ed, "C", "1")           # DNQ boat is not in the grid
 
@@ -159,8 +165,8 @@ def test_qualification_qheat_not_seeded_from_previous_qheat():
     # finding 1 (7948e787): a qualifying heat's N>1 must NOT seed from the previous qheat
     # (disjoint groups). With a preceding time trial, a qualifying heat is TT-seeded (307.01).
     rec = dict(_QHEATS)
-    rec["C/T"] = {"1t": _tt_one_lap({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
-    classes = [["", "C/T", "1*(1000):1"], ["", "C/Q", "3*(1000):1!qualification[1,1,1]"]]
+    rec["C/T"] = {"1t": _tt({"10": 18.0, "30": 19.0, "20": 20.0, "40": 22.0})}
+    classes = [["", "C/T", "2*(1000):1"], ["", "C/Q", "3*(1000):1!qualification[1,1,1]"]]
     parts = [["", "A", "One", "X", "C", str(b)] for b in (10, 20, 30, 40)]
     ed = {"classes": classes, "record": rec, "scoringsystem": [400, 300, 225],
           "participants": parts, "races": [], "rules": []}
@@ -176,7 +182,7 @@ def _qual_only_ev(record, qheat1=None, with_tt=True,
     """A qualification phase (no finals class) — the class under test is ``C/Q`` itself."""
     classes = [["", "C/Q", pattern]]
     if with_tt:
-        classes.insert(0, ["", "C/T", "1*(1000):1"])
+        classes.insert(0, ["", "C/T", "2*(1000):1"])
     parts = [["", "A", "One", "X", "C", str(b)] for b in boats]
     ed = {"classes": classes, "record": record, "scoringsystem": [400, 300, 225],
           "participants": parts, "races": [], "rules": []}
@@ -188,7 +194,7 @@ def _qual_only_ev(record, qheat1=None, with_tt=True,
 def test_qualifying_heat_restricted_to_its_own_group():
     # organizer flags qheat1 = {10, 30}; the complement {20, 40} is qheat2. Each qheat's
     # grid is JUST its group, ordered by the time trial (307.01) -- never the other group.
-    tt = _tt_one_lap({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})   # order: 40,20,10,30
+    tt = _tt({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})   # order: 40,20,10,30
     ed = _qual_only_ev({"C/Q": {}, "C/T": {"1t": tt}}, qheat1=["10", "30"])
     assert start_order(ed, "C/Q", "1q") == ["10", "30"]    # qheat1 group, TT order
     assert start_order(ed, "C/Q", "2q") == ["40", "20"]    # qheat2 group, TT order
@@ -197,7 +203,7 @@ def test_qualifying_heat_restricted_to_its_own_group():
 def test_repechage_heat_is_the_field_ordered_by_timetrial():
     # 1q: 10>20 (10 Q); 2q: 30>40 (30 Q). Repechage field = {20, 40}; TT order among them = 40,20.
     rec = {"C/Q": {"1q": _qh("10", "20"), "2q": _qh("30", "40")},
-           "C/T": {"1t": _tt_one_lap({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})}}
+           "C/T": {"1t": _tt({"10": 20.0, "30": 21.0, "40": 18.0, "20": 19.0})}}
     ed = _qual_only_ev(rec, qheat1=["10", "20"])
     assert start_order(ed, "C/Q", "3q") == ["40", "20"]    # repechage field, TT order
 

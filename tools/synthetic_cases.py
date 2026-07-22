@@ -57,7 +57,10 @@ def get_cases():
                 3: _laps(3)},
     })
 
-    # 3) Time trial heat (istimetrial path; laptime len>1 and <=1 branches).
+    # 3) Time trial heat (istimetrial path). Issue #29: lap 1 is the Start->first-lap-line run-up and
+    #    is excluded from the best lap. Boat 1 has timed laps (best = 18); boat 2 crossed only once (the
+    #    run-up, no timed lap -> no time). The modern analyzer diverges from legacy here by design (see
+    #    test_analyzer_equivalence.test_synthetic_matches_golden, which asserts the corrected result).
     cases.append({
         'name': 'timetrial',
         'heat': '1t',

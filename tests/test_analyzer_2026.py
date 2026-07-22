@@ -23,6 +23,19 @@ def _endurance_record(marks_by_pid):
     return ({"course": [1000], "duration": 100000.0, "racetime": 100000.0}, marks_by_pid)
 
 
+def test_timetrial_best_lap_excludes_start_leg():
+    # Issue #29: a time-trial's first lap is the Start->first-lap-line run-up (short); it must NOT be
+    # counted as the best lap. Boat 1: run-up 5s, then timed laps 20s & 22s -> best = 20 (not 5).
+    info = {"course": [1000, 1000, 1000], "racetime": 100000.0}
+    rec = {"1": [(1, 5.0), (1, 20.0), (1, 22.0)]}
+    tt = analyzer.analyze("1t", (dict(info), copy.deepcopy(rec)), [400])
+    assert tt["1"]["laptime"] == 20.0            # fastest TIMED lap, not the 5s run-up
+    assert tt["1"]["maxlapspeed"] == 180.0       # 3.6 * 1000 / 20
+    # Scoping is time-trial-ONLY: a CIRCUIT heat is unchanged -- lap 1 still counts (here the fastest).
+    ci = analyzer.analyze("1", (dict(info), copy.deepcopy(rec)), [400])
+    assert ci["1"]["maxlapspeed"] == 720.0       # 3.6 * 1000 / 5 -> lap 1 kept for circuit
+
+
 def test_bc_is_note_only():
     base = {"A": [(1, 20.0)] * 5, "B": [(1, 22.0)] * 5}
     ss = [400, 300]

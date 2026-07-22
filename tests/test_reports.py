@@ -489,19 +489,22 @@ def test_intermediate_timetrial_and_multidriver():
     # "timetrial"), so the class must carry the /T suffix, not just a 't' heat id.
     ed = {
         "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
-        "classes": [["x", "TT/T", "2*(2*1000):1"]],
+        "classes": [["x", "TT/T", "3*(1000):1"]],
         "participants": [["x", "A;B", "One;Two", "EST", "TT", "1"],
                          ["x", "C", "Three", "FIN", "TT", "2"]],
-        "record": {"TT/T": {"1t": [{"course": [1000, 1000], "racetime": 1000.0},
-                                   {"1": [(1, 20.0), (1, 21.0)], "2": [(1, 22.0)]}]}},
+        # A time-trial always has >= 2 laps: lap 1 is the Start->first-lap-line run-up (excluded), the
+        # timed laps follow (issue #29). Boat 1: run-up 8 + timed 20 & 21. Boat 2: run-up 8 + timed 22.
+        "record": {"TT/T": {"1t": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                                   {"1": [(1, 8.0), (1, 20.0), (1, 21.0)], "2": [(1, 8.0), (1, 22.0)]}]}},
     }
     html = intermediate_html(build_intermediate(ed))
     assert "Lap Time" in html                      # time-trial column header
     assert "One" in html and "Two" in html         # multi-driver rows
-    # UIM 305.04.02 best-lap TIME: boat 1's fastest lap is 20s (not the last, 21s);
-    # boat 2 ran a single lap (22s) -> it now shows a time (used to render "-", laptime=0).
+    # UIM 305.04.02 best-lap TIME = the fastest TIMED lap: boat 1's is 20 (not the last, 21); boat 2's
+    # single timed lap is 22. The Start->line run-up (8s) is never the reported time.
     assert "20.000" in html and "22.000" in html
-    assert "21.000" not in html                    # the slower lap is not the reported time
+    assert "21.000" not in html                    # the slower timed lap is not the reported time
+    assert "8.000" not in html                     # the Start->line run-up is excluded
     # the footer explains the Lap Time column (305.04.02), not the speed ResNote (there is no
     # speed column in a time-trial table)
     assert "Lap Time = best full lap [s]" in html and "AverSpeed" not in html

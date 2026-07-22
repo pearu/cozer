@@ -153,6 +153,17 @@ def test_synthetic_matches_golden():
         name = case["name"]
         assert name in g, name
         got = _norm(_run(case["heat"], (case["info"], case["rec"]), case["scoringsystem"]))
+        if name == "timetrial":
+            # DELIBERATE divergence from legacy (issue #29): legacy counted the Start->first-lap-line
+            # run-up as lap 1, so it mis-picked that short leg as a boat's best lap. The modern analyzer
+            # excludes lap 1 from a time-trial's best lap / max speed. Assert the corrected result
+            # instead of the buggy legacy golden; the ranking (resorder) is unchanged.
+            a = got["analyze"]
+            assert a["1"]["laptime"] == 18.0 and a["1"]["maxlapspeed"] == 200.0   # boat 1: timed laps @18
+            assert a["2"]["laptime"] == 0 and a["2"]["maxlapspeed"] == 0           # boat 2: only the run-up
+            assert got["resorder"] == g[name]["resorder"]
+            checked += 1
+            continue
         assert _cmp(got) == _cmp(g[name]), name
         checked += 1
     assert checked == len(g)
