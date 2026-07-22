@@ -45,6 +45,12 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
   the Timer. The overlay shows each boat's place, laps completed, and a live **time to catch the
   leader** — boats about to overtake are highlighted, and it counts the leader down to **LAST LAP** and
   **FINISH**.
+
+  ![The COZER live running-order overlay — flag, boat number and name, laps, and live seconds-to-catch-the-leader](img/broadcast-view.png)
+
+  *What a stream or venue screen shows — place, flag and name, laps completed, and the live **seconds
+  to catch the leader** (the leader counts down instead: here **3 TO GO**). The overlay's dark
+  background is keyed out, so over your video only the text and flags appear.*
 - **Delete race data.** The Edit Records tab has a **Delete** button that clears a heat's recorded laps
   and returns it to its just-before-Start state — with a clear warning when there is timed data to lose.
 - **A smoother timing screen.** The full running-order ladder appears the moment you pick a race (before

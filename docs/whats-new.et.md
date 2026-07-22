@@ -28,6 +28,12 @@ COZERilt üleminek"** ülevaate suurest pildist.
   parandatud — üleliigne vajutus ei riku enam lõpetanute järjestust. Ülekanne toob ka **START**- ja
   **FINISH**-hetke selgemalt esile, tõstab esile paadi, kes on möödumas, külmutab iga paadi aja
   finišihetkel ning näitab **DNF**, kui paadil pole ühtki aega hetkeks, mil võitja on lõpetanud.
+
+  ![COZERi otseülekande edetabel — lipp, paadi number ja nimi, ringid ja sekundid liidri kättesaamiseni](img/broadcast-view.png)
+
+  *Mida näeb voog või võistluspaiga ekraan — koht, lipp ja nimi, tehtud ringid ning reaalajas
+  **sekundid liidri kättesaamiseni** (liider hoopis loeb alla: siin **3 TO GO**). Ülekande tume taust
+  võtmestatakse läbipaistvaks, nii et video peal on näha vaid tekst ja lipud.*
 - **Edit Records (kirjete muutmine) osutab nüüd tõenäolistele valevajutustele.** Ring, mis tundub vale —
   paadi tavalisest palju lühem (topeltvajutus), palju pikem (vahelejäänud ületus) või võimatu aeg —
   **vilgub** ajateljel ja **kursoriga peale minnes selgitab, miks**. Paremklõps margil keelab selle, nii
