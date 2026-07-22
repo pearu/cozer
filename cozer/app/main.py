@@ -1054,9 +1054,8 @@ class MainWindow(QMainWindow):
         v.addLayout(optsrow)
 
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
-        self.report_tree = QTreeWidget()
-        self.report_tree.setHeaderHidden(True)
-        v.addWidget(self.report_tree)
+        self.report_tabs = QTabWidget()                  # one tab per phase; each holds that phase's tree
+        v.addWidget(self.report_tabs)
         btnrow = QHBoxLayout()                            # actions (not options): bottom-right
         btnrow.addStretch()
         view = QPushButton("View")
@@ -1108,40 +1107,43 @@ class MainWindow(QMainWindow):
                      "qualification": "Qualifications", "circuit": "Circuit", "endurance": "Endurance"}
     _PHASE_ORDER = ["Time-trials", "Qualifications", "Circuit", "Endurance", "Other"]
 
+    def _report_trees(self):
+        """The per-phase class/heat trees, one per tab, in tab order."""
+        return [self.report_tabs.widget(i) for i in range(self.report_tabs.count())]
+
     def _reload_classes(self):
-        """Populate the Reports tab's class/heat tree, grouped by phase, preserving the operator's
-        checks. (Name kept: the Classes/Participants panel calls this when classes change; it is also
-        refreshed on entering the Reports tab, so heats recorded on other tabs show up.) Heats are
-        enumerated via the phase view, so the native record shape is transparent."""
+        """Populate the Reports tab's phase tabs (Time-trials / Qualifications / Circuit / ...), one tab
+        per phase, each holding that phase's class/heat tree, preserving the operator's checks. (Name
+        kept: the Classes/Participants panel calls this when classes change; it is also refreshed on
+        entering the Reports tab, so heats recorded on other tabs show up.) Heats are enumerated via the
+        phase view, so the native record shape is transparent."""
         from cozer.classes import getclass
         prev = {}                                   # real class name -> (class check, {heat: check})
-        for i in range(self.report_tree.topLevelItemCount()):
-            grp = self.report_tree.topLevelItem(i)
-            for j in range(grp.childCount()):
-                c = grp.child(j)
+        for tree in self._report_trees():
+            for j in range(tree.topLevelItemCount()):
+                c = tree.topLevelItem(j)
                 prev[c.data(0, Qt.UserRole)] = (
                     c.checkState(0),
                     {c.child(k).text(0): c.child(k).checkState(0) for k in range(c.childCount())})
-        self.report_tree.clear()
+        cur = self.report_tabs.tabText(self.report_tabs.currentIndex()) if self.report_tabs.count() else None
+        self.report_tabs.clear()
         phase_map = class_phase_map(self.eventdata)  # synthesized class name -> its Phase (recorded)
         buckets = {h: [] for h in self._PHASE_ORDER}
         for cl in get_classes(self.eventdata):
-            ph = phase_map.get(cl)
-            # Group by the phase inferred from the class name/pattern (race_kind), NOT the recorded
-            # phase -- so a defined-but-not-yet-raced /T or /Q class still lands under its phase header
+            # Group by the phase inferred from the class name/pattern (race_kind), NOT the recorded phase
+            # -- so a defined-but-not-yet-raced /T or /Q class still lands under its phase tab
             # (class_phase_map returns None until a heat is recorded).
-            kind = race_kind(self.eventdata, cl)
-            buckets[self._PHASE_HEADER.get(kind, "Other")].append((cl, ph))
+            buckets[self._PHASE_HEADER.get(race_kind(self.eventdata, cl), "Other")].append(
+                (cl, phase_map.get(cl)))
         for header in self._PHASE_ORDER:
             items = buckets[header]
-            if not items:                            # skip a phase with no classes
+            if not items:                            # no classes in this phase -> no tab
                 continue
-            grp = QTreeWidgetItem(self.report_tree, [header])
-            grp.setFlags(grp.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
-            grp.setExpanded(True)
+            tree = QTreeWidget()
+            tree.setHeaderHidden(True)
             for cl, ph in items:
                 pstate, pheats = prev.get(cl, (Qt.Unchecked, {}))
-                c = QTreeWidgetItem(grp, [getclass(cl)])   # base name shown; real class name on UserRole
+                c = QTreeWidgetItem(tree, [getclass(cl)])   # base name shown; real class name on UserRole
                 c.setData(0, Qt.UserRole, cl)
                 c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
                 heat_ids = phase_heat_ids(ph) if ph is not None else []
@@ -1151,16 +1153,22 @@ class MainWindow(QMainWindow):
                     hi.setCheckState(0, pheats.get(str(h), Qt.Unchecked))
                 if not heat_ids:                     # childless class: no auto-tristate to derive from
                     c.setCheckState(0, Qt.Checked if pstate == Qt.Checked else Qt.Unchecked)
+            tree.expandAll()
+            self.report_tabs.addTab(tree, header)
+        if cur:                                      # keep the operator on the phase tab they had open
+            for i in range(self.report_tabs.count()):
+                if self.report_tabs.tabText(i) == cur:
+                    self.report_tabs.setCurrentIndex(i)
+                    break
 
     def _report_selection(self):
-        """(classes, heat_map) from the report tree; (None, None) means 'all'. Walks the phase groups ->
-        classes; the real (suffixed) class name is read from each class item's UserRole. A fully-checked
-        class -> all its heats; a partially-checked class -> only the checked heats (heat_map[cl])."""
+        """(classes, heat_map) from the phase tabs; (None, None) means 'all'. The real (suffixed) class
+        name is read from each class item's UserRole. A fully-checked class -> all its heats; a
+        partially-checked class -> only the checked heats (heat_map[cl])."""
         classes, heat_map, any_checked = [], {}, False
-        for i in range(self.report_tree.topLevelItemCount()):
-            grp = self.report_tree.topLevelItem(i)
-            for j in range(grp.childCount()):
-                c = grp.child(j)
+        for tree in self._report_trees():
+            for j in range(tree.topLevelItemCount()):
+                c = tree.topLevelItem(j)
                 st = c.checkState(0)
                 if st == Qt.Unchecked:
                     continue

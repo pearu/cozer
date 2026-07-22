@@ -30,10 +30,10 @@ def test_window_builds_and_populates():
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
-    # the class/heat tree is grouped by phase now: top level = phase groups, their children = classes
-    n_classes = sum(w.report_tree.topLevelItem(i).childCount()
-                    for i in range(w.report_tree.topLevelItemCount()))
-    assert n_classes == len(get_classes(ed))               # every class appears under some phase group
+    # the class/heat selector is one tab per phase; each tab's tree top-level items are its classes
+    n_classes = sum(w.report_tabs.widget(i).topLevelItemCount()
+                    for i in range(w.report_tabs.count()))
+    assert n_classes == len(get_classes(ed))               # every class appears under some phase tab
     assert w.report_combo.count() == 15                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial)
 
 
@@ -82,9 +82,9 @@ def test_export_report_writes_and_opens(tmp_path, monkeypatch):
     _app()
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
-    # check one class so _report_selection() is exercised (whole class -> all heats). The tree is
-    # grouped by phase, so a class is a child of its phase group; the real class name is on UserRole.
-    c0 = w.report_tree.topLevelItem(0).child(0)
+    # check one class so _report_selection() is exercised (whole class -> all heats). The selector has
+    # one tab per phase; a class is a top-level item of its phase tab's tree; real name on UserRole.
+    c0 = w.report_tabs.widget(0).topLevelItem(0)
     c0.setCheckState(0, Qt.Checked)
     classes, _heat_map = w._report_selection()
     assert classes == [c0.data(0, Qt.UserRole)]
@@ -681,11 +681,10 @@ def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     w = MainWindow(ed)
 
     def heats_of(cl):
-        tree = w.report_tree                              # phase group -> class (real name on UserRole)
-        for i in range(tree.topLevelItemCount()):
-            grp = tree.topLevelItem(i)
-            for j in range(grp.childCount()):
-                c = grp.child(j)
+        for i in range(w.report_tabs.count()):            # phase tab -> class (real name on UserRole)
+            tree = w.report_tabs.widget(i)
+            for j in range(tree.topLevelItemCount()):
+                c = tree.topLevelItem(j)
                 if c.data(0, Qt.UserRole) == cl:
                     return [c.child(k).text(0) for k in range(c.childCount())]
         return None
