@@ -1335,7 +1335,10 @@ def test_timer_identity_label_flags_qualification_phase():
     assert "F 500 · heat 1" in txt                        # the final entry, unannotated
 
 
-def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
+def test_closing_hint_arms_after_first_lap_and_colors_button(tmp_path, monkeypatch):
+    # The closing hint predicts the next crossing from the last lap's speed, so it only arms once a
+    # boat has crossed the FIRST lap-line -- before that we can't tell it has actually started, so its
+    # button must keep its colour (owner). Once armed it colours the button 'coming' -> 'late'.
     from cozer.app.timer import C_COMING, C_LATE
     _app()
     w = MainWindow(_timer_event())
@@ -1347,7 +1350,10 @@ def test_closing_hint_arms_and_colors_button(tmp_path, monkeypatch):
     tp.race_combo.setCurrentIndex(0)
     tp.on_start()
     key = ("GT", "1", "1")
-    assert key in tp._predict                        # first-lap closing hint armed at Start
+    assert key not in tp._predict                    # no first-lap hint (may not have started yet)
+    clock[0] = 1030.0                                # first crossing (30 s lap)
+    tp.record_lap("GT", "1", "1")
+    assert key in tp._predict                        # now armed off the boat's own lap time
     # simulate the arming timer firing (no Qt event loop in the test)
     tp._on_coming(key, 20.0)
     assert tp._phase[key] == "coming" and tp._boat_color(*key) == C_COMING

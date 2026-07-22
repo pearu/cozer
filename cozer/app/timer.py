@@ -424,6 +424,8 @@ class TimerPanel(QWidget):
         rec = self._rec(cl, h)
         course = (rec[0].get("course") if rec else None) or heat_course(self.eventdata, cl, h)[0]
         laptimes = gettimes(rec[1].get(pid, [])) if rec else []
+        if not laptimes:            # hasn't crossed the first lap-line yet -> we can't tell it has
+            return                  # actually started, so no arrival hint (the button keeps its colour)
         speed = pattern_speed(class_pattern(self.eventdata, cl) or "")
         et = estimate_next_lap(course, laptimes, speed)
         if et is None or not self._started:
