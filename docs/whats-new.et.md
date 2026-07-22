@@ -19,6 +19,12 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## COZER 3.0.0rc7 (July 2026)
+
+<!-- release-notes:3.0.0rc7 -->
+<!-- TODO(release): eestikeelne tõlge puudub — translate the 3.0.0rc7 section from whats-new.md. Do NOT
+     auto-generate; the owner verifies the Estonian. -->
+
 ## COZER 3 — kaasaegne COZER (2026)
 
 Esimene kaasaegne versioon. Allolev ülevaade näitab, mis on vana COZERiga võrreldes uut.

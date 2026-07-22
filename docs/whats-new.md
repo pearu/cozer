@@ -17,6 +17,26 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Catching timing mistakes, and a cleaner live broadcast (July 2026)
+
+<!-- release-notes:3.0.0rc7 -->
+
+- **The live broadcast no longer shows "all 0.0" after a finish.** If a boat was tapped once more just
+  after it crossed the finish line, the running order could collapse so every gap read **+0.0**. That is
+  fixed — a stray extra click no longer disturbs the finished order. The overlay also makes the **START**
+  and **FINISH** moments stand out, highlights a boat about to overtake, freezes each boat's time the
+  instant it finishes, and shows **DNF** for a boat with no timing once the winner is home.
+- **Edit Records now points out likely mis-clicks.** A lap that looks wrong — much shorter than the
+  boat's usual lap (a double-tap), much longer (a missed crossing), or an impossible time — now
+  **blinks** on the timeline, and **hovering it explains why**. Right-click the mark to disable it, so
+  cleaning up a heat before the results is much quicker.
+- **The "data warnings" are smarter.** They used to warn about *every* lap when the entered course
+  length didn't match the boats' real speed. Now each boat is compared to **its own pace**, so the
+  warning count flags only genuine oddities — and it matches the blinking marks in Edit Records exactly.
+- **Timer touches.** Clicking a boat gently greys and shrinks its button (a guard against an accidental
+  double-tap), the ladder and grid buttons share the same colours, boats that finish drop below the
+  **Finish** line in the running order, and the full ladder appears as soon as you pick a race.
+
 ## Live broadcast, and a smoother timing screen (July 2026)
 
 - **Live broadcast.** COZER can now show the **unofficial running order live on a web page** — point a

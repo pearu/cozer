@@ -215,3 +215,4 @@ per-release summary lives in `whats-new.md` (users) + the Change log (devs).
 - **2026-07-22** — **Release process:** per-release **`docs/whats-new.md`** (user-facing "what's new",
   Estonian kept in sync) is now a documented release step — `tools/bump_version.py` prints a reminder
   and the "Per-release doc checklist" above records it alongside this Change log.
+- **2026-07-22** — **`v3.0.0rc7` cut**. See `docs/whats-new.md`.
