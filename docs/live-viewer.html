@@ -46,7 +46,12 @@
                 letter-spacing:.32em; color:#39ff14;
                 animation:gopulse .5s ease-in-out infinite alternate }
   @keyframes gopulse{ from{ transform:scale(.92); color:#2bd60f } to{ transform:scale(1.12); color:#b6ff98 } }
-  @media (prefers-reduced-motion:reduce){ .startmsg.go{ animation:none } }
+  /* FINISH: big gold banner across the winner's right columns (flag/#/name stay), gentle pulse. */
+  .finishmsg{ grid-column:4 / -1; text-align:right; font-size:26px; font-weight:900;
+              letter-spacing:.16em; color:#ffd700;
+              animation:finpulse 1.4s ease-in-out infinite alternate }
+  @keyframes finpulse{ from{ transform:scale(.97) } to{ transform:scale(1.07) } }
+  @media (prefers-reduced-motion:reduce){ .startmsg.go, .finishmsg{ animation:none } }
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -180,14 +185,17 @@
       var name = '<span class="name">'+(b.name||"")
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;
-      if(started){
+      var winnerDone = started && i === 0 && b.finished;   // the leader has crossed the finish line
+      if(winnerDone){
+        html += '<span class="finishmsg">FINISH</span>';   // prominent winner banner (spans right cols)
+      } else if(started){
         html += '<span class="laps">'+lapsCell(b)+'</span>'
               + '<span class="catch"></span>';
       } else if(msg && i === 0){                           // pre-race status in the first row
         html += '<span class="startmsg' + (msg === "START" ? " go" : "") + '">'+msg+'</span>';
       }
       li.innerHTML = html;
-      if(started) catchSpans[b.no] = li.querySelector(".catch");
+      if(started && !winnerDone) catchSpans[b.no] = li.querySelector(".catch");
       ol.appendChild(li);
     });
     tickCatch();                                           // fill the live catch-up column now
