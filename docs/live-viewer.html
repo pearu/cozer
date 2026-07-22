@@ -147,7 +147,8 @@
       return "🏁";
     }
     var m = boatModel(b);
-    if(!m || !leaderModel || t == null) return "…";        // no speed yet -> unknown
+    if(!m || !leaderModel || t == null)                    // no lap time yet:
+      return (boats[0] && boats[0].finished) ? "DNF" : "…";  //   DNF once the winner has finished, else "…"
     var secs = (distAt(leaderModel, t) - distAt(m, t)) / m.v;   // time behind the leader at this pace;
     return (secs >= 0 ? "+" : "") + secs.toFixed(1);           // < 0 => projected AHEAD -> overtake brewing
   }
