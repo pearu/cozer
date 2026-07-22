@@ -212,7 +212,9 @@ def preflight(version, touched, dry_run):
     # will touch" — so a re-run after a curated-docs block, with the notes already written, is clean).
     stray = []
     for ln in git("status", "--porcelain", "--untracked-files=no").splitlines():
-        path = ln[3:].split(" -> ")[-1].strip().strip('"')
+        # git() strips the output, dropping the leading space of a " M path" status, so a fixed ln[3:]
+        # slice would mis-read the path. Split off the status token (and any rename "old -> new") instead.
+        path = ln.split(" -> ")[-1].split(maxsplit=1)[-1].strip('"')
         if path not in set(touched):
             stray.append(ln)
     if stray:
