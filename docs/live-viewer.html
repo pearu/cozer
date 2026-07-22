@@ -221,9 +221,16 @@
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
     course = feed.course || [];                             // per-lap lengths for the distance model
     raceAnchor = (feed.elapsed != null) ? {elapsed: feed.elapsed, at: perfNow()} : null;   // live clock
+    var N = course.length;                                  // total laps -> freeze a boat at the finish
     boats = (feed.order||[]).map(function(r){
-      return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:r.laps,
-              time:r.time, finished:r.finished, laptimes:r.laptimes};
+      var laps = r.laps, lt = r.laptimes, time = r.time;
+      if(N && laps > N){                                    // completed all laps: ignore any extra clicks
+        laps = N;                                           // cozer keeps counting; the feed view stops
+        if(lt && lt.length > N) lt = lt.slice(0, N);        //   its lap count + finish time freeze at the
+        if(lt && lt.length) time = lt[N - 1];               //   finish crossing (lap N)
+      }
+      return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:laps,
+              time:time, finished:r.finished, laptimes:lt};
     });
     render();
   }
