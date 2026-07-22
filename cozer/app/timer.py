@@ -148,7 +148,7 @@ def ladder(rec):
     """Marker-zone ladder rows for the running-order column, top->bottom:
     ``('marker', label)`` and ``('boat', standing_dict)``. Each boat sits in the
     zone right after the ``Lap k`` marker for its completed-lap count; finished
-    boats drop to the bottom (before ``Finish``). Returns ``(rows, need)``."""
+    boats drop past the ``Finish`` marker to the bottom (legacy order). Returns ``(rows, need)``."""
     need = len(rec[0].get("course", []))
     zones = {}
     finished = []
@@ -163,9 +163,9 @@ def ladder(rec):
             rows.append(("marker", "Lap %d" % k))
         for b in zones.get(k, []):
             rows.append(("boat", b))
-    for b in finished:
-        rows.append(("boat", b))
     rows.append(("marker", "Finish"))
+    for b in finished:                     # finished boats sit BELOW the Finish marker (legacy order)
+        rows.append(("boat", b))
     return rows, need
 
 

@@ -1092,9 +1092,11 @@ def test_ladder_marker_zones():
     assert need == 3
     seq = [(r[0], r[1] if r[0] == "marker" else r[1]["id"]) for r in rows]
     # Ready -> [boat 3 (0 laps)] -> Lap 1 -> [boat 1 (1 lap)] -> Lap 2 -> Lap 3 (no 2-lap) ->
-    #   finished boat 2 -> Finish
+    #   Finish -> finished boat 2 (below the Finish marker, legacy order)
     assert seq[0] == ("marker", "Ready to Start")
-    assert ("boat", "3") in seq[:3] and seq[-1] == ("marker", "Finish")
+    assert ("boat", "3") in seq[:3]
+    fin_i = seq.index(("marker", "Finish"))
+    assert seq[fin_i + 1:] == [("boat", "2")]                       # finished boats sit below Finish
     order = [x for kind, x in seq if kind == "boat"]
     assert order.index("3") < order.index("1") < order.index("2")   # progress -> down
 
