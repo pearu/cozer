@@ -1365,6 +1365,26 @@ def test_closing_hint_arms_after_first_lap_and_colors_button(tmp_path, monkeypat
     assert not tp._predict and key not in tp._phase   # cancelled on Stop
 
 
+def test_grid_button_shrinks_on_click_restores_on_coming(tmp_path, monkeypatch):
+    # owner: a just-clicked grid button shrinks (mis-click guard) until the boat is next "coming"
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clock = [1000.0]
+    tp._wall = lambda: clock[0]
+    tp._clock = RaceClock(lambda: int(round(clock[0] * 1e9)))
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    grid = tp._grids[("GT", "1")]
+    assert "1" not in grid.pressed                        # full size before any click
+    clock[0] = 1030.0
+    tp.record_lap("GT", "1", "1")
+    assert "1" in grid.pressed                            # shrunk right after the crossing
+    tp._on_coming(("GT", "1", "1"), 20.0)
+    assert "1" not in grid.pressed                        # restored when the boat is closing again
+
+
 def test_timer_reopen_reconstructs_order():
     _app()
     w = MainWindow(_recorded_event())          # GT/1 already has recorded laps

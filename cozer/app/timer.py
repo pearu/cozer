@@ -233,6 +233,7 @@ class GridButtons(QWidget):
         self.ncols = min(n, max(3, int(math.ceil(math.sqrt(n)))))
         self.nrows = int(math.ceil(n / float(self.ncols)))
         self.own = {}               # pid -> (button, r, c)
+        self.pressed = set()        # pids drawn smaller after a click (mis-click guard) until 'coming'
         self.sz = 40
         for i, pid in enumerate(ids):
             b = QPushButton(str(pid), self)
@@ -247,10 +248,25 @@ class GridButtons(QWidget):
 
     def relayout(self):
         self.sz = max(26, min(self.width() // self.ncols, self.height() // self.nrows))
+        for pid in self.own:
+            self._place(pid)
+
+    def _place(self, pid):
+        b, r, c = self.own[pid]
         g = max(4, self.sz // 8)               # gap ~1/8 of the button size
-        for pid, (b, r, c) in self.own.items():
-            b.setGeometry(c * self.sz + g // 2, r * self.sz + g // 2, self.sz - g, self.sz - g)
-            self.restyle(pid)
+        full = self.sz - g
+        s = int(full * 0.75) if pid in self.pressed else full   # just-clicked -> 75% (mis-click guard)
+        off = (full - s) // 2                  # keep it centred in its cell
+        b.setGeometry(c * self.sz + g // 2 + off, r * self.sz + g // 2 + off, s, s)
+        self.restyle(pid)
+
+    def set_pressed(self, pid, on):
+        """Shrink (on click) / restore (when the boat is next 'coming') a boat button, so a boat that
+        has just crossed can't easily be mis-clicked again before it's back near the line."""
+        if pid not in self.own:
+            return
+        (self.pressed.add if on else self.pressed.discard)(pid)
+        self._place(pid)
 
     def restyle(self, pid):
         b = self.own[pid][0]
@@ -439,6 +455,9 @@ class TimerPanel(QWidget):
     def _on_coming(self, key, et):
         self._phase[key] = "coming"
         self._restyle_boat(*key)
+        grid = self._grids.get((key[0], key[1]))    # boat closing again -> restore its full-size button
+        if grid is not None:
+            grid.set_pressed(key[2], False)
         QApplication.beep()
         t = self._predict.get(key)
         if t is not None:                           # then, after a further 0.4*et, 'late'
@@ -655,6 +674,7 @@ class TimerPanel(QWidget):
         grid = self._grids.get((cl, h))
         if grid is not None:
             grid.restyle(pid)
+            grid.set_pressed(pid, True)    # shrink the just-clicked button (mis-click guard) until 'coming'
         self._build_ladder(cl, h)          # re-slot the boat into its new zone
         self._arm_prediction(cl, h, pid)   # predict the next crossing -> closing hint
         if self.broadcast_btn.isChecked():  # the order changed -> (throttled) publish the live feed
