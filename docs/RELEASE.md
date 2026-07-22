@@ -92,6 +92,30 @@ superseded.
 - The installer path is inherently safest (same signed CI pipeline); prefer it when unsure.
 - `install_kind() == "source"` → informational only; never touch a git working tree.
 
+## 5. One-command release — `tools/release.py`
+
+The steps in §3 + the "Per-release doc checklist" below are scripted end-to-end in
+**`tools/release.py`**, so a quick rc cut is a single command:
+
+    python tools/release.py 3.0.0rc7            # mechanical notes, then commit → tag → verify
+    python tools/release.py 3.0.0rc7 --dry-run  # preview every step, mutate nothing
+
+It runs: preflight (on `main`, tree clean bar the files it edits, in sync with origin) → bump via
+`tools/bump_version.py` → **release notes** → `./tools/test.sh fast` → commit + push `main` → tag
+`v<ver>` (triggers `release.yml`, wheel-only) → poll `gh release view` (`--no-verify` to skip).
+
+**The notes step is AI-optional** (a fast rc must not wait on AI/human prose):
+- **`--mechanical-docs`** (default) writes a dated, clearly-labelled *"mechanical summary"* to
+  `docs/whats-new.md` (raw `git log <last-tag>..HEAD` subjects) + a `## Change log` line here. It is an
+  honest placeholder — replace it with organizer-facing prose before the **final** (non-rc) release.
+- **`--curated-docs`** expects a hand-written `docs/whats-new.md` section; it drops a `TODO(release)`
+  template and **blocks the tag** until that marker is gone (override with `--allow-todo`).
+- Either way `docs/whats-new.et.md` gets only a `TODO(release)` stub — the Estonian is **never**
+  auto-translated (the owner verifies it); that stub does not block the tag.
+
+Run it as the human/session holding git ownership — it makes real commits, a push, and a tag.
+`--installer <YYYY.MM>` also bumps the (separate, date-based) Windows-installer version.
+
 ## Per-release doc checklist
 
 Cutting a release is more than the version bump + tag — each release also updates:
