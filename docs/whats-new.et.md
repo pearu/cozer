@@ -19,6 +19,24 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Ajasõidud, ülevaatuse vormid ja otseülekanne telefonis (juuli 2026)
+
+<!-- release-notes:3.0.0rc8 -->
+
+- **Ajasõit saab õiglase tulemuse ja oma väljatrükivormi.** Aega **Start'ist esimese ringijooneni**
+  enam arvesse ei võeta — see on stardieelne lõik, mitte ring — nii et kiireim stardist ei saa enam
+  ebaausalt lühikest "parimat ringi". Uus **Treening / ajasõit** väljatrükk järjestab paadid nende
+  **parima täisringi** järgi, ilma punktide ja sõiduveergudeta (COZERi jaoks on treening ja soolo-ajasõit
+  sama asi).
+- **Korrastatud raportite sakk.** Kaasatavad klassid on nüüd jaotatud **faasi-kaartidele** — Ajasõidud /
+  Kvalifikatsioonid / Ring — ja iga klass on näha lihtsa nimega, ilma `/T` või `/Q` lõputa, mis inimesi
+  segas. (See parandas ka krahhi ajasõidu raporti tegemisel.)
+- **Võistluseelse ülevaatuse vormid.** Kaks uut väljatrükki — **Inspection (Cockpit)** ja **Inspection
+  (Non-cockpit)** — U.I.M. 2026 võistluseelsed ülevaatuse kontroll-lehed, iga paadi kohta oma leht, kus
+  klass, number ja sõitja on ette täidetud.
+- **Otseülekanne telefonis.** Ülekande lehekülg mahutab end nüüd kenasti **nutitelefoni**, nii et
+  jooksvat järjestust saab jälgida ka liikvel olles. (Videovoo jaoks mõeldud kroma-võti jääb samaks.)
+
 ## Ajavõtuvigade püüdmine ja puhtam otseülekanne (juuli 2026)
 
 <!-- release-notes:3.0.0rc7 -->

@@ -17,6 +17,23 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Time-trials, inspection forms, and the broadcast on a phone (July 2026)
+
+<!-- release-notes:3.0.0rc8 -->
+
+- **Time-trials scored fairly, with their own results form.** The time between **Start and the first
+  lap-line** is no longer counted — it is the run-up, not a lap — so the fastest boat off the line can't
+  get an unfairly short "best lap." A new **Practice / Time-trial** printout ranks boats by their **best
+  full lap**, with no points or heat columns (for COZER, practice and solo time-trial are the same).
+- **A tidier Reports tab.** The classes to include are now organised into **phase tabs** — Time-trials /
+  Qualifications / Circuit — showing each class by its plain name, without the `/T` or `/Q` ending that
+  confused people. (This also fixed a crash when generating the time-trial report.)
+- **Pre-race inspection forms.** Two new printouts — **Inspection (Cockpit)** and **Inspection
+  (Non-cockpit)** — the U.I.M. 2026 pre-race scrutineering checklists, one page per boat with the class,
+  number and driver pre-filled.
+- **The live broadcast on a phone.** The broadcast page now lays itself out nicely on a **smartphone**,
+  so you can follow the running order on the go. (The chroma-key overlay for a video stream is unchanged.)
+
 ## Catching timing mistakes, and a cleaner live broadcast (July 2026)
 
 <!-- release-notes:3.0.0rc7 -->
