@@ -31,7 +31,7 @@
 | cozer/reports/common.py       |      102 |        4 |       42 |        4 |     94% |48, 62, 95, 98 |
 | cozer/reports/endurance.py    |       95 |        1 |       36 |        2 |     98% |38-\>40, 53 |
 | cozer/reports/final.py        |      203 |        1 |       78 |        4 |     98% |62-\>60, 234-\>236, 237, 266-\>268 |
-| cozer/reports/inspection.py   |       51 |        0 |        4 |        0 |    100% |           |
+| cozer/reports/inspection.py   |       77 |        0 |       14 |        0 |    100% |           |
 | cozer/reports/intermediate.py |      123 |        0 |       46 |        1 |     99% | 150-\>121 |
 | cozer/reports/labels.py       |       15 |        0 |        0 |        0 |    100% |           |
 | cozer/reports/laps.py         |       54 |        0 |       16 |        0 |    100% |           |
@@ -44,7 +44,7 @@
 | cozer/seeding.py              |       89 |        0 |       36 |        1 |     99% | 144-\>142 |
 | cozer/store.py                |      227 |        5 |       72 |        3 |     97% |98, 267-268, 317-\>319, 351-\>exit, 354-355 |
 | cozer/validate.py             |      114 |        7 |       52 |        3 |     94% |63-\>65, 74-\>85, 105-106, 156, 166-167, 206-207 |
-| **TOTAL**                     | **6223** |  **475** | **2244** |  **247** | **90%** |           |
+| **TOTAL**                     | **6249** |  **475** | **2254** |  **247** | **90%** |           |
 
 
 ## Setup coverage badge
