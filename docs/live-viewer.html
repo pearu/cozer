@@ -37,6 +37,7 @@
   .name .first{ font-weight:400; color:var(--dim) }
   .laps{ font-size:16px; font-weight:700; text-align:center }
   .catch{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
+  .catch.neg{ color:#ffd24a }   /* projected AHEAD of the leader -> overtake brewing */
   /* Podium — the top-3 rows "stand up": TEXT-ONLY emphasis. A background/box-shadow would show as a
      band on the chroma-keyed video, so we enlarge + medal-tint the text, never the row itself. */
   .p1 .name, .p2 .name, .p3 .name{ font-size:22px; font-weight:850 }
@@ -126,15 +127,18 @@
     }
     var m = boatModel(b);
     if(!m || !leaderModel || t == null) return "…";        // no speed yet -> unknown
-    var gap = distAt(leaderModel, t) - distAt(m, t);       // distance the leader is ahead, right now
-    return "+" + (gap > 0 ? gap / m.v : 0).toFixed(1);     // seconds to cover it at this boat's speed
+    var secs = (distAt(leaderModel, t) - distAt(m, t)) / m.v;   // time behind the leader at this pace;
+    return (secs >= 0 ? "+" : "") + secs.toFixed(1);           // < 0 => projected AHEAD -> overtake brewing
   }
   function tickCatch(){                                     // refresh the live column between renders
     if(!started) return;
     var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
     boats.slice(0, maxRows).forEach(function(b, i){
       var s = catchSpans[b.no];
-      if(s) s.textContent = catchupCell(b, i, leaderModel, t);
+      if(!s) return;
+      var txt = catchupCell(b, i, leaderModel, t);
+      s.textContent = txt;
+      s.classList.toggle("neg", txt.charAt(0) === "-");     // negative -> projected overtake (highlight)
     });
   }
 
