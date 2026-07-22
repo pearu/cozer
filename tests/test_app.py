@@ -30,7 +30,10 @@ def test_window_builds_and_populates():
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
     assert w._fields["title"].text()                       # event form populated
-    assert w.report_tree.topLevelItemCount() == len(get_classes(ed))  # class/heat tree populated
+    # the class/heat tree is grouped by phase now: top level = phase groups, their children = classes
+    n_classes = sum(w.report_tree.topLevelItem(i).childCount()
+                    for i in range(w.report_tree.topLevelItemCount()))
+    assert n_classes == len(get_classes(ed))               # every class appears under some phase group
     assert w.report_combo.count() == 15                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial)
 
 
@@ -79,11 +82,12 @@ def test_export_report_writes_and_opens(tmp_path, monkeypatch):
     _app()
     ed = read_legacy_coz(EVENT)
     w = MainWindow(ed)
-    # check one class so _report_selection() is exercised (whole class -> all heats)
-    c0 = w.report_tree.topLevelItem(0)
+    # check one class so _report_selection() is exercised (whole class -> all heats). The tree is
+    # grouped by phase, so a class is a child of its phase group; the real class name is on UserRole.
+    c0 = w.report_tree.topLevelItem(0).child(0)
     c0.setCheckState(0, Qt.Checked)
     classes, _heat_map = w._report_selection()
-    assert classes == [c0.text(0)]
+    assert classes == [c0.data(0, Qt.UserRole)]
     out = str(tmp_path / "full_final.pdf")
     opened = []
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
@@ -677,11 +681,13 @@ def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     w = MainWindow(ed)
 
     def heats_of(cl):
-        tree = w.report_tree
+        tree = w.report_tree                              # phase group -> class (real name on UserRole)
         for i in range(tree.topLevelItemCount()):
-            c = tree.topLevelItem(i)
-            if c.text(0) == cl:
-                return [c.child(j).text(0) for j in range(c.childCount())]
+            grp = tree.topLevelItem(i)
+            for j in range(grp.childCount()):
+                c = grp.child(j)
+                if c.data(0, Qt.UserRole) == cl:
+                    return [c.child(k).text(0) for k in range(c.childCount())]
         return None
 
     assert heats_of("GT") == ["1"]                        # native heat shows (was empty/wrong)

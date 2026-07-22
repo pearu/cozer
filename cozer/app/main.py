@@ -1101,47 +1101,72 @@ class MainWindow(QMainWindow):
         self.timer_panel._refresh_broadcast_button()
         self.log("Broadcast settings saved (event '%s', channel '%s')." % (en, ch))
 
+    # Reports-tab class tree is grouped by PHASE (Time-trials / Qualifications / Circuit / ...) so the
+    # operator sees the base class name without the /T /Q suffix, which confused users (issue #29). The
+    # real (suffixed) class name is kept on each class item's UserRole for selection.
+    _PHASE_HEADER = {"timetrial": "Time-trials", "training": "Time-trials",
+                     "qualification": "Qualifications", "circuit": "Circuit", "endurance": "Endurance"}
+    _PHASE_ORDER = ["Time-trials", "Qualifications", "Circuit", "Endurance", "Other"]
+
     def _reload_classes(self):
-        """Populate the Reports tab's class/heat tree, preserving the operator's checks.
-        (Name kept: the Classes/Participants panel calls this when classes change; it is also
-        refreshed on entering the Reports tab, so heats recorded on other tabs show up.) Heats
-        are enumerated via the phase view, so the native record shape is transparent."""
-        prev = {}                                   # class name -> (class check, {heat: check})
+        """Populate the Reports tab's class/heat tree, grouped by phase, preserving the operator's
+        checks. (Name kept: the Classes/Participants panel calls this when classes change; it is also
+        refreshed on entering the Reports tab, so heats recorded on other tabs show up.) Heats are
+        enumerated via the phase view, so the native record shape is transparent."""
+        from cozer.classes import getclass
+        prev = {}                                   # real class name -> (class check, {heat: check})
         for i in range(self.report_tree.topLevelItemCount()):
-            c = self.report_tree.topLevelItem(i)
-            prev[c.text(0)] = (c.checkState(0),
-                               {c.child(j).text(0): c.child(j).checkState(0)
-                                for j in range(c.childCount())})
+            grp = self.report_tree.topLevelItem(i)
+            for j in range(grp.childCount()):
+                c = grp.child(j)
+                prev[c.data(0, Qt.UserRole)] = (
+                    c.checkState(0),
+                    {c.child(k).text(0): c.child(k).checkState(0) for k in range(c.childCount())})
         self.report_tree.clear()
         phase_map = class_phase_map(self.eventdata)  # synthesized class name -> its Phase (recorded)
+        buckets = {h: [] for h in self._PHASE_ORDER}
         for cl in get_classes(self.eventdata):
-            pstate, pheats = prev.get(cl, (Qt.Unchecked, {}))
-            c = QTreeWidgetItem(self.report_tree, [cl])
-            c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
             ph = phase_map.get(cl)
-            heat_ids = phase_heat_ids(ph) if ph is not None else []
-            for h in heat_ids:
-                hi = QTreeWidgetItem(c, [str(h)])
-                hi.setFlags(hi.flags() | Qt.ItemIsUserCheckable)
-                hi.setCheckState(0, pheats.get(str(h), Qt.Unchecked))
-            if not heat_ids:                         # childless class: no auto-tristate to derive from
-                c.setCheckState(0, Qt.Checked if pstate == Qt.Checked else Qt.Unchecked)
+            kind = ph.kind if ph is not None else None
+            buckets[self._PHASE_HEADER.get(kind, "Other")].append((cl, ph))
+        for header in self._PHASE_ORDER:
+            items = buckets[header]
+            if not items:                            # skip a phase with no classes
+                continue
+            grp = QTreeWidgetItem(self.report_tree, [header])
+            grp.setFlags(grp.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+            grp.setExpanded(True)
+            for cl, ph in items:
+                pstate, pheats = prev.get(cl, (Qt.Unchecked, {}))
+                c = QTreeWidgetItem(grp, [getclass(cl)])   # base name shown; real class name on UserRole
+                c.setData(0, Qt.UserRole, cl)
+                c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+                heat_ids = phase_heat_ids(ph) if ph is not None else []
+                for h in heat_ids:
+                    hi = QTreeWidgetItem(c, [str(h)])
+                    hi.setFlags(hi.flags() | Qt.ItemIsUserCheckable)
+                    hi.setCheckState(0, pheats.get(str(h), Qt.Unchecked))
+                if not heat_ids:                     # childless class: no auto-tristate to derive from
+                    c.setCheckState(0, Qt.Checked if pstate == Qt.Checked else Qt.Unchecked)
 
     def _report_selection(self):
-        """(classes, heat_map) from the report tree; (None, None) means 'all'.
-        A fully-checked class -> all its heats; a partially-checked class ->
-        only the checked heats (heat_map[cl])."""
+        """(classes, heat_map) from the report tree; (None, None) means 'all'. Walks the phase groups ->
+        classes; the real (suffixed) class name is read from each class item's UserRole. A fully-checked
+        class -> all its heats; a partially-checked class -> only the checked heats (heat_map[cl])."""
         classes, heat_map, any_checked = [], {}, False
         for i in range(self.report_tree.topLevelItemCount()):
-            c = self.report_tree.topLevelItem(i)
-            st = c.checkState(0)
-            if st == Qt.Unchecked:
-                continue
-            any_checked = True
-            classes.append(c.text(0))
-            if st == Qt.PartiallyChecked:
-                heat_map[c.text(0)] = [c.child(j).text(0) for j in range(c.childCount())
-                                       if c.child(j).checkState(0) == Qt.Checked]
+            grp = self.report_tree.topLevelItem(i)
+            for j in range(grp.childCount()):
+                c = grp.child(j)
+                st = c.checkState(0)
+                if st == Qt.Unchecked:
+                    continue
+                any_checked = True
+                cl = c.data(0, Qt.UserRole)
+                classes.append(cl)
+                if st == Qt.PartiallyChecked:
+                    heat_map[cl] = [c.child(k).text(0) for k in range(c.childCount())
+                                    if c.child(k).checkState(0) == Qt.Checked]
         if not any_checked:
             return None, None
         return classes, (heat_map or None)
