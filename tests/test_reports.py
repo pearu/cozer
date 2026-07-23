@@ -747,6 +747,26 @@ def test_lap_count_shown_only_when_short_uniform_plus_footnote():
     assert "L" not in _result_text(fullr, {})                        # lapsleft=0 -> no count
 
 
+def test_report_result_metric_speed_or_total_time():
+    # issue #34: the "Result: speed / total time" switch. Speed (default) -> avg/max km/h; total time ->
+    # the boat's total race time (M:SS.d), for the native Full Final + Intermediate.
+    from cozer.reports.final import build_full_final, full_final_html, build_full_final_legacy, fmt_race_time
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    ed = _full_finisher_event()                          # 3 laps x 20s = 60s total per heat
+    assert fmt_race_time(60.0) == "1:00.0" and fmt_race_time(110.7) == "1:50.7" and fmt_race_time(None) == "-"
+
+    im_sp = intermediate_html(build_intermediate(ed, options={"metric": "speed"}))
+    im_t = intermediate_html(build_intermediate(ed, options={"metric": "time"}))
+    assert "180.0" in im_sp.replace("&#8203;", "") and "180.0" not in im_t   # speed vs no-speed
+    assert "1:00.0" in im_t and "total race time" in im_t.lower()            # total time + footer note
+
+    ff_t = full_final_html(build_full_final(ed, options={"metric": "time"}))
+    assert "1:00.0" in ff_t and "total race time" in ff_t.lower()
+    # legacy stays byte-faithful (speed only) even if the metric is forced through
+    leg = full_final_html(build_full_final_legacy(ed))
+    assert "180.0" in leg.replace("&#8203;", "") and "1:00.0" not in leg
+
+
 def test_report_restart_notation():
     # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.

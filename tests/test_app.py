@@ -112,7 +112,10 @@ def test_report_options_reach_render(tmp_path, monkeypatch):
     _app()
     w = MainWindow(read_legacy_coz(EVENT))
     assert not hasattr(w, "opt_all_laps")                # the checkbox was removed
-    assert isinstance(w._report_options(), dict)          # options plumbing still present
+    assert w._report_options() == {"metric": "speed"}     # default speed (issue #34)
+    w.report_metric.setCurrentIndex(1)                    # Total time
+    assert w._report_options() == {"metric": "time"}
+    w.report_metric.setCurrentIndex(0)
 
     seen = {}
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",

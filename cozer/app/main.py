@@ -1020,7 +1020,17 @@ class MainWindow(QMainWindow):
         ol.addLayout(typerow)
         # The lap count is now shown automatically only for a boat short of the full distance (a report
         # footnote states "blank = full distance"), so the old "show lap count for all finishers" checkbox
-        # is gone (issue #34). The speed/total-time switch is added here next.
+        # is gone (issue #34).
+        metricrow = QHBoxLayout()
+        metricrow.addWidget(QLabel("Result column:"))
+        self.report_metric = combo()
+        self.report_metric.addItems(["Speed", "Total time"])       # default Speed (index 0)
+        self.report_metric.setToolTip(
+            "What the result column shows: average / best-lap speed (default), or each boat's total race "
+            "time. Use total time on an uncertified course, where speed must not be posted (UIM 302.01).")
+        metricrow.addWidget(self.report_metric)
+        metricrow.addStretch()
+        ol.addLayout(metricrow)
 
         # Live broadcast is a ONE-TIME setup (server URL / secret / event name / channel), reached from
         # the Broadcast menu (issue #34) -- not a tab button. The go-live toggle is on the Timer.
@@ -1209,7 +1219,7 @@ class MainWindow(QMainWindow):
     def _report_options(self):
         """The Report-options group-box state, as the ``options`` dict the render
         functions accept (only the reports flagged ``takes_options`` receive it)."""
-        return {}
+        return {"metric": "time" if self.report_metric.currentIndex() == 1 else "speed"}
 
     def _render_report(self, label, funcname, takes_classes, takes_heats, takes_options, path):
         """Render report ``label`` to ``path``; return True on success. A failure

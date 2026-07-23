@@ -12,9 +12,10 @@ from cozer.reports.common import (
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
     collect_penalty_notes, penalty_notes_html,
 )
-from cozer.reports.final import _result_text, _legend_html
+from cozer.reports.final import _result_text, _legend_html, fmt_race_time
 from cozer.reports.labels import get_labels
 from cozer.reports.render import render_pdf
+from cozer.records import gettimes
 
 
 def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
@@ -40,6 +41,9 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
         rulecodes = rule_action_codes(eventdata)
         res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         curheat = heats[-1]
+        # metric: speed (default) or the boat's total race time in the current heat (issue #34)
+        metric = "total_time" if (options or {}).get("metric") == "time" else "speed"
+        curtime = {p: sum(gettimes(marks)) for p, marks in heat_recs[curheat][1].items()}
         istt = ph.kind == "timetrial"                   # dispatch on the phase (was: curheat.endswith("t"))
         isqual = ph.kind == "qualification"
         multi = len(heats) > 1 and not isqual           # qual qheats are separate: no cross-heat summary
@@ -61,22 +65,32 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
             elif isqual:
-                row["result"] = _result_text(r, legend, native=True)
+                row["result"] = _result_text(r, legend, native=True, metric=metric,
+                                             total_time=curtime.get(str(pid), curtime.get(pid)))
                 row["status"] = qmarks.get(str(pid), "")           # "Q" / "DNQ"
             else:
-                row["result"] = _result_text(r, legend, native=True)
+                row["result"] = _result_text(r, legend, native=True, metric=metric,
+                                             total_time=curtime.get(str(pid), curtime.get(pid)))
                 row["points"] = str(r["points"]) if scored else "-"
             if multi:
                 sr = sumres.get(pid, {})
                 ok = sr.get("place", 0) > 0
-                row["best"] = ("%.1f/&#8203;%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if ok else "-"
+                if not ok:
+                    row["best"] = "-"
+                elif metric == "total_time":        # summary = the boat's total race time across heats
+                    row["best"] = fmt_race_time(sum(
+                        sum(gettimes(heat_recs[h][1].get(str(pid), heat_recs[h][1].get(pid, []))))
+                        for h in heats if res[h].get(pid)))
+                else:
+                    row["best"] = "%.1f/&#8203;%.1f" % (sr["avgspeed"], sr["maxlapspeed"])
                 row["sumpoints"] = str(sr["points"]) if ok else "-"
             rows.append(row)
         st = heat_recs[curheat][0].get("starttime")
         starttime = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(st)) if st else labels["None"]
-        # a time-trial table shows Lap Time, not speed, so its footer explains Lap Time instead
-        # of the default speed ResNote; a qualification table adds the Q/DNQ key.
-        resnote = labels["LapTimeNote"] if istt else None
+        # a time-trial table shows Lap Time (not speed); a total-time table shows the TimeNote; else the
+        # default speed ResNote. A qualification table adds the Q/DNQ key.
+        resnote = (labels["LapTimeNote"] if istt else
+                   labels["TimeNote"] if metric == "total_time" else None)
         qnote = labels["QualifyNote"] if isqual else None
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
                        "isqual": isqual, "qcount": qcount, "starttime": starttime,

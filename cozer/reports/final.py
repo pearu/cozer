@@ -12,7 +12,7 @@ from cozer.reports.common import (
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
-from cozer.records import UIM209_CODES
+from cozer.records import UIM209_CODES, gettimes
 
 
 def _legend_index(legend, code, rules):
@@ -22,20 +22,31 @@ def _legend_index(legend, code, rules):
     return legend[key]
 
 
-def _result_text(r, legend, native=False):
-    """Per-heat result cell (adapted from legacy res2latex): speeds + note codes. Numbers break only at
-    the slash. The completed-lap count ``/NL`` is shown ONLY for a boat short of the full distance (its
+def fmt_race_time(secs):
+    """A compact race time for a result cell: ``M:SS.d`` (e.g. ``0:55.3``, ``1:50.7``). ``-`` for None."""
+    if secs is None:
+        return "-"
+    secs = round(float(secs), 1)
+    m, s = divmod(secs, 60)
+    return "%d:%04.1f" % (int(m), s)
+
+
+def _result_text(r, legend, native=False, metric="speed", total_time=None):
+    """Per-heat result cell (adapted from legacy res2latex): the result metric + note codes. Numbers break
+    only at the slash. ``metric`` picks the metric shown (issue #34): ``"speed"`` -> avg/max speed (km/h,
+    the default, §209/§318 basis); ``"total_time"`` -> the boat's total race time ``total_time`` (M:SS.d --
+    §209 "time OR speed", and the §302.01 fallback on an uncertified course where speed must not be
+    posted). The completed-lap count ``/NL`` is appended ONLY for a boat short of the full distance (its
     classification then depends on laps, §317.01); a boat with no ``/NL`` completed all required laps -- a
-    report footnote states that convention (issue #34, uniform across the result reports). In ``native``
-    mode (issue #33) the note codes carry NO footnote superscript -- the rule article + any reason live in
-    the Notes section -- the codes seen feed a plain footer key."""
+    report footnote states the convention. In ``native`` mode (issue #33) the note codes carry NO footnote
+    superscript -- the rule article + any reason live in the Notes section -- the codes feed a footer key."""
     laps, penlapsleft, lapsleft = r["lapinfo"]
     text = ""
     if r["points"] >= 0:
+        text = fmt_race_time(total_time) if metric == "total_time" else \
+            "%.1f/%.1f" % (r["avgspeed"], r["maxlapspeed"])
         if lapsleft:                                    # short of the full distance -> show completed laps
-            text = "%.1f/%.1f/%sL" % (r["avgspeed"], r["maxlapspeed"], laps)
-        else:
-            text = "%.1f/%.1f" % (r["avgspeed"], r["maxlapspeed"])
+            text += "/%sL" % laps
     text = text.replace("/", "/&#8203;")   # &#8203; = zero-width space: a wrap point after the slash
     notes = r["notes"]
     if not notes:
@@ -139,6 +150,11 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
         res = {h: analyze(h, heat_recs[h], ss, rulecodes) for h in heats}
         sumres = sumanalyze(heats, res, _sheats(eventdata, cl, len(heats)))
         order = getsumresorder(sumres)
+        # metric: speed (default) or the boat's total race time (§302.01 uncertified-course fallback).
+        # Native-only -- the legacy report stays byte-faithful (speed). time[h][pid] = the boat's total
+        # elapsed time in heat h (sum of its lap durations); the summary shows the sum across heats.
+        metric = "total_time" if (phase_native and (options or {}).get("metric") == "time") else "speed"
+        htime = {h: {p: sum(gettimes(marks)) for p, marks in heat_recs[h][1].items()} for h in heats}
         # UIM 209 DNQ tail: when a qualification phase feeds this finals phase, the report
         # lists every entered boat -- finalists in the classified body, non-qualifiers below.
         # A new-convention feature only: the legacy report stays byte-faithful.
@@ -157,8 +173,16 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
                 rh = res[h].get(pid)                # a boat need not have raced every heat
                 heatcells.append(
                     {"result": "-", "points": "-"} if rh is None else
-                    {"result": _result_text(rh, legend, native=phase_native),
+                    {"result": _result_text(rh, legend, native=phase_native, metric=metric,
+                                            total_time=htime[h].get(str(pid), htime[h].get(pid))),
                      "points": str(rh["points"]) if rh["place"] > 0 else "-"})
+            if not scored:
+                best = "-"
+            elif metric == "total_time":            # summary = the boat's total race time across heats
+                best = fmt_race_time(sum(htime[h].get(str(pid), htime[h].get(pid, 0)) for h in heats
+                                         if res[h].get(pid)))
+            else:
+                best = "%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])
             rows.append({
                 "place": str(sr["place"]) if scored else "",
                 "name": names[0].strip(),
@@ -167,14 +191,15 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
                 "nat": nats.get((cl, str(pid)), ""),
                 "id": str(pid),
                 "heats": heatcells,
-                "best": ("%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])) if scored else "-",
+                "best": best,
                 "sumpoints": str(sr["points"]) if scored else "-",
             })
         if finalist_set is not None:
             rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, nats, len(heats)))
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels, native=phase_native,
-                                              laps_note=phase_native)})   # native shows /NL-when-short
+                                              laps_note=phase_native,
+                                              note=(labels["TimeNote"] if metric == "total_time" else None))})
         kinds.append(ph.kind)
     subtitle = phase_kinds_subtitle(labels, kinds) if phase_native else ""
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
