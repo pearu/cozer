@@ -8,7 +8,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
-    collect_penalty_notes, penalty_notes_html,
+    collect_penalty_notes, penalty_notes_html, tiebreak_notes,
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
@@ -134,7 +134,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
         classes = get_classes(eventdata)
     parts = participants_index(eventdata)
     nats = nationalities_index(eventdata)
-    tables, kinds = [], []
+    tables, kinds, tiebreak = [], [], []
     for cl in classes:
         ph = phase_of.get(cl)
         if ph is None:                                  # no such phase
@@ -199,6 +199,18 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
             })
         if finalist_set is not None:
             rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, nats, len(heats)))
+        if phase_native:                        # §318.03 fastest-lap notes (native only) -- issue #34
+            ranked = []
+            for pid in order:                   # classified order; scored boats only
+                srp = sumres[pid]
+                if srp["place"] <= 0:
+                    continue
+                bt = min((d for h in heats
+                          for d in gettimes(heat_recs[h][1].get(str(pid), heat_recs[h][1].get(pid, [])))
+                          if d > 0), default=None)                       # fastest lap time (any heat)
+                ranked.append((srp["place"], str(pid), srp["points"], srp["avgspeed"],
+                               srp["maxlapspeed"], bt))
+            tiebreak += [(getclass(cl), line) for line in tiebreak_notes(ranked, metric, labels)]
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
                        "legend": _legend_html(legend, labels, native=phase_native,
                                               laps_note=phase_native,
@@ -211,6 +223,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
             # From/Nationality columns + the §209 posting block + the issue-#33 notes are native-only
             # (legacy stays byte-faithful: From always, no Nationality, no posting block, no notes).
             "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels) if phase_native else None,
+            "tiebreak": tiebreak if phase_native else None,
             "show_from": show_from(eventdata) if phase_native else True,
             "show_nat": show_nationality(eventdata) if phase_native else False,
             "posting": phase_native}
@@ -315,8 +328,9 @@ def _table_html(t, labels, full, show_f=True, show_n=False):
 def _results_html(model):
     show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     body = [_table_html(t, model["labels"], model["full"], show_f, show_n) for t in model["tables"]]
-    nh = penalty_notes_html(model.get("penalty_notes"), model["labels"])   # issue #33 (native only; ''
-    if nh:                                                                 # for legacy -> byte-faithful)
+    nh = penalty_notes_html(model.get("penalty_notes"), model["labels"],   # issue #33 + §318.03 (#34);
+                            tiebreak=model.get("tiebreak"))                 # native only, '' for legacy
+    if nh:
         body.append(nh)
     return document_html(model["orientation"], model["labels"], model["meta"], model["heading"],
                          body, subtitle=model.get("subtitle", ""),

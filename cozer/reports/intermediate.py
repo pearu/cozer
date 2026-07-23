@@ -10,7 +10,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
-    collect_penalty_notes, penalty_notes_html,
+    collect_penalty_notes, penalty_notes_html, tiebreak_notes,
 )
 from cozer.reports.final import _result_text, _legend_html, fmt_race_time
 from cozer.reports.labels import get_labels
@@ -26,7 +26,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
         classes = get_classes(eventdata)
     parts = participants_index(eventdata)
     nats = nationalities_index(eventdata)
-    tables = []
+    tables, tiebreak = [], []
     for cl in classes:
         ph = phase_of.get(cl)
         if ph is None:                                  # no such phase
@@ -86,6 +86,17 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                     row["best"] = "%.1f/&#8203;%.1f" % (sr["avgspeed"], sr["maxlapspeed"])
                 row["sumpoints"] = str(sr["points"]) if ok else "-"
             rows.append(row)
+        if not istt and not isqual:             # §318.03 fastest-lap notes for the circuit result (#34)
+            ranked = []
+            for pid in getresorder(res[curheat]):
+                rp = res[curheat][pid]
+                if rp["place"] <= 0:
+                    continue
+                bt = min((d for d in gettimes(heat_recs[curheat][1].get(str(pid),
+                          heat_recs[curheat][1].get(pid, []))) if d > 0), default=None)
+                ranked.append((rp["place"], str(pid), rp["points"], rp["avgspeed"],
+                               rp["maxlapspeed"], bt))
+            tiebreak += [(getclass(cl), line) for line in tiebreak_notes(ranked, metric, labels)]
         st = heat_recs[curheat][0].get("starttime")
         starttime = _time.strftime("%Y-%m-%d %H:%M", _time.localtime(st)) if st else labels["None"]
         # a time-trial table shows Lap Time (not speed); a total-time table shows the TimeNote; else the
@@ -100,6 +111,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables, "posting": True,
             "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels),
+            "tiebreak": tiebreak,
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -166,7 +178,8 @@ def intermediate_html(model):
                     '<tbody>%s</tbody></table>' % ("".join(cols), head, "".join(rows)))
         if t["legend"]:
             body.append('<div class="legend">%s</div>' % t["legend"])
-    nh = penalty_notes_html(model.get("penalty_notes"), L)            # issue #33: notes after the tables
+    nh = penalty_notes_html(model.get("penalty_notes"), L,            # issue #33 + §318.03 notes (#34)
+                            tiebreak=model.get("tiebreak"))
     if nh:
         body.append(nh)
     return document_html(model["orientation"], L, model["meta"], model["heading"], body,

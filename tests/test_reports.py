@@ -747,6 +747,52 @@ def test_lap_count_shown_only_when_short_uniform_plus_footnote():
     assert "L" not in _result_text(fullr, {})                        # lapsleft=0 -> no count
 
 
+def test_tiebreak_notes_fastest_lap():
+    # issue #34 point 5 (§318.03): a placing decided by best lap speed (equal points + equal avg speed,
+    # broken by max lap speed) emits one note per tie-group; the shown metric follows the speed/time
+    # switch. A true dead heat (equal max lap speed too) emits nothing.
+    from cozer.reports.common import tiebreak_notes
+    from cozer.reports.labels import get_labels
+    L = get_labels({"configure": {"language": "English"}})
+    # (place, boat, points, avgspeed, maxlapspeed, best_lap_time); places 2-3 tie on points+avg, split by lap
+    ranked = [(1, "5", 20, 160.0, 160.0, 20.0),
+              (2, "12", 18, 150.0, 92.4, 24.85),
+              (3, "7", 18, 150.0, 91.8, 25.02),
+              (4, "9", 15, 140.0, 140.0, 26.0)]
+    assert tiebreak_notes(ranked, "speed", L) == [
+        "Places 2-3 decided on fastest lap (§318.03): #12 (92.4 km/h) over #7 (91.8 km/h)"]
+    assert tiebreak_notes(ranked, "total_time", L) == [
+        "Places 2-3 decided on fastest lap (§318.03): #12 (24.85 s) over #7 (25.02 s)"]
+    # a §318.02 tie (broken by AVG speed, not lap) -> no note; the Speed column already shows why
+    avg_split = [(1, "12", 18, 151.0, 92.0, 24.0), (2, "7", 18, 150.0, 92.0, 24.0)]
+    assert tiebreak_notes(avg_split, "speed", L) == []
+    # a true dead heat (points + avg + max lap all equal) -> no §318.03 decision -> no note
+    dead = [(1, "12", 18, 150.0, 92.0, 24.0), (2, "7", 18, 150.0, 92.0, 24.0)]
+    assert tiebreak_notes(dead, "speed", L) == []
+
+
+def test_full_final_emits_fastest_lap_note_on_tie():
+    # end-to-end: two boats tie on points (18) and best avg speed (180.0) across two heats, split by best
+    # lap speed (#1's 18s lap -> 200 km/h vs #2's 20s -> 180). The Full Final's Notes section says so.
+    from cozer.native import to_native
+    from cozer.reports.final import build_full_final, full_final_html
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [10, 8], "rules": [], "races": [],
+        "participants": [["", "A", "", "EST", "GT", "1"], ["", "B", "", "FIN", "GT", "2"]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {
+            "1": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                  {"1": [(1, 20.0)] * 3, "2": [(1, 20.0), (1, 20.0), (1, 22.0)]}],   # #1 wins heat 1
+            "2": [{"course": [1000, 1000, 1000], "racetime": 1000.0},
+                  {"1": [(1, 18.0), (1, 22.0), (1, 22.0)], "2": [(1, 20.0)] * 3}]}}, # #2 wins heat 2
+    })
+    html = full_final_html(build_full_final(ed))
+    assert "Places 1-2 decided on fastest lap (§318.03): #1 (200.0 km/h) over #2 (180.0 km/h)" in html
+    # time mode: same fact, shown as the best-lap TIME (18.00 s vs 20.00 s)
+    ht = full_final_html(build_full_final(ed, options={"metric": "time"}))
+    assert "#1 (18.00 s) over #2 (20.00 s)" in ht
+
+
 def test_report_result_metric_speed_or_total_time():
     # issue #34: the "Result: speed / total time" switch. Speed (default) -> avg/max km/h; total time ->
     # the boat's total race time (M:SS.d), for the native Full Final + Intermediate.

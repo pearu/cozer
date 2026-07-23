@@ -25,6 +25,8 @@ LABELS = {
         "LapCountNote": "A lap count (e.g. /5L) is shown only for a boat short of the full distance; "
                         "a boat with no lap count completed all required laps",
         "TimeNote": "Result = total race time [M:SS.d]",
+        "FastestLapNote": "Places %s decided on fastest lap (§318.03): %s",
+        "FastestLapOver": "over",
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",
         "LapTimeNote": "Lap Time = best full lap [s]",   # time-trial footer (305.04.02)
         "QualifyNote": "Q = qualified, DNQ = did not qualify",   # qualification Q/DNQ key
@@ -63,6 +65,8 @@ LABELS = {
         "LapCountNote": "Ringide arv (nt /5L) näidatakse ainult paadil, kes ei läbinud täisdistantsi; "
                         "ringide arvuta paat läbis kõik nõutud ringid",
         "TimeNote": "Tulemus = koguaeg [M:SS.d]",
+        "FastestLapNote": "Kohad %s otsustatud kiireima ringi järgi (§318.03): %s",
+        "FastestLapOver": "enne",
         "ResNote": "Tulemus = (Keskmine kiirus) / (Parim ringi kiirus) [km/h]",
         "LapTimeNote": "Ringi aeg = kiireim täisring [s]",   # ET verified by owner
         "QualifyNote": "Q = kvalifitseerus, DNQ = ei kvalifitseerunud",   # ET verified by owner

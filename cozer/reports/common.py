@@ -72,18 +72,51 @@ def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):
     return out
 
 
-def penalty_notes_html(notes, labels):
-    """The 'Notes' section (issue #33) placed after a report's results tables, from
-    ``collect_penalty_notes`` output — grouped by class, one line per note. '' when there is none."""
-    if not notes:
+def penalty_notes_html(notes, labels, tiebreak=None):
+    """The 'Notes' section (issue #33) placed after a report's results tables — grouped by class, one line
+    per note. ``notes`` is ``collect_penalty_notes`` output (per-mark reasons); ``tiebreak`` is optional
+    ``[(class_display, line), ...]`` for the §318.03 fastest-lap decisions (issue #34 point 5). Both merge
+    into one per-class list, penalty notes first. '' when there is nothing to show."""
+    from collections import OrderedDict
+    byclass = OrderedDict()
+    for cl, _h, line in (notes or []):
+        byclass.setdefault(cl, []).append(line)
+    for cl, line in (tiebreak or []):
+        byclass.setdefault(cl, []).append(line)
+    if not byclass:
         return ""
-    from itertools import groupby
     blocks = ['<h3 class="class-heading">%s</h3>' % esc(labels["PenaltyNotes"])]
-    for cl, group in groupby(notes, key=lambda t: t[0]):
+    for cl, lines in byclass.items():
         blocks.append('<div class="event-meta">%s %s</div>' % (esc(labels["Class"]), esc(cl)))
-        blocks.append("<ul class=\"notes\">%s</ul>"
-                      % "".join("<li>%s</li>" % esc(line) for _c, _h, line in group))
+        blocks.append("<ul class=\"notes\">%s</ul>" % "".join("<li>%s</li>" % esc(line) for line in lines))
     return '<div class="penalty-notes">%s</div>' % "".join(blocks)
+
+
+def tiebreak_notes(ranked, metric, labels):
+    """§318.03 auto-notes: where the placing between adjacent classified boats is decided by best lap
+    speed -- equal points AND equal (stored, round2) average speed, then broken by best lap speed -- the
+    deciding number is otherwise invisible, so emit one note per tie-group. ``ranked`` is the classified
+    boats in placing order as ``(place, boat, points, avgspeed, maxlapspeed, best_lap_time)``. ``metric``
+    follows the result-column switch: ``"speed"`` shows each boat's best lap speed (km/h), ``"total_time"``
+    shows its best lap TIME (s). A group whose boats all share the same best lap speed is a true dead heat
+    (not decided by §318.03) -> no note. Returns display lines (``[]`` when nothing was so decided)."""
+    over = " %s " % labels["FastestLapOver"]
+    out, i, n = [], 0, len(ranked)
+    while i < n:
+        j = i + 1
+        while j < n and ranked[j][2] == ranked[i][2] and ranked[j][3] == ranked[i][3]:
+            j += 1                                       # same points AND same avg speed -> one group
+        group = ranked[i:j]
+        if len(group) >= 2 and len({g[4] for g in group}) > 1:   # order decided by best lap speed
+            places = [g[0] for g in group]
+            rng = "%d-%d" % (min(places), max(places))
+            boats = over.join(
+                "#%s (%s)" % (boat, ("%.1f km/h" % maxsp) if metric != "total_time"
+                              else ("%.2f s" % bt if bt else "-"))
+                for (_pl, boat, _pts, _avg, maxsp, bt) in group)
+            out.append(labels["FastestLapNote"] % (rng, boats))
+        i = j
+    return out
 
 
 def esc(s):
