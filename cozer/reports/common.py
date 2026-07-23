@@ -92,6 +92,24 @@ def penalty_notes_html(notes, labels, tiebreak=None):
     return '<div class="penalty-notes">%s</div>' % "".join(blocks)
 
 
+def fastest_lap_time(heat_recs, heats, pid):
+    """The measured DURATION of a boat's fastest (max-speed) lap across ``heats`` -- the time counterpart
+    of the analyzer's ``maxlapspeed``, so the §318.03 note's time value names the SAME lap the decision
+    used (exact even on an unequal-length course; == the min lap duration when all laps are equal). ``None``
+    if the boat has no completed lap. Derived from the record so the analyzer/golden are untouched."""
+    from cozer.records import gettimes
+    best_speed, best_dur = -1.0, None
+    for h in heats:
+        info, boats = heat_recs[h]
+        course = info.get("course") or []
+        for i, dt in enumerate(gettimes(boats.get(str(pid), boats.get(pid, [])))):
+            if dt > 0 and course:
+                sp = course[min(i, len(course) - 1)] / dt          # same lap-speed basis as the analyzer
+                if sp > best_speed:
+                    best_speed, best_dur = sp, dt
+    return best_dur
+
+
 def tiebreak_notes(ranked, metric, labels):
     """§318.03 auto-notes: where the placing between adjacent classified boats is decided by best lap
     speed -- equal points AND equal (stored, round2) average speed, then broken by best lap speed -- the

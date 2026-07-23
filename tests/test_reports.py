@@ -771,6 +771,19 @@ def test_tiebreak_notes_fastest_lap():
     assert tiebreak_notes(dead, "speed", L) == []
 
 
+def test_fastest_lap_time_uses_max_speed_lap_not_min_duration():
+    # the §318.03 time value names the max-SPEED lap (matching maxlapspeed), exact even on an unequal
+    # course -- not simply the shortest-duration lap.
+    from cozer.reports.common import fastest_lap_time
+    # lap1 500m/10s = 50 m/s; lap2 1000m/15s = 66.7 m/s -> fastest = lap2 (15s), though lap1 is shorter
+    unequal = {"1": [{"course": [500, 1000]}, {"7": [(1, 10.0), (1, 15.0)]}]}
+    assert fastest_lap_time(unequal, ["1"], "7") == 15.0
+    # equal-length laps -> the max-speed lap IS the shortest duration
+    equal = {"1": [{"course": [1000, 1000]}, {"7": [(1, 20.0), (1, 18.0)]}]}
+    assert fastest_lap_time(equal, ["1"], "7") == 18.0
+    assert fastest_lap_time({"1": [{"course": [1000]}, {"7": []}]}, ["1"], "7") is None   # no lap -> None
+
+
 def test_full_final_emits_fastest_lap_note_on_tie():
     # end-to-end: two boats tie on points (18) and best avg speed (180.0) across two heats, split by best
     # lap speed (#1's 18s lap -> 200 km/h vs #2's 20s -> 180). The Full Final's Notes section says so.

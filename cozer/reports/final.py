@@ -8,7 +8,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
-    collect_penalty_notes, penalty_notes_html, tiebreak_notes,
+    collect_penalty_notes, penalty_notes_html, tiebreak_notes, fastest_lap_time,
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
@@ -205,9 +205,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
                 srp = sumres[pid]
                 if srp["place"] <= 0:
                     continue
-                bt = min((d for h in heats
-                          for d in gettimes(heat_recs[h][1].get(str(pid), heat_recs[h][1].get(pid, [])))
-                          if d > 0), default=None)                       # fastest lap time (any heat)
+                bt = fastest_lap_time(heat_recs, heats, pid)            # duration of the max-speed lap
                 ranked.append((srp["place"], str(pid), srp["points"], srp["avgspeed"],
                                srp["maxlapspeed"], bt))
             tiebreak += [(getclass(cl), line) for line in tiebreak_notes(ranked, metric, labels)]

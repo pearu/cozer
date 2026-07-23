@@ -10,7 +10,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
-    collect_penalty_notes, penalty_notes_html, tiebreak_notes,
+    collect_penalty_notes, penalty_notes_html, tiebreak_notes, fastest_lap_time,
 )
 from cozer.reports.final import _result_text, _legend_html, fmt_race_time
 from cozer.reports.labels import get_labels
@@ -92,8 +92,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                 rp = res[curheat][pid]
                 if rp["place"] <= 0:
                     continue
-                bt = min((d for d in gettimes(heat_recs[curheat][1].get(str(pid),
-                          heat_recs[curheat][1].get(pid, []))) if d > 0), default=None)
+                bt = fastest_lap_time(heat_recs, [curheat], pid)       # duration of the max-speed lap
                 ranked.append((rp["place"], str(pid), rp["points"], rp["avgspeed"],
                                rp["maxlapspeed"], bt))
             tiebreak += [(getclass(cl), line) for line in tiebreak_notes(ranked, metric, labels)]
