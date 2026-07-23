@@ -17,6 +17,15 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## A fix for total-time results (July 2026)
+
+<!-- release-notes:3.0.0rc10 -->
+
+- **Total-time results now show each boat's fastest heat.** When the Reports **Result: total time**
+  option is used, a multi-heat final's summary time is the boat's **fastest single heat** (matching the
+  speed view's best-heat figure), not the heats added together. Only the total-time view (off by
+  default) is affected.
+
 ## No more "frozen" screen, penalty notes on results, and a complete inspection form (July 2026)
 
 <!-- release-notes:3.0.0rc9 -->

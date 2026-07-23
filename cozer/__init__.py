@@ -7,4 +7,4 @@ preserved under ``legacy/`` and remains the bug-for-bug reference during the
 port (see ``MAINTENANCE_PLAN.md``).
 """
 
-__version__ = "3.0.0rc9"
+__version__ = "3.0.0rc10"

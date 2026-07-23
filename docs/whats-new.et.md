@@ -19,6 +19,14 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Parandus koguaja-tulemustele (juuli 2026)
+
+<!-- release-notes:3.0.0rc10 -->
+
+- **Koguaja-tulemused näitavad nüüd iga paadi kiireimat sõitu.** Kui Reports-sakil on valitud
+  **Result: total time**, on mitmesõidulise finaali kokkuvõtte aeg paadi **kiireim üksiksõit** (nagu
+  kiiruse vaate parim sõit), mitte sõitude summa. Mõjutab ainult koguaja vaadet (vaikimisi väljas).
+
 ## Enam ei "hangu", karistuste märkused tulemustel ja täielik ülevaatuse vorm (juuli 2026)
 
 <!-- release-notes:3.0.0rc9 -->
