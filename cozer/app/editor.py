@@ -22,15 +22,15 @@ import time
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QScrollArea,
-    QToolTip, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMenu, QMessageBox,
+    QPlainTextEdit, QPushButton, QScrollArea, QToolTip, QVBoxLayout, QWidget,
 )
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
 from cozer.app.grids import confirm_delete
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
-from cozer.records import insertmark, invreccodemap, reccodemap
+from cozer.records import insertmark, invreccodemap, marknote, reccodemap, setmarknote
 from cozer.validate import suspect_marks       # shared self-calibrating mis-click detector
 
 LAP = QColor(255, 127, 0)
@@ -151,6 +151,44 @@ def delete_nearest(marks, ct, coef, tol=5):
             marks[ni] = [marks[ni][0], marks[ni][1] + marks[ii][1]] + list(marks[ni][2:])
         del marks[ii]
     return None
+
+
+def nearest_event_mark(marks, ct):
+    """Index of the operator-inserted (non-lap) mark closest in time to ``ct`` — a rule / penalty / card
+    / IR / DNF / DS / lost-lap mark, positioned at its absolute time ``m[1]``. Lap crossings (codes
+    (+/-)1, (+/-)2) are ignored — a note never attaches to a lap (issue #33). ``None`` if there is no
+    event mark."""
+    best_d, best_i = None, None
+    for i, m in enumerate(marks):
+        if abs(m[0]) in (1, 2):
+            continue
+        d = abs(ct - (m[1] if len(m) > 1 else 0))
+        if best_d is None or d < best_d:
+            best_d, best_i = d, i
+    return best_i
+
+
+_PHASE_NAME = {"timetrial": "Time-trial", "training": "Training", "qualification": "Qualification",
+               "circuit": "Circuit", "endurance": "Endurance"}
+
+
+def rule_text_for(eventdata, code_name, article):
+    """The UIM rule description for a ``code_name`` + ``article`` from the event's rules, or ''."""
+    art = (article or "").strip()
+    for r in eventdata.get("rules", []):
+        if len(r) > 3 and r[1] == code_name and (r[2] or "").strip() == art:
+            return (r[3] or "").strip()
+    return ""
+
+
+def participant_name_nat(eventdata, cl, pid):
+    """(full name, nationality) for boat ``pid`` in class ``cl``, or ('', '')."""
+    from cozer.classes import getclass
+    base = getclass(cl)
+    for r in eventdata.get("participants", []):
+        if len(r) > 5 and getclass(r[4]) == base and str(r[5]) == str(pid):
+            return ("%s %s" % ((r[1] or "").strip(), (r[2] or "").strip())).strip(), (r[3] or "").strip()
+    return "", ""
 
 
 def _ordinal(n):
@@ -684,6 +722,7 @@ class EditRecordsPanel(QWidget):
         menu.addAction("Insert lap here").triggered.connect(lambda: self.insert_lap(cl, h, pid, ct))
         menu.addAction("Enable/Disable nearest").triggered.connect(lambda: self.toggle_at(cl, h, pid, ct))
         menu.addAction("Delete nearest").triggered.connect(lambda: self.delete_at(cl, h, pid, ct))
+        menu.addAction("Edit note…").triggered.connect(lambda: self.open_note_dialog(pid, ct))
         return menu
 
     def open_mark_menu(self, pid, ct, global_pos):      # pragma: no cover - shows a modal menu
@@ -691,3 +730,66 @@ class EditRecordsPanel(QWidget):
             return
         self.build_mark_menu(pid, ct).exec(
             global_pos if isinstance(global_pos, QPoint) else QPoint(0, 0))
+
+    # ---- Edit note (issue #33): a free-text reason on an inserted rule/penalty/lost-lap mark ----
+    def note_context(self, cl, h, pid, ct):
+        """Read-only context for the Edit-note dialog: ``(idx, code_name, article, note, ruletext, phase,
+        name, nat)`` for the nearest event mark to ``ct``, or ``None`` if there is none."""
+        marks = (self._draft[1].get(pid) or []) if self._draft else []
+        idx = nearest_event_mark(marks, ct)
+        if idx is None:
+            return None
+        m = marks[idx]
+        code_name = invreccodemap.get(abs(m[0]), str(abs(m[0])))
+        article = (m[2] if len(m) > 2 else "").strip()
+        ph = class_phase_map(self.window.eventdata).get(cl)
+        phase = _PHASE_NAME.get(ph.kind if ph is not None else None, "—")
+        name, nat = participant_name_nat(self.window.eventdata, cl, pid)
+        return (idx, code_name, article, marknote(m),
+                rule_text_for(self.window.eventdata, code_name, article), phase, name, nat)
+
+    def set_note_at(self, cl, h, pid, ct, text):
+        """Set the free-text note on the nearest event mark to ``ct`` (issue #33), buffered into the draft
+        like every other edit. Returns True if a mark was found and updated."""
+        marks = self._draft[1].get(pid) if self._draft else None
+        if not marks:
+            return False
+        idx = nearest_event_mark(marks, ct)
+        if idx is None:
+            return False
+        new = [list(m) for m in marks]
+        new[idx] = setmarknote(new[idx], (text or "").strip())
+        self._commit(cl, h, pid, new)
+        return True
+
+    def open_note_dialog(self, pid, ct):     # pragma: no cover - modal dialog
+        from cozer.classes import getclass
+        cl, h = self._cur()
+        if cl is None or self._draft is None:
+            return
+        info = self.note_context(cl, h, pid, ct)
+        if info is None:
+            self.window.log("No rule / penalty / lost-lap mark near here — a note attaches to an "
+                            "inserted mark, never a lap crossing.")
+            return
+        _idx, code_name, article, note, ruletext, phase, name, nat = info
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Edit note")
+        v = QVBoxLayout(dlg)
+        who = ("%s (%s)" % (name, nat)).strip() if name else ""
+        ctx = QLabel("Class %s · %s · Heat %s · Boat %s%s\nRule: %s%s%s"
+                     % (getclass(cl), phase, h, pid, ("  —  " + who) if who else "",
+                        code_name, (" (%s)" % article) if article else "",
+                        ("  —  " + ruletext) if ruletext else ""))
+        ctx.setWordWrap(True)
+        ctx.setStyleSheet("color:#444;")
+        v.addWidget(ctx)
+        edit = QPlainTextEdit(note)
+        edit.setPlaceholderText("Handwritten reason / explanation (leave empty to clear)…")
+        v.addWidget(edit)
+        bb = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        v.addWidget(bb)
+        if dlg.exec() == QDialog.Accepted:
+            self.set_note_at(cl, h, pid, ct, edit.toPlainText())

@@ -8,6 +8,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
+    collect_penalty_notes, penalty_notes_html,
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
@@ -165,8 +166,9 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
             "full": full, "heading": labels["FinalResults"], "tables": tables,
             "subtitle": subtitle,
-            # From/Nationality columns + the §209 posting block are native-only (legacy stays
-            # byte-faithful: From always, no Nationality, no posting block).
+            # From/Nationality columns + the §209 posting block + the issue-#33 notes are native-only
+            # (legacy stays byte-faithful: From always, no Nationality, no posting block, no notes).
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map) if phase_native else None,
             "show_from": show_from(eventdata) if phase_native else True,
             "show_nat": show_nationality(eventdata) if phase_native else False,
             "posting": phase_native}
@@ -271,6 +273,9 @@ def _table_html(t, labels, full, show_f=True, show_n=False):
 def _results_html(model):
     show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     body = [_table_html(t, model["labels"], model["full"], show_f, show_n) for t in model["tables"]]
+    nh = penalty_notes_html(model.get("penalty_notes"), model["labels"])   # issue #33 (native only; ''
+    if nh:                                                                 # for legacy -> byte-faithful)
+        body.append(nh)
     return document_html(model["orientation"], model["labels"], model["meta"], model["heading"],
                          body, subtitle=model.get("subtitle", ""),
                          posting=model.get("posting", False))

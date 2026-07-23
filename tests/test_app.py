@@ -1615,6 +1615,22 @@ def test_mark_positions():
     assert mark_positions([[1]])[0][1] == 0        # bare code, no time -> t=0
 
 
+def test_nearest_event_mark_and_notes():
+    from cozer.app.editor import nearest_event_mark
+    from cozer.records import marknote, setmarknote
+    # a lap at t=20, a DQ (12) event at t=25, a lap (cum 41), a DQ event at t=50
+    marks = [[1, 20.0], [12, 25.0, "313.4"], [1, 21.0], [12, 50.0, "205.1"]]
+    assert nearest_event_mark(marks, 26.0) == 1          # nearest event mark is the DQ, not a lap
+    assert nearest_event_mark(marks, 49.0) == 3
+    assert nearest_event_mark([[1, 20.0], [1, 21.0]], 20.0) is None    # no event marks
+    # a note lives in the 4th slot; setmarknote grows a 3-slot mark, clearing empties it
+    assert marknote(marks[1]) == ""
+    marks[1] = setmarknote(marks[1], "cut the buoy")
+    assert marknote(marks[1]) == "cut the buoy" and marks[1] == [12, 25.0, "313.4", "cut the buoy"]
+    marks[1] = setmarknote(marks[1], "")
+    assert marknote(marks[1]) == ""
+
+
 def test_suspect_marks_flags_outliers_and_out_of_order():
     # suspect_marks lives in validate (shared detector); editor re-exports it. Returns {idx: (cat, hint)}.
     from cozer.app.editor import suspect_marks
@@ -1829,6 +1845,29 @@ def test_build_mark_menu_and_actions(tmp_path, monkeypatch):
             break
     assert any(m[0] == reccodemap["DQ"] for m in d[1]["1"])
     assert ep._dirty is True
+
+
+def test_edit_note_sets_and_reads_on_nearest_event_mark(tmp_path, monkeypatch):
+    _app()
+    from cozer.records import marknote
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    ep.insert_rule_mark("GT", "1", "1", 12, 25.0, "313.4")     # DQ mark, article 313.4
+    # context reflects the nearest event mark + its rule text + the participant (issue #33)
+    info = ep.note_context("GT", "1", "1", 26.0)
+    assert info is not None
+    _idx, code_name, article, note, ruletext, phase, name, nat = info
+    assert code_name == "DQ" and article == "313.4" and note == ""
+    assert ruletext == "Disqualification" and "One" in name and nat == "EST"
+    # set a note on the nearest event mark, read it back from the draft
+    assert ep.set_note_at("GT", "1", "1", 26.0, "cut the buoy") is True
+    dq = next(m for m in ep._draft[1]["1"] if abs(m[0]) == 12)
+    assert marknote(dq) == "cut the buoy" and ep._dirty is True
+    # boat 2 has no event mark -> no context, nothing to set
+    assert ep.note_context("GT", "1", "2", 10.0) is None
+    assert ep.set_note_at("GT", "1", "2", 10.0, "x") is False
 
 
 def test_timeline_mouse_drag_and_rightclick(tmp_path, monkeypatch):

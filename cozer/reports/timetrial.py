@@ -13,6 +13,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, participants_index, nationalities_index,
     show_from, show_nationality, meta_of, document_html,
+    collect_penalty_notes, penalty_notes_html,
 )
 from cozer.reports.labels import get_labels
 from cozer.reports.render import render_pdf
@@ -72,6 +73,7 @@ def build_timetrial(eventdata, classes=None, heat_map=None, options=None):
             tables.append({"class": getclass(cl), "rows": rows})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["PracticeTimeTrial"], "tables": tables, "posting": True,
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -108,6 +110,9 @@ def timetrial_html(model):
         body.append('<table class="results"><colgroup>%s</colgroup><thead><tr>%s</tr></thead>'
                     '<tbody>%s</tbody></table>' % ("".join(cols), "".join(head), "".join(rows)))
         body.append('<div class="legend">%s</div>' % esc(L["LapTimeNote"]))
+    nh = penalty_notes_html(model.get("penalty_notes"), L)            # issue #33: notes after the tables
+    if nh:
+        body.append(nh)
     return document_html(model["orientation"], L, model["meta"], model["heading"], body,
                          posting=model.get("posting", False))
 

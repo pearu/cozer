@@ -83,6 +83,23 @@ def insertmark(rec, code, ct, mess=''):
         rec.append((code, ct, mess))
 
 
+# An operator-inserted event mark is (code, time, article[, note]): the optional 4th slot is a free-text
+# note -- the reason for a penalty / rule, issue #33 -- default empty on legacy and older marks. Lap
+# crossings ((+/-)1, (+/-)2) never carry a note.
+def marknote(m):
+    """The free-text note on an event mark (its 4th slot), or '' if absent."""
+    return m[3] if len(m) > 3 else ""
+
+
+def setmarknote(m, text):
+    """``m`` with its note slot (4th) set to ``text`` -- growing (code, time, article) to include the
+    note slot as needed. A list is returned; lap crossings should never be passed here."""
+    m = list(m)
+    m += [""] * (4 - len(m))
+    m[3] = text
+    return m
+
+
 def gettimes(race, stime=-1):
     """Per-lap **durations** of the completed laps (legacy ``prefs.gettimes``) — each entry is one
     lap's time (with any disabled-lap time rolled into the next kept lap), NOT a running total. Sum

@@ -18,6 +18,72 @@ def heat_label(heat_id):
     return "%d%s" % (number, {"r": "R", "R": "R2", "t": "", "q": ""}.get(suffix, suffix))
 
 
+def collect_penalty_notes(eventdata, classes=None, heat_map=None):
+    """The free-text notes on non-disabled operator-inserted marks in the included heats (issue #33), as
+    display lines: ``"boat <n> / heat <h> / lap <k> = CODE (article): reason"`` — the ``/ lap <k>`` part
+    is dropped when the mark is past the race stop line. Returns ``[(class_display, heat_id, line), ...]``
+    in class → heat → boat → mark order (empty when nothing is annotated)."""
+    from cozer.phases import class_phase_map, phase_heat_map
+    from cozer.racepattern import get_classes
+    from cozer.records import invreccodemap, marknote
+    from cozer.classes import getclass
+    phase_of = class_phase_map(eventdata)
+    if classes is None:
+        classes = get_classes(eventdata)
+
+    def _bk(p):
+        s = str(p)
+        return (0, int(s)) if s.isdigit() else (1, s)
+
+    out = []
+    for cl in classes:
+        ph = phase_of.get(cl)
+        if ph is None:
+            continue
+        heat_recs = phase_heat_map(ph)
+        if not heat_recs:
+            continue
+        heats = list(heat_map[cl]) if (heat_map and cl in heat_map) else sorted(heat_recs)
+        heats = [h for h in heats if h in heat_recs]
+        for h in heats:
+            info, boats = heat_recs[h]
+            racetime = info.get("racetime")
+            for pid in sorted(boats, key=_bk):
+                laps = 0
+                for m in boats[pid]:
+                    code = m[0]
+                    if abs(code) in (1, 2):
+                        if code > 0:                     # a completed (enabled) lap crossing
+                            laps += 1
+                        continue
+                    note = marknote(m).strip()
+                    if code < 0 or not note:             # disabled mark or empty note -> ignore
+                        continue
+                    art = (m[2] if len(m) > 2 else "").strip()
+                    cn = invreccodemap.get(abs(code), str(abs(code)))
+                    mt = m[1] if len(m) > 1 else 0
+                    where = "boat %s / heat %s" % (pid, heat_label(h))
+                    if racetime is None or mt <= racetime:   # not past the race stop line
+                        where += " / lap %d" % (laps + 1)
+                    codepart = "%s (%s)" % (cn, art) if art else cn
+                    out.append((getclass(cl), h, "%s = %s: %s" % (where, codepart, note)))
+    return out
+
+
+def penalty_notes_html(notes, labels):
+    """The 'Notes' section (issue #33) placed after a report's results tables, from
+    ``collect_penalty_notes`` output — grouped by class, one line per note. '' when there is none."""
+    if not notes:
+        return ""
+    from itertools import groupby
+    blocks = ['<h3 class="class-heading">%s</h3>' % esc(labels["PenaltyNotes"])]
+    for cl, group in groupby(notes, key=lambda t: t[0]):
+        blocks.append('<div class="event-meta">%s %s</div>' % (esc(labels["Class"]), esc(cl)))
+        blocks.append("<ul class=\"notes\">%s</ul>"
+                      % "".join("<li>%s</li>" % esc(line) for _c, _h, line in group))
+    return '<div class="penalty-notes">%s</div>' % "".join(blocks)
+
+
 def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 

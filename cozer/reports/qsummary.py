@@ -11,7 +11,7 @@ from cozer.qualification import classify, qualification_counts
 from cozer.racepattern import class_pattern, get_classes
 from cozer.reports.common import (
     display, esc, get_fullname, meta_of, participants_index, nationalities_index,
-    show_from, show_nationality, document_html,
+    show_from, show_nationality, document_html, collect_penalty_notes, penalty_notes_html,
 )
 from cozer.reports.final import _legend_html, _result_text
 from cozer.reports.labels import get_labels
@@ -71,6 +71,7 @@ def build_qualification(eventdata, classes=None, heat_map=None):
                        "legend": _legend_html(legend, labels, extra=labels["QualifyNote"])})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["PhaseQualification"], "tables": tables, "posting": True,
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -105,6 +106,9 @@ def qualification_html(model):
                     '<tbody>%s</tbody></table>' % (cols, head, "".join(rows)))
         if t["legend"]:
             body.append('<div class="legend">%s</div>' % t["legend"])
+    nh = penalty_notes_html(model.get("penalty_notes"), L)            # issue #33: notes after the tables
+    if nh:
+        body.append(nh)
     return document_html(model["orientation"], L, model["meta"], model["heading"], body,
                          posting=model.get("posting", False))
 

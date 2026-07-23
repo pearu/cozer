@@ -80,6 +80,44 @@ def test_report_output_paths():
     assert report_dir(None) == os.path.join(tempfile.gettempdir(), "cozer-reports")
 
 
+def test_collect_penalty_notes():
+    from cozer.reports.common import collect_penalty_notes
+    ed = {
+        "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
+        "classes": [["x", "GT", "1*(3*1000):1"]],
+        "participants": [["x", "A", "One", "EST", "GT", "1"], ["x", "B", "Two", "FIN", "GT", "2"]],
+        "record": {"GT": {"1": [
+            {"course": [1000, 1000, 1000], "racetime": 100.0},
+            {"1": [[1, 20.0], [12, 25.0, "313.4", "cut the buoy"], [1, 21.0]],   # DQ on lap 2, noted
+             "2": [[1, 20.0], [-12, 26.0, "313.4", "ignored"],                   # disabled -> excluded
+                   [12, 30.0, "313.4", ""],                                       # empty note -> excluded
+                   [12, 150.0, "205.1", "post-race protest"]]}]}},                # past racetime -> no lap#
+    }
+    notes = [line for _cl, _h, line in collect_penalty_notes(ed)]
+    assert "boat 1 / heat 1 / lap 2 = DQ (313.4): cut the buoy" in notes
+    assert "boat 2 / heat 1 = DQ (205.1): post-race protest" in notes            # no lap# past the stop line
+    assert not any("ignored" in n for n in notes)                                # disabled mark excluded
+    assert len(notes) == 2
+
+
+def test_report_renders_penalty_notes_section():
+    from cozer.reports.intermediate import build_intermediate, intermediate_html
+    ed = {
+        "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
+        "classes": [["x", "GT", "1*(3*1000):1"]],
+        "participants": [["x", "A", "One", "EST", "GT", "1"]],
+        "record": {"GT": {"1": [
+            {"course": [1000, 1000, 1000], "racetime": 100.0},
+            {"1": [[1, 20.0], [12, 25.0, "313.4", "cut the buoy"], [1, 21.0], [1, 22.0]]},
+        ]}},
+    }
+    html = intermediate_html(build_intermediate(ed))
+    assert "Notes" in html and "boat 1 / heat 1 / lap 2 = DQ (313.4): cut the buoy" in html
+    # a clean heat (no notes) renders no Notes section
+    ed["record"]["GT"]["1"][1]["1"] = [[1, 20.0], [1, 21.0], [1, 22.0]]
+    assert "penalty-notes" not in intermediate_html(build_intermediate(ed))
+
+
 def test_result_text_renders_209_codes():
     """A 2026 event stores §209 outcome codes directly; the report prints them in
     the result cell and the legend (backward-compatible: whatever is stored)."""

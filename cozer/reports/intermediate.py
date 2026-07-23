@@ -10,6 +10,7 @@ from cozer.racepattern import get_classes
 from cozer.reports.common import (
     esc, display, get_fullname, heat_label, participants_index, nationalities_index,
     show_from, show_nationality, sheats_for as _sheats, meta_of, document_html,
+    collect_penalty_notes, penalty_notes_html,
 )
 from cozer.reports.final import _result_text, _legend_html
 from cozer.reports.labels import get_labels
@@ -83,6 +84,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                        "rows": rows, "legend": _legend_html(legend, labels, resnote, qnote)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables, "posting": True,
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
@@ -149,6 +151,9 @@ def intermediate_html(model):
                     '<tbody>%s</tbody></table>' % ("".join(cols), head, "".join(rows)))
         if t["legend"]:
             body.append('<div class="legend">%s</div>' % t["legend"])
+    nh = penalty_notes_html(model.get("penalty_notes"), L)            # issue #33: notes after the tables
+    if nh:
+        body.append(nh)
     return document_html(model["orientation"], L, model["meta"], model["heading"], body,
                          posting=model.get("posting", False))
 
