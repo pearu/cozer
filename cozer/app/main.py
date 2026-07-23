@@ -1018,12 +1018,9 @@ class MainWindow(QMainWindow):
         typerow.addWidget(self.report_combo)
         typerow.addStretch()
         ol.addLayout(typerow)
-        self.opt_all_laps = QCheckBox("Show lap count for all finishers")
-        self.opt_all_laps.setToolTip(
-            "By default the completed-lap count (e.g. 45.6/48.2/8L) is shown only for a boat that "
-            "finished short of the distance. Enable this to show it for every finisher in the "
-            "circuit finals and intermediate reports. (Endurance reports always show laps.)")
-        ol.addWidget(self.opt_all_laps)
+        # The lap count is now shown automatically only for a boat short of the full distance (a report
+        # footnote states "blank = full distance"), so the old "show lap count for all finishers" checkbox
+        # is gone (issue #34). The speed/total-time switch is added here next.
 
         # Live broadcast is a ONE-TIME setup (server URL / secret / event name / channel), reached from
         # the Broadcast menu (issue #34) -- not a tab button. The go-live toggle is on the Timer.
@@ -1212,7 +1209,7 @@ class MainWindow(QMainWindow):
     def _report_options(self):
         """The Report-options group-box state, as the ``options`` dict the render
         functions accept (only the reports flagged ``takes_options`` receive it)."""
-        return {"show_laps": self.opt_all_laps.isChecked()}
+        return {}
 
     def _render_report(self, label, funcname, takes_classes, takes_heats, takes_options, path):
         """Render report ``label`` to ``path``; return True on success. A failure

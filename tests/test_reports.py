@@ -719,24 +719,32 @@ def _full_finisher_event():
     })
 
 
-def test_show_laps_option_all_finishers():
-    # D3: the "show lap count for all finishers" option adds the /NL suffix to every scored
-    # finisher's result cell (finals + intermediate); by default it appears only for a boat that
-    # finished short. The frozen legacy path ignores the option (byte-faithful).
-    from cozer.reports.final import (build_full_final, full_final_html, _build)
+def test_lap_count_shown_only_when_short_uniform_plus_footnote():
+    # issue #34 (finalised): the completed-lap count is shown ONLY for a boat short of the full distance
+    # (the /NL-when-short logic in _result_text, unchanged), never as a column-for-all; a footnote now
+    # states the "blank = full distance" convention. (The old "show lap count for all finishers" checkbox
+    # is gone; there is no Laps-for-everyone column.)
+    from cozer.reports.final import build_full_final, full_final_html, build_full_final_legacy
     from cozer.reports.intermediate import build_intermediate, intermediate_html
-    ed = _full_finisher_event()
     strip = lambda h: h.replace("&#8203;", "")
-    assert "3L" not in strip(full_final_html(build_full_final(ed)))                       # default: off
-    # Full Final keeps the count inline in each per-heat Res cell (owner: issue #34 Option 1)
-    assert "3L" in strip(full_final_html(build_full_final(ed, options={"show_laps": True})))
-    assert "3L" not in strip(intermediate_html(build_intermediate(ed)))
-    # Intermediate (issue #34): the count moves to a separate "Laps" column, so it is NOT "/3L" inline
-    im_on = intermediate_html(build_intermediate(ed, options={"show_laps": True}))
-    assert "3L" not in strip(im_on) and ">Laps</th>" in im_on
-    # the legacy _build gate ignores the option even if it is forced through
-    leg = _build(ed, None, None, "landscape", True, phase_native=False, options={"show_laps": True})
-    assert "3L" not in strip(full_final_html(leg))
+    NOTE = "no lap count completed all required laps"
+
+    full = _full_finisher_event()                        # 3/3 laps -> no /NL for anyone
+    ff = full_final_html(build_full_final(full))
+    im = intermediate_html(build_intermediate(full))
+    assert "3L" not in strip(ff) and "3L" not in strip(im)          # full finisher: no count
+    assert ">Laps</th>" not in ff and ">Laps</th>" not in im        # no laps-for-all column
+    assert NOTE in ff and NOTE in im                                # the "blank = full distance" footnote
+
+    # legacy Full Final stays byte-faithful: /NL-when-short as before, but NO new footnote
+    assert NOTE not in full_final_html(build_full_final_legacy(full))
+
+    # _result_text still appends /NL for a short finisher (unchanged core logic)
+    from cozer.reports.final import _result_text
+    short = {"points": 5, "avgspeed": 40.0, "maxlapspeed": 42.0, "lapinfo": (3, 0, 1), "notes": {}}
+    assert "/3L" in _result_text(short, {}).replace("&#8203;", "")   # lapsleft=1 -> shows completed laps
+    fullr = {"points": 5, "avgspeed": 40.0, "maxlapspeed": 42.0, "lapinfo": (3, 0, 0), "notes": {}}
+    assert "L" not in _result_text(fullr, {})                        # lapsleft=0 -> no count
 
 
 def test_report_restart_notation():
