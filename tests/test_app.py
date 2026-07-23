@@ -157,9 +157,8 @@ def test_validation_indicator_reflects_findings(monkeypatch):
     assert len(w._findings) == 2
     assert not w._warn_btn.isHidden() and "2 data warning" in w._warn_btn.text()
     shown = {}
-    monkeypatch.setattr(appmain.QMessageBox, "warning",
-                        staticmethod(lambda parent, title, text, *a, **k:
-                                     shown.update(title=title, text=text)))
+    monkeypatch.setattr(appmain.dialogs, "warn",
+                        lambda parent, title, text, *a, **k: shown.update(title=title, text=text))
     w._show_warnings()                                     # clicking the indicator lists them
     assert "2" in shown["title"] and "T-400" in shown["text"] and "O-500" in shown["text"]
 
@@ -178,14 +177,14 @@ def test_report_generation_warns_on_findings(tmp_path, monkeypatch):
                         lambda ed: [Finding("warning", "T-400", "2", "place-gap", "x")])
     w = MainWindow(read_legacy_coz(EVENT))
     warned = []
-    monkeypatch.setattr(appmain.QMessageBox, "warning",
-                        staticmethod(lambda parent, title, *a, **k: warned.append(title)))
+    monkeypatch.setattr(appmain.dialogs, "notify",       # pre-report warning is now non-blocking (Log)
+                        lambda widget, text: warned.append(text))
     monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (str(tmp_path / "r.pdf"), "")))
     monkeypatch.setattr(appmain, "open_in_viewer", lambda *a, **k: None)
     w.report_combo.setCurrentIndex(3)                     # Full Final
     w.on_export()
-    assert any("Data warnings" in t for t in warned)      # loud warning before generating
+    assert any("Data warnings" in t for t in warned)      # loud (non-blocking) warning before generating
     assert (tmp_path / "r.pdf").exists()                  # ...and it still generated
 
 
@@ -357,8 +356,7 @@ def test_pattern_dialog_validation(monkeypatch):
     dlg.heats.setValue(2)
     assert dlg.scored.maximum() == 2                            # scored can't exceed heats
     msgs = []
-    monkeypatch.setattr(classpart, "QMessageBox",
-                        type("M", (), {"information": staticmethod(lambda *a, **k: msgs.append(a))}))
+    monkeypatch.setattr(classpart.dialogs, "warn", lambda *a, **k: msgs.append(a))
     accepted = []
     dlg.accept = lambda: accepted.append(True)
     dlg.raw.setText("abc")                                      # unparseable
@@ -403,8 +401,7 @@ def test_add_class_strict_refuses_when_catalog_exhausted(monkeypatch):
             opened["dlg"] = True
 
     monkeypatch.setattr(classpart, "AddClassDialog", Boom)
-    monkeypatch.setattr(classpart, "QMessageBox",
-                        type("M", (), {"information": staticmethod(lambda *a, **k: None)}))
+    monkeypatch.setattr(classpart.dialogs, "warn", lambda *a, **k: None)
     cp._add_class()                            # GT already a class -> nothing to add
     assert opened["dlg"] is False and len(w.eventdata["classes"]) == 1
 
@@ -432,8 +429,7 @@ def test_classpart_add_and_delete_class(monkeypatch):
     assert any(c[1] == "OSY-400" for c in w.eventdata["classes"])
     assert "OSY-400" in {cp._tab_class(i) for i in range(cp.tabs.count())}
 
-    monkeypatch.setattr(classpart, "QMessageBox",
-                        type("M", (), {"information": staticmethod(lambda *a, **k: None)}))
+    monkeypatch.setattr(classpart.dialogs, "warn", lambda *a, **k: None)
     gt = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "GT")
     cp.tabs.setCurrentIndex(gt)
     cp._delete_class()
@@ -706,8 +702,9 @@ def test_delete_confirmation_guards_real_data(monkeypatch):
 
     calls = []
     ans = [QMessageBox.No]
-    monkeypatch.setattr(QMessageBox, "question",
-                        staticmethod(lambda *a, **k: (calls.append(1), ans[0])[1]))
+    from cozer.app import dialogs
+    monkeypatch.setattr(dialogs, "question",
+                        lambda *a, **k: (calls.append(1), ans[0])[1])
 
     class FakeWin:
         def __init__(self, ed):
@@ -2003,8 +2000,8 @@ def test_render_report_permission_error_is_friendly(tmp_path, monkeypatch):
     monkeypatch.setattr(R, "render_participants",
                         lambda *a, **k: (_ for _ in ()).throw(PermissionError(13, "denied")))
     warned = {}
-    monkeypatch.setattr(appmain.QMessageBox, "warning",
-                        staticmethod(lambda *a, **k: warned.update(text=a[2]) or appmain.QMessageBox.Ok))
+    monkeypatch.setattr(appmain.dialogs, "warn",
+                        lambda parent, title, text, *a, **k: warned.update(text=text) or appmain.QMessageBox.Ok)
     reported = {"n": 0}
     monkeypatch.setattr(appmain, "report_exception",
                         lambda *a, **k: reported.update(n=reported["n"] + 1) or (None, None))
@@ -2044,8 +2041,8 @@ def test_check_for_updates_menu_and_handler(monkeypatch):
     assert any("Check for" in t and "update" in t.lower() for t in htexts)
     import cozer.app.update as upd
     seen = {}
-    monkeypatch.setattr(appmain.QMessageBox, "information",
-                        staticmethod(lambda parent, title, text, *a, **k: seen.__setitem__("text", text)))
+    monkeypatch.setattr(appmain.dialogs, "notify",
+                        lambda widget, text: seen.__setitem__("text", text))
     monkeypatch.setattr(upd, "check", lambda *a, **k: {
         "current": "3.0.0", "kind": "wheel", "latest": {"tag": "v3.0.0"}, "available": False})
     w._on_check_updates()

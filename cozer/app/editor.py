@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
 from cozer.app.grids import confirm_delete
+from cozer.app import dialogs
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
 from cozer.records import insertmark, invreccodemap, marknote, reccodemap, setmarknote
@@ -669,7 +670,7 @@ class EditRecordsPanel(QWidget):
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         box.setDefaultButton(QMessageBox.Save)
         return {QMessageBox.Save: "save", QMessageBox.Discard: "discard",
-                QMessageBox.Cancel: "cancel"}.get(box.exec(), "cancel")
+                QMessageBox.Cancel: "cancel"}.get(dialogs.run_modal(box), "cancel")
 
     # ---- delete all recorded data for the selected heat ----
     def _delete_race_data(self):
@@ -791,5 +792,5 @@ class EditRecordsPanel(QWidget):
         bb.accepted.connect(dlg.accept)
         bb.rejected.connect(dlg.reject)
         v.addWidget(bb)
-        if dlg.exec() == QDialog.Accepted:
+        if dialogs.run_modal(dlg) == QDialog.Accepted:
             self.set_note_at(cl, h, pid, ct, edit.toPlainText())

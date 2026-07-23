@@ -14,12 +14,19 @@ os.environ.setdefault("COZER_NO_UPDATE_CHECK", "1")
 
 @pytest.fixture(autouse=True)
 def _auto_confirm_dialogs(monkeypatch):
-    """Keep modal confirm dialogs non-blocking under the offscreen platform: default
-    ``QMessageBox.question`` to Yes so a delete-confirm ("are you sure?") doesn't hang the
-    headless run. A test that asserts on a specific answer re-patches it (its own setattr wins)."""
-    from PySide6.QtWidgets import QMessageBox
-    monkeypatch.setattr(QMessageBox, "question",
-                        staticmethod(lambda *a, **k: QMessageBox.Yes), raising=False)
+    """Keep modal dialogs non-blocking under the offscreen platform. cozer routes every modal through
+    ``cozer.app.dialogs`` (front-forced so a prompt can't hide behind other windows); those helpers
+    ``exec()`` and would hang a headless run. Default the blocking ones to a proceed/OK answer
+    (question -> Yes, run_modal -> Accepted, warn/error/info -> Ok) so nothing hangs; a test that
+    asserts a specific answer re-patches the relevant ``dialogs`` helper (its own setattr wins).
+    ``notify`` is already non-blocking (it only writes to the Log), so it is left real."""
+    from PySide6.QtWidgets import QDialog, QMessageBox
+    from cozer.app import dialogs
+    monkeypatch.setattr(dialogs, "question", lambda *a, **k: QMessageBox.Yes)
+    monkeypatch.setattr(dialogs, "run_modal", lambda *a, **k: QDialog.Accepted)
+    monkeypatch.setattr(dialogs, "warn", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(dialogs, "error", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(dialogs, "info", lambda *a, **k: QMessageBox.Ok)
     yield
 
 

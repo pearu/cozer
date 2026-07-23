@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from cozer._py2compat import round2
 from cozer.app.grids import race_label
+from cozer.app import dialogs
 from cozer.classes import getclass
 from cozer.native import native_races_to_legacy, record_heat
 from cozer.phases import heat_number
@@ -595,8 +596,8 @@ class TimerPanel(QWidget):
         if not race:
             return
         if not self._ensure_store():
-            QMessageBox.warning(self, "Save required",     # pragma: no cover - dialog
-                                "Save the event first so recording is journaled.")
+            dialogs.warn(self, "Save required",     # pragma: no cover - dialog
+                         "Save the event first so recording is journaled.")
             return
         if self._has_data() and not self._confirm_overwrite():   # pragma: no cover - dialog
             return
@@ -618,7 +619,7 @@ class TimerPanel(QWidget):
     def _confirm_overwrite(self):      # pragma: no cover - modal dialog
         detail = "\n".join("  • " + heat_identity(self.eventdata, cl, h)
                            for cl, h in self._recorded_heats())
-        return QMessageBox.question(
+        return dialogs.question(
             self, "Overwrite race record?",
             "This race already has recorded data — Start will OVERWRITE:\n\n%s\n\n"
             "Start over and lose it? (Use Resume to continue timing instead.)" % detail

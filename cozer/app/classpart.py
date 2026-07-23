@@ -16,12 +16,13 @@ import re
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QCompleter, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox,
+    QHeaderView, QLabel, QLineEdit, QPushButton, QSpinBox,
     QStyledItemDelegate, QTableView, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from cozer.app import ruleset as rulesetmod
 from cozer.app.grids import confirm_delete
+from cozer.app import dialogs
 from cozer.classes import getclass
 from cozer.countries import IOC, is_ioc_code
 from cozer.qualification import qualification_counts
@@ -553,12 +554,12 @@ class PatternDialog(QDialog):
     def _accept(self):
         raw = self.raw.text().strip()
         if not raw:
-            QMessageBox.information(self, "Invalid pattern", "The race pattern is empty.")
+            dialogs.warn(self, "Invalid pattern", "The race pattern is empty.")
             return
         try:
             crack_race_pattern(raw)                 # reject unparseable patterns (eval'd later)
         except Exception:
-            QMessageBox.information(
+            dialogs.warn(
                 self, "Invalid pattern",
                 "Could not parse the pattern %r.\nExpected e.g. 4*(1430+7*1390):3 "
                 "or 5000/6 (endurance)." % raw)
@@ -657,7 +658,7 @@ class PhasesDialog(QDialog):
         for enabled, pat, label in ((self.tt_enable, self.tt_pat, "time-trial"),
                                     (self.q_enable, self.q_pat, "qualification")):
             if enabled.isChecked() and not self._valid_pattern(_strip_qual(pat.text().strip())):
-                QMessageBox.information(
+                dialogs.warn(
                     self, "Invalid pattern",
                     "The %s phase is enabled but its race pattern is empty or unparseable." % label)
                 return
@@ -770,7 +771,7 @@ class ClassesParticipantsPanel(QWidget):
         """Edit the base's finals (main-race) pattern."""
         kind = _finals_kind(self.window.eventdata, base)
         dlg = PatternDialog(self, base, self._finals_pattern(base) or "")
-        if dlg.exec():
+        if dialogs.run_modal(dlg):
             set_phase(self.window.eventdata, base, kind, dlg.pattern())
             summary_label.setText(self._pattern_summary(dlg.pattern()))
             self.window._reload_classes()
@@ -783,7 +784,7 @@ class ClassesParticipantsPanel(QWidget):
                            phase_pattern(ed, base, "timetrial"),
                            phase_pattern(ed, base, "qualification"),
                            finals_pattern=self._finals_pattern(base) or "")
-        if not dlg.exec():
+        if not dialogs.run_modal(dlg):
             return
         self._sync_phase(base, "timetrial", dlg.timetrial_pattern())
         self._sync_phase(base, "qualification", dlg.qualification_pattern())
@@ -806,13 +807,13 @@ class ClassesParticipantsPanel(QWidget):
         available = [c for c in rulesetmod.classnames_of(self.window.eventdata)
                      if c not in existing]
         if not available:
-            QMessageBox.information(
+            dialogs.warn(
                 self, "No class names available",
                 "Every catalogued class is already added, or none are defined.\n"
                 "Add class names under the Rules tab first.")
             return
         dlg = AddClassDialog(self, available)
-        if dlg.exec():
+        if dialogs.run_modal(dlg):
             name = dlg.class_name()
             if not name:
                 return
@@ -850,7 +851,7 @@ class ClassesParticipantsPanel(QWidget):
         base = self._tab_class(i)
         reason = self._class_in_use(base)
         if reason:
-            QMessageBox.information(
+            dialogs.warn(
                 self, "Cannot delete",
                 "Cannot delete class %r while %s." % (base, reason))
             return

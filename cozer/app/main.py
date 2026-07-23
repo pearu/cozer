@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import crashreport
+from cozer.app import dialogs
 from cozer.app import ruleset as rulesetmod
 from cozer.app.classpart import ClassesParticipantsPanel
 from cozer.app.editor import EditRecordsPanel
@@ -261,7 +262,7 @@ def _install_excepthook(window):     # pragma: no cover - process-global; needs 
         except Exception:
             pass
         try:
-            QMessageBox.critical(window, "cozer error",
+            dialogs.error(window, "cozer error",
                                  "An error occurred and was recorded locally%s.\n\n%s: %s"
                                  % (" and reported" if url else "",
                                     getattr(exc_type, "__name__", "Error"), exc))
@@ -490,7 +491,7 @@ class MainWindow(QMainWindow):
                 with open(path, encoding="utf-8") as f:
                     source = load_event(f.read())
         except Exception as e:      # pragma: no cover - surfaced, never crashes
-            QMessageBox.critical(self, "Import error", "%s: %s" % (type(e).__name__, e))
+            dialogs.error(self, "Import error", "%s: %s" % (type(e).__name__, e))
             return
         changed = rulesetmod.import_ruleset(self.eventdata, source)
         self._reload_forms()      # persists with the event on the next File > Save
@@ -760,19 +761,18 @@ class MainWindow(QMainWindow):
         """List the current data warnings (the status-bar indicator was clicked)."""
         findings = validate.check_results(self.eventdata)
         if not findings:
-            QMessageBox.information(self, "Data warnings", "No data warnings.")
+            dialogs.notify(self, "No data warnings.")
             return
-        QMessageBox.warning(self, "Data warnings (%d)" % len(findings),
-                            "\n".join(validate.format_findings(findings)))
+        dialogs.warn(self, "Data warnings (%d)" % len(findings),
+                     "\n".join(validate.format_findings(findings)))
 
     def _warn_before_report(self):
         """Loudly flag suspicious data before generating a report (non-blocking)."""
         findings = validate.check_results(self.eventdata)
         if findings:
-            QMessageBox.warning(
-                self, "Data warnings (%d)" % len(findings),
-                "This report is generated from data with warnings:\n\n"
-                + "\n".join(validate.format_findings(findings)))
+            dialogs.notify(
+                self, "Data warnings (%d) — this report uses data with warnings; see the Log:\n%s"
+                % (len(findings), "\n".join(validate.format_findings(findings))))
 
     # ---- log tab ----
     def _build_log_tab(self):
@@ -789,9 +789,9 @@ class MainWindow(QMainWindow):
         try:
             dlg = SignInDialog(self, crashreport.client_id())
         except Exception as e:
-            QMessageBox.warning(self, "Sign in", "Could not reach GitHub:\n%s" % e)
+            dialogs.warn(self, "Sign in", "Could not reach GitHub:\n%s" % e)
             return
-        if dlg.exec() and dlg.token:
+        if dialogs.run_modal(dlg) and dlg.token:
             cfg = crashreport.load_config()
             cfg["token"] = dlg.token
             try:
@@ -822,14 +822,12 @@ class MainWindow(QMainWindow):
         res = update.check()
         rel = res["latest"]
         if rel is None:
-            QMessageBox.information(
-                self, "Check for updates",
-                "Couldn't check for updates just now — you may be offline. Please try again "
-                "later.\n\n(You are running COZER %s.)" % res["current"])
+            dialogs.notify(
+                self, "Couldn't check for updates just now — you may be offline. Please try again "
+                "later. (You are running COZER %s.)" % res["current"])
             return
         if not res["available"]:
-            QMessageBox.information(
-                self, "Check for updates", "COZER %s is up to date." % res["current"])
+            dialogs.notify(self, "COZER %s is up to date." % res["current"])
             return
         box = QMessageBox(self)
         box.setWindowTitle("Update available")
@@ -840,7 +838,7 @@ class MainWindow(QMainWindow):
         box.setStandardButtons(QMessageBox.Close)
         update_btn = box.addButton("Update now", QMessageBox.AcceptRole)
         open_btn = box.addButton("Open release page", QMessageBox.ActionRole)
-        box.exec()
+        dialogs.run_modal(box)
         clicked = box.clickedButton()
         if clicked is update_btn:
             self._apply_update(res)
@@ -856,19 +854,19 @@ class MainWindow(QMainWindow):
         plan = update.recommend(res)
         action, url = plan["action"], plan["url"]
         if action == "source":
-            QMessageBox.information(
+            dialogs.info(
                 self, "Update cozer",
                 "You're running cozer from a source checkout — update it with:\n\n"
                 "    git pull\n    pip install -U .")
         elif action == "installer":
             if url:
                 open_in_viewer(url)                  # the browser downloads the installer .exe
-            QMessageBox.information(
+            dialogs.info(
                 self, "Update cozer",
                 "The Windows installer (%s) is downloading in your browser.\n\nClose cozer, run the "
                 "installer to upgrade, then start cozer again." % (plan["hint"] or "latest release"))
         elif action == "pip" and url:
-            if QMessageBox.question(
+            if dialogs.question(
                     self, "Update COZER",
                     "Update COZER to the newest version now? COZER will need to be closed and "
                     "reopened afterwards.") == QMessageBox.Yes:
@@ -891,7 +889,7 @@ class MainWindow(QMainWindow):
             detail, ok = str(e), False
         QApplication.restoreOverrideCursor()
         if ok:
-            QMessageBox.information(
+            dialogs.info(
                 self, "Update COZER",
                 "COZER has been updated. Close COZER and open it again to use the new version.")
             return
@@ -904,7 +902,7 @@ class MainWindow(QMainWindow):
             box.setDetailedText(detail.strip()[-1500:])   # for a bug report, behind "Show Details"
         box.setStandardButtons(QMessageBox.Close)
         openb = box.addButton("Download the installer", QMessageBox.ActionRole) if release_url else None
-        box.exec()
+        dialogs.run_modal(box)
         if openb is not None and box.clickedButton() is openb:
             open_in_viewer(release_url)
 
@@ -937,7 +935,7 @@ class MainWindow(QMainWindow):
         ok.clicked.connect(dlg.accept)
         row.addWidget(ok)
         lay.addLayout(row)
-        dlg.exec()
+        dialogs.run_modal(dlg)
 
     def _grab_png(self):
         """PNG bytes of the current main window, to attach to a bug report (GUI snapshot)."""
@@ -975,7 +973,7 @@ class MainWindow(QMainWindow):
         send.clicked.connect(dlg.accept)
         buttons.addWidget(send)
         lay.addLayout(buttons)
-        if dlg.exec() != QDialog.Accepted:
+        if dialogs.run_modal(dlg) != QDialog.Accepted:
             return None
         return edit.toPlainText().strip(), shot.isChecked()
 
@@ -1209,7 +1207,7 @@ class MainWindow(QMainWindow):
             # The report file couldn't be written -- almost always because it's still open in a PDF
             # viewer (Windows blocks the overwrite), or the folder is read-only / a OneDrive placeholder.
             # That's the operator's environment, not a cozer bug -> a clear message, no crash report.
-            QMessageBox.warning(
+            dialogs.warn(
                 self, "Report error",
                 "Couldn't save the report — writing the file was denied:\n\n%s\n\nThe report is most "
                 "likely still open in another program (a PDF viewer) — close it and generate the report "
@@ -1219,7 +1217,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             _report, url = report_exception(self, type(e), e, e.__traceback__,
                                             action="Generate report: %s" % label)
-            QMessageBox.critical(
+            dialogs.error(
                 self, "Report error",
                 "Could not generate the report; the error was recorded locally%s.\n\n%s: %s"
                 % (" and reported" if url else "", type(e).__name__, e))

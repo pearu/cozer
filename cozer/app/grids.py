@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from cozer.classes import getclass
 from cozer.racepattern import class_pattern, crack_race_pattern, get_classes, race_kind
+from cozer.app import dialogs
 
 # Suffix-free phase presentation. Circuit (the main/final race) needs no tag; the others get
 # a short tag in compact labels and a full word in dropdowns — no `/T`,`/Q` or `t`/`q` anywhere.
@@ -26,9 +27,8 @@ def confirm_delete(parent, what):
     """Yes/No 'are you sure?' guard before deleting REAL (operator-entered) data; returns True
     to proceed. The default button is No, so a stray Enter/click never deletes. Callers skip this
     (delete straight away) when the target is blank — there is nothing to lose."""
-    return QMessageBox.question(
-        parent, "Delete?", "Delete %s? This can't be undone." % what,
-        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+    return dialogs.question(
+        parent, "Delete?", "Delete %s? This can't be undone." % what) == QMessageBox.Yes
 
 
 def _entry_label(e):
@@ -250,9 +250,11 @@ class StringListEditor(QWidget):
             self.list.blockSignals(False)
 
     def _add(self):
-        text, ok = QInputDialog.getText(self, "Add", self._prompt)
-        if ok:
-            self.add_value(text)
+        d = QInputDialog(self)
+        d.setWindowTitle("Add")
+        d.setLabelText(self._prompt)
+        if dialogs.run_modal(d):
+            self.add_value(d.textValue())
 
     def _delete(self):
         row = self.list.currentRow()
@@ -261,8 +263,8 @@ class StringListEditor(QWidget):
         value = self._data[row]
         reason = self._can_delete(value) if self._can_delete else None
         if reason:
-            QMessageBox.information(self, "Cannot delete",
-                                    "Cannot delete %r: %s." % (value, reason))
+            dialogs.warn(self, "Cannot delete",
+                         "Cannot delete %r: %s." % (value, reason))
             return
         if str(value).strip() and not confirm_delete(self, "%r" % value):
             return
