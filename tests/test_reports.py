@@ -509,37 +509,42 @@ def test_inspection_forms():
     )
     ed = read_legacy_coz(EVENT)
 
-    # Nothing selected (classes=None) -> ONE blank template page (Class/Boat filled by hand).
+    # Nothing selected (classes=None) -> one blank template page (Class/Boat filled by hand). The full
+    # cockpit rule set is compressed into two columns aiming for a single page (<=2 as a safety net).
     cm = build_inspection_cockpit(ed, classes=None)
     assert cm["boats"] == [] and cm["cockpit"] is True
     pdf = render_pdf_bytes(inspection_cockpit_html(cm))
     doc = fitz.open(stream=pdf, filetype="pdf")
-    assert doc.page_count == 1                                      # #30 iter-1: cockpit fits one page
+    per_boat_pages = doc.page_count
+    assert 1 <= per_boat_pages <= 2                                 # #30: two-column, ideally one page
     _fits_portrait(pdf)                                            # portrait + no width overflow
     ctext = "".join(pg.get_text() for pg in doc)
     assert "Cockpit Classes" in ctext and "Technical Officer" in ctext
-    assert "509.03" in ctext and "509.20" in ctext                 # §509 cockpit block present
-    assert "immersion-training certificate" in ctext              # cockpit-only document
+    assert "Frontal head restraint" in ctext and "205.07.01" in ctext   # expanded §205 driver items
+    assert "509.16" in ctext and "509.20" in ctext                 # full §509 set (canopy, air supply)
+    assert "titled events only" in ctext                           # conditional item is marked
+    # certificate-proven items live in the Documents block, not the physical checklist
+    assert "Documents & certificates" in ctext
+    assert "Hull Identification Number" in ctext and "509.23" in ctext   # HIN moved to documents
     assert "Classes:" not in ctext                                 # the reference line was removed
     assert "504.05" in ctext and "503.05" not in ctext            # 2026 renumbering (504.xx, no 503.0x)
 
-    # Class(es) selected -> one page per registered boat, with Class + Boat number pre-filled.
+    # Class(es) selected -> one form (whatever its page count) per registered boat, Class pre-filled.
     by = participants_by_class(ed)
     cl = next(c for c, rows in by.items() if rows)
     n = len(by[cl])
     pm = build_inspection_cockpit(ed, classes=[cl])
     assert len(pm["boats"]) == n and n > 0
     pdoc = fitz.open(stream=render_pdf_bytes(inspection_cockpit_html(pm)), filetype="pdf")
-    assert pdoc.page_count == n                                     # one page per boat
+    assert pdoc.page_count == n * per_boat_pages                    # one form per boat
     assert cl in "".join(pg.get_text() for pg in pdoc)             # Class field pre-filled
 
-    # Non-cockpit blank template: general + open-boat items; no §509 block, no cockpit-only docs.
+    # Non-cockpit blank template: general + open-boat items; no reinforced-cockpit (§509) content.
     om = build_inspection_open(ed, classes=None)
     otext = _fits_portrait(render_pdf_bytes(inspection_open_html(om)))
     assert "Non-cockpit Classes" in otext
     assert "522.03" in otext and "Paddle" in otext                 # open-boat-only items
-    assert "509.03" not in otext and "509.20" not in otext         # no cockpit block
-    assert "immersion-training certificate" not in otext           # no cockpit-only docs
+    assert "509" not in otext                                      # no §509 refs on the open form
 
 
 def test_intermediate_timetrial_and_multidriver():
