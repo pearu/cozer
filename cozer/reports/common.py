@@ -70,7 +70,7 @@ def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):
                         continue                          # (a rule/penalty/LL mark is listed regardless)
                     art = (m[2] if len(m) > 2 else "").strip()
                     mt = m[1] if len(m) > 1 else 0
-                    where = "#%s in heat %s" % (pid, heat_label(h))
+                    where = "#%s in Heat %s" % (pid, heat_label(h))   # "Heat" as the report's label
                     if racetime is None or mt <= racetime:   # not past the race stop line
                         where += " at L%d" % (laps + 1)
                     rule = "%s (%s)" % (_label(cn), art) if art else _label(cn)

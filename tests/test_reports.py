@@ -98,9 +98,9 @@ def test_collect_penalty_notes():
     }
     notes = [line for _cl, _h, line in collect_penalty_notes(ed, labels=get_labels(ed))]
     # a non-§209 mark (LL) is listed even with NO note — no trailing colon (owner)
-    assert "#1 in heat 1 at L2 - Lost a lap (307.04)" in notes
+    assert "#1 in Heat 1 at L2 - Lost a lap (307.04)" in notes
     # a noted mark shows the reason after a colon
-    assert "#2 in heat 1 at L2 - Disqualif. (313.4): protest" in notes
+    assert "#2 in Heat 1 at L2 - Disqualif. (313.4): protest" in notes
     # a §209 outcome (DNF) with no note stays out of Notes (table + code key only)
     assert not any("Did not finish" in n for n in notes)
     assert len(notes) == 2                     # only LL (no note) + DQ (noted); DNF + disabled LL excluded
@@ -118,7 +118,7 @@ def test_report_renders_penalty_notes_section():
         ]}},
     }
     html = intermediate_html(build_intermediate(ed))
-    assert "Notes" in html and "#1 in heat 1 at L2 - Disqualif. (313.4): cut the buoy" in html
+    assert "Notes" in html and "#1 in Heat 1 at L2 - Disqualif. (313.4): cut the buoy" in html
     assert "DQ<sup>" not in html                    # issue #33: no footnote superscript on the code
     # a clean heat (no event marks) renders no Notes section
     ed["record"]["GT"]["1"][1]["1"] = [[1, 20.0], [1, 21.0], [1, 22.0]]
