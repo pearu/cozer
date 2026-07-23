@@ -1528,10 +1528,16 @@ def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
     assert cfg["live_server_url"] == "https://live.cozer.ee/"                   # stored (rstrip at use)
     assert cfg["live_publish_secret"] == "sek"                                  # trimmed
     assert w.eventdata["broadcast"] == {"eventname": "harku-2026", "channel": "a"}   # slugified, in the event
-    assert w.live_event_edit.text() == "harku-2026" and w.live_channel_edit.text() == "a"   # echoed back
     assert "sek" not in json.dumps(w.eventdata)                                 # the secret never in the event
     assert w.timer_panel._viewer_url == "https://live.cozer.ee/harku-2026/feed/a/"   # viewer -> the feed path
     assert not w.timer_panel.copy_url_btn.isHidden()
+    # the dialog's QLineEdits are gone once it closes -> a later reload (tab switch / load) must no-op,
+    # not touch a deleted C++ object ("Internal C++ object already deleted", the crash this guards)
+    assert not hasattr(w, "live_url_edit")
+    w._reload_broadcast_settings()                                              # tab-switch reload: no crash
+    # broadcast setup is reached from the Broadcast menu now, not a tab button (issue #34)
+    menus = [w.menuBar().actions()[i].text() for i in range(len(w.menuBar().actions()))]
+    assert any("Broadcast" in t for t in menus)
 
 
 def test_broadcast_refresh_republishes_on_view_change(tmp_path, monkeypatch):

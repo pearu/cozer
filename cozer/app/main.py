@@ -388,6 +388,10 @@ class MainWindow(QMainWindow):
         self._autosave_action.toggled.connect(self._toggle_autosave)
         m.addSeparator()
         m.addAction("&Quit", self.close)
+        # Broadcast menu: the one-time live-broadcast setup (server / event name / channel). A menu, not
+        # a tab button (issue #34) -- it's rare setup; the go-live toggle is on the Timer.
+        bm = self.menuBar().addMenu("&Broadcast")
+        bm.addAction("Live broadcast &setup…", self._open_broadcast_dialog)
         # Help menu = genuine help actions (the account/bug controls live in the menu-bar
         # corner instead, see _build_menu_corner).
         self._help_menu = self.menuBar().addMenu("&Help")
@@ -1011,15 +1015,8 @@ class MainWindow(QMainWindow):
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
 
-        # Live broadcast is a ONE-TIME setup (server URL / secret / event name / channel), so it lives in
-        # a popup (issue #34) rather than taking permanent space next to the per-render report options.
-        # A small button opens it; the toggle to actually go live is on the Timer.
-        live_btn = QPushButton("Live broadcast…")
-        live_btn.setToolTip("Set up the live running-order broadcast (server, event name, channel). "
-                            "One-time setup; turn it on from the Timer tab.")
-        live_btn.clicked.connect(self._open_broadcast_dialog)
-        ol.addWidget(live_btn)
-
+        # Live broadcast is a ONE-TIME setup (server URL / secret / event name / channel), reached from
+        # the Broadcast menu (issue #34) -- not a tab button. The go-live toggle is on the Timer.
         v.addWidget(opts, 0, Qt.AlignTop)
 
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
@@ -1074,8 +1071,15 @@ class MainWindow(QMainWindow):
         bb.accepted.connect(dlg.accept)
         bb.rejected.connect(dlg.reject)
         v.addWidget(bb)
-        if dialogs.run_modal(dlg) == QDialog.Accepted:
-            self._save_broadcast_settings()
+        try:
+            if dialogs.run_modal(dlg) == QDialog.Accepted:
+                self._save_broadcast_settings()     # reads the fields while the dialog is still alive
+        finally:
+            # The QLineEdits are children of the dialog, so closing it deletes the C++ objects. Drop the
+            # dangling Python refs, else a later guarded reload (tab switch / load) would call setText on
+            # a deleted object -> "Internal C++ object already deleted".
+            for a in ("live_url_edit", "live_secret_edit", "live_event_edit", "live_channel_edit"):
+                self.__dict__.pop(a, None)
 
     def _reload_broadcast_settings(self):
         """Populate the live-broadcast dialog fields from cozer config (server URL + secret) and
