@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COZER — Live channels</title>
+<style>
+  :root{ --bg:#0a1a2f; --panel:#12233d; --ink:#ffffff; --dim:#9fb2cc; --accent:#39a0ff; }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  header{ padding:12px 16px; background:var(--panel); box-shadow:0 1px 0 rgba(255,255,255,.06) }
+  .top{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap }
+  .brand{ font-weight:900; letter-spacing:.18em; font-size:20px }
+  .event{ color:var(--dim); font-size:15px; font-weight:600 }
+  .channels{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px }
+  .ch{
+    appearance:none; border:1px solid #2e496e; background:#0e1d33;
+    color:var(--ink); font:inherit; font-weight:700; font-size:15px;
+    padding:8px 16px; border-radius:8px; cursor:pointer; letter-spacing:.02em;
+  }
+  .ch:hover{ border-color:var(--accent) }
+  .ch.active{ background:var(--accent); border-color:var(--accent); color:#00121f }
+  .ch.stale{ opacity:.5 }
+  .ch .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:#39ff8b;
+            margin-right:7px; vertical-align:middle }
+  .ch.stale .dot{ background:#7c8ba3 }
+  .hint{ color:var(--dim); font-size:14px; padding:24px 16px }
+  .frame{ flex:1; min-height:0; position:relative }
+  iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; background:var(--bg) }
+  @media (max-width:640px){
+    .brand{ font-size:18px } .event{ font-size:14px }
+    .ch{ flex:1 1 auto; text-align:center }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="top"><span class="brand">COZER</span><span class="event" id="event"></span></div>
+    <div class="channels" id="channels"></div>
+  </header>
+  <div class="frame"><iframe id="view" title="Live running order"></iframe></div>
+  <div class="hint" id="hint" style="display:none"></div>
+
+<script>
+  // Served at /<event>/feed/ — a channel switcher. The channels are discovered from the live server
+  // (index.json, derived from what cozer instances have published), so channels from different cozer
+  // apps appear automatically. Clicking a channel shows its overlay (/<event>/feed/<channel>/) below.
+  var STALE_S = 30;            // a channel with no publish in this many seconds is shown dimmed ("stale")
+  var POLL_MS = 5000;          // how often to refresh the channel list
+
+  var base = location.pathname.replace(/\/?$/, "/");         // "/<event>/feed/"
+  var event = (base.match(/^\/([^\/]+)\/feed\/$/) || [])[1] || "";
+  var elEvent = document.getElementById("event");
+  var elChannels = document.getElementById("channels");
+  var elView = document.getElementById("view");
+  var elFrame = elView.parentNode;
+  var elHint = document.getElementById("hint");
+  var selected = null;
+  elEvent.textContent = event ? "· " + event : "";
+
+  function show(ch){
+    selected = ch;
+    var url = base + encodeURIComponent(ch) + "/";
+    if(elView.getAttribute("src") !== url) elView.setAttribute("src", url);
+    render(lastChannels);
+  }
+
+  var lastChannels = [];
+  function render(channels){
+    lastChannels = channels;
+    elChannels.innerHTML = "";
+    channels.forEach(function(c){
+      var b = document.createElement("button");
+      b.className = "ch" + (c.channel === selected ? " active" : "")
+                        + (c.age_s > STALE_S ? " stale" : "");
+      b.innerHTML = '<span class="dot"></span>' + c.channel;
+      b.title = c.age_s > STALE_S ? ("last updated " + Math.round(c.age_s) + "s ago") : "live";
+      b.onclick = function(){ show(c.channel); };
+      elChannels.appendChild(b);
+    });
+    var empty = channels.length === 0;
+    elFrame.style.display = empty ? "none" : "";
+    elHint.style.display = empty ? "" : "none";
+    if(empty) elHint.textContent = event
+      ? ("No live channels yet for “" + event + "”. Start a broadcast in COZER (Timer), then this page "
+         + "will list its channels.")
+      : "Open this page as /<event>/feed/ to see an event's live channels.";
+  }
+
+  async function poll(){
+    try{
+      var r = await fetch(base + "index.json", {cache:"no-store"});
+      var data = r.ok ? await r.json() : {channels:[]};
+      var channels = data.channels || [];
+      // keep the current selection if it still exists; else pick the first (freshest-named) channel
+      if(channels.length && (selected === null || !channels.some(function(c){ return c.channel===selected; })))
+        show(channels[0].channel);
+      else
+        render(channels);
+    }catch(e){ /* transient — try again next tick */ }
+  }
+  poll();
+  setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>

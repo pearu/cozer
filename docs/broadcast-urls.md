@@ -37,6 +37,12 @@ similar slug; `feed` is reserved.
 
 ## 2. Feed endpoints (under the feed path)
 A feed's own data lives **under its path** (not reserved):
+- `GET /<eventname>/feed/`                    → the **channel switcher** (HTML): a header of buttons for
+  the event's live channels; picking one shows that channel's overlay below. Channels are discovered
+  from what has been published (see `index.json`), so channels from **different cozer instances** on the
+  same event name appear automatically — no registration.
+- `GET /<eventname>/feed/index.json`          → the event's live channels: `{event, channels:[{channel,
+  age_s}]}`, derived from the store (`age_s` = seconds since that channel's last publish). No auth.
 - `GET /<eventname>/feed/<channel>/`         → the viewer overlay (HTML)
 - `GET /<eventname>/feed/<channel>/data.json` → the latest snapshot (public, read‑only, CORS `*`)
 - `GET /<eventname>/feed/<channel>/stream`    → Server‑Sent Events (sub‑second push)

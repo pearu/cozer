@@ -6,6 +6,8 @@ viewers GET the latest. Fresh (viewers poll every few seconds and always see the
 limit, no token in any URL. Fronted by Caddy (HTTPS via Let's Encrypt) at https://live.cozer.ee/.
 
 Endpoints (path model -- see docs/broadcast-urls.md)
+  GET  /<event>/feed/                     the channel switcher (HTML): buttons for the event's channels
+  GET  /<event>/feed/index.json           the event's live channels {event, channels:[{channel, age_s}]}
   GET  /<event>/feed/<channel>/           the viewer overlay (HTML)
   GET  /<event>/feed/<channel>/data.json  the latest snapshot (public, read-only, CORS *); 404 if none
   GET  /<event>/feed/<channel>/stream     Server-Sent Events -- pushes each snapshot (sub-second)
@@ -39,6 +41,8 @@ FLAG_RE = re.compile(r"^/_flags/([A-Za-z0-9_-]{1,16}\.svg)$")             # shar
 FEED_RE = re.compile(r"^/(%s)/feed/(%s)/?$" % (_SLUG, _SLUG))             # the viewer overlay
 FEED_DATA_RE = re.compile(r"^/(%s)/feed/(%s)/data\.json$" % (_SLUG, _SLUG))
 FEED_STREAM_RE = re.compile(r"^/(%s)/feed/(%s)/stream$" % (_SLUG, _SLUG))
+FEED_INDEX_RE = re.compile(r"^/(%s)/feed/index\.json$" % _SLUG)           # the event's live channels
+FEED_ROOT_RE = re.compile(r"^/(%s)/feed/?$" % _SLUG)                      # the channel-switcher page
 PUBLISH_RE = re.compile(r"^/_publish/(%s)/feed/(%s)$" % (_SLUG, _SLUG))
 # Static web root -- the viewer + flags, so live.cozer.ee/<event>/feed/<channel>/ serves the overlay.
 WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
@@ -47,6 +51,21 @@ WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
 
 def _feed_key(event, channel):
     return "%s/feed/%s" % (event, channel)    # internal store/subscriber key for a live feed
+
+
+def _event_channels(event):
+    """The channels currently in the store for ``event`` (derived from POSTed snapshots — no separate
+    registration; channels from different cozer instances all land here). Each: ``{channel, age_s}``
+    (seconds since its last publish), sorted by channel. The switcher page renders these as buttons."""
+    prefix = event + "/feed/"
+    now = time.time()
+    out = []
+    with _lock:
+        for key, (_body, updated) in _store.items():
+            if key.startswith(prefix):
+                out.append({"channel": key[len(prefix):], "age_s": round(now - updated, 1)})
+    out.sort(key=lambda c: c["channel"])
+    return out
 
 
 _store = {}                                # <event>/feed/<channel> key -> (json_bytes, updated_epoch)
@@ -103,6 +122,11 @@ class Handler(BaseHTTPRequestHandler):
         if mflag:                                                      # /_flags/<IOC>.svg (shared)
             return self._serve_static("flags/" + mflag.group(1), "image/svg+xml",
                                       cache="public, max-age=86400")
+        mi = FEED_INDEX_RE.match(path)
+        if mi:                                                         # the event's live channels (JSON)
+            return self._json(200, {"event": mi.group(1), "channels": _event_channels(mi.group(1))})
+        if FEED_ROOT_RE.match(path):                                   # /<event>/feed/ -> channel switcher
+            return self._serve_static("feed-index.html", "text/html; charset=utf-8")
         if path in ("/", "/index.html") or FEED_RE.match(path):        # the viewer overlay
             return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
         md = FEED_DATA_RE.match(path)
