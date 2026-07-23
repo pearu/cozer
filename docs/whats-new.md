@@ -17,6 +17,17 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Results note when a place was decided on the fastest lap (July 2026)
+
+<!-- release-notes:3.0.0rc11 -->
+
+- **When two boats tie, the results say how the place was decided.** If two boats finish on the **same
+  points and the same average speed**, the placing is settled by their **fastest lap** (U.I.M. §318.03) —
+  a number that was previously invisible on the sheet. The result reports now add a short note under the
+  table, e.g. *"Places 2-3 decided on fastest lap (§318.03): #12 (92.4 km/h) over #7 (91.8 km/h)"* (shown
+  as a time instead, if you chose the total-time view). Nothing changes when a place is decided the usual
+  way (points, or average speed).
+
 ## A fix for total-time results (July 2026)
 
 <!-- release-notes:3.0.0rc10 -->

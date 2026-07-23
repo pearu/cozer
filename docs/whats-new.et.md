@@ -19,6 +19,17 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Tulemused märgivad, kui koht otsustati kiireima ringi järgi (juuli 2026)
+
+<!-- release-notes:3.0.0rc11 -->
+
+- **Kui kaks paati on võrdsed, näitavad tulemused, kuidas koht otsustati.** Kui kahel paadil on **sama
+  punktisumma ja sama keskmine kiirus**, otsustab koha nende **kiireim ring** (U.I.M. §318.03) — number,
+  mida varem tulemuslehel näha polnud. Tulemuste väljatrükkid lisavad nüüd tabeli alla lühikese märkuse,
+  nt *"Kohad 2-3 otsustatud kiireima ringi järgi (§318.03): #12 (92.4 km/h) enne #7 (91.8 km/h)"*
+  (koguaja vaates näidatakse ajana). Kui koht otsustatakse tavapäraselt (punktid või keskmine kiirus),
+  ei muutu midagi.
+
 ## Parandus koguaja-tulemustele (juuli 2026)
 
 <!-- release-notes:3.0.0rc10 -->
