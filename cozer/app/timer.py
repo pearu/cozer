@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer._py2compat import round2
-from cozer.app.grids import race_label
+from cozer.app.grids import combo, race_label
 from cozer.app import dialogs
 from cozer.classes import getclass
 from cozer.native import native_races_to_legacy, record_heat
@@ -308,7 +308,7 @@ class TimerPanel(QWidget):
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Race:"))
-        self.race_combo = QComboBox()
+        self.race_combo = combo()
         top.addWidget(self.race_combo)
         self.start_btn = QPushButton("Start")
         self.start_btn.clicked.connect(self.on_start)

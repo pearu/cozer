@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.app import ruleset as rulesetmod
-from cozer.app.grids import confirm_delete
+from cozer.app.grids import combo, confirm_delete
 from cozer.app import dialogs
 from cozer.classes import getclass
 from cozer.countries import IOC, is_ioc_code
@@ -466,7 +466,7 @@ class AddClassDialog(QDialog):
         self.setWindowTitle("Add class")
         self._result = ""
         form = QFormLayout(self)
-        self.name = QComboBox()             # non-editable: catalog names only
+        self.name = combo()                 # non-editable: catalog names only
         self.name.addItems(available)
         form.addRow("Class name:", self.name)
         box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

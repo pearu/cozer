@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
-from cozer.app.grids import confirm_delete
+from cozer.app.grids import combo, confirm_delete
 from cozer.app import dialogs
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
@@ -407,7 +407,7 @@ class EditRecordsPanel(QWidget):
         v = QVBoxLayout(self)
         top = QHBoxLayout()
         top.addWidget(QLabel("Class / Heat:"))
-        self.heat_combo = QComboBox()
+        self.heat_combo = combo()
         self.heat_combo.currentIndexChanged.connect(self._on_heat_changed)
         top.addWidget(self.heat_combo)
         zin = QPushButton("Zoom +")

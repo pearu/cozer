@@ -29,7 +29,7 @@ from cozer.app import ruleset as rulesetmod
 from cozer.app.classpart import ClassesParticipantsPanel
 from cozer.app.editor import EditRecordsPanel
 from cozer.app.grids import (
-    GridTab, RacesTab, StringListEditor, parse_scoring, validate_rule_cell,
+    GridTab, RacesTab, StringListEditor, combo, parse_scoring, validate_rule_cell,
 )
 from cozer.app.timer import TimerPanel
 from cozer.phases import class_phase_map, heat_label, phase_heat_ids
@@ -1012,7 +1012,7 @@ class MainWindow(QMainWindow):
         ol = QVBoxLayout(opts)
         typerow = QHBoxLayout()
         typerow.addWidget(QLabel("Report type:"))
-        self.report_combo = QComboBox()
+        self.report_combo = combo()
         for r in _REPORTS:
             self.report_combo.addItem(r[0])
         typerow.addWidget(self.report_combo)

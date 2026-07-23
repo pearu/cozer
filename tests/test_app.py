@@ -35,6 +35,11 @@ def test_window_builds_and_populates():
                     for i in range(w.report_tabs.count()))
     assert n_classes == len(get_classes(ed))               # every class appears under some phase tab
     assert w.report_combo.count() == 15                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial)
+    # issue #37: combos use a QStyledItemDelegate so the app stylesheet colours the highlighted popup
+    # item (else it renders invisible light-on-light). Covers the app's dropdowns via grids.combo().
+    from PySide6.QtWidgets import QStyledItemDelegate
+    assert isinstance(w.report_combo.itemDelegate(), QStyledItemDelegate)
+    assert isinstance(w.timer_panel.race_combo.itemDelegate(), QStyledItemDelegate)
 
 
 def test_event_field_edits_update_eventdata():

@@ -8,10 +8,20 @@ table view with Add/Delete buttons; ``RacesTab`` handles the nested race list
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QTableView, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
 )
 
 from cozer.classes import getclass
+
+
+def combo():
+    """A QComboBox whose popup honours the app stylesheet's ``::item:selected`` colours. Qt's default
+    combo delegate ignores stylesheet ``::item`` rules, so the highlighted item paints as invisible
+    light-on-light (issue #37: "popup hard to see"); a QStyledItemDelegate forces the stylesheet to
+    paint. Use this instead of ``QComboBox()`` everywhere so no dropdown regresses."""
+    c = QComboBox()
+    c.setItemDelegate(QStyledItemDelegate(c))
+    return c
 from cozer.racepattern import class_pattern, crack_race_pattern, get_classes, race_kind
 from cozer.app import dialogs
 
@@ -436,9 +446,9 @@ class RacesTab(QWidget):
         right = QVBoxLayout()
         form = QHBoxLayout()                            # visible dropdowns, so the feature is obvious
         form.addWidget(QLabel("Add heat:"))
-        self.class_combo = QComboBox()
-        self.phase_combo = QComboBox()
-        self.heat_combo = QComboBox()
+        self.class_combo = combo()
+        self.phase_combo = combo()
+        self.heat_combo = combo()
         form.addWidget(self.class_combo, 2)
         form.addWidget(self.phase_combo, 2)
         form.addWidget(self.heat_combo, 1)
