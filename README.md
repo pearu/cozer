@@ -29,11 +29,11 @@
 | cozer/racepattern.py          |      323 |       18 |      188 |       14 |     94% |34, 36, 63, 96, 98, 185-\>182, 216-217, 319, 333-334, 336, 339, 342, 355, 365, 374-375, 425, 439-\>418 |
 | cozer/records.py              |       67 |        0 |       20 |        2 |     98% |77-\>71, 111-\>110 |
 | cozer/reports/\_\_init\_\_.py |       10 |        0 |        0 |        0 |    100% |           |
-| cozer/reports/common.py       |      162 |        4 |       72 |        4 |     97% |116, 130, 163, 166 |
+| cozer/reports/common.py       |      182 |        4 |       82 |        4 |     97% |149, 163, 196, 199 |
 | cozer/reports/endurance.py    |       95 |        1 |       36 |        2 |     98% |38-\>40, 53 |
-| cozer/reports/final.py        |      230 |        1 |       94 |        4 |     98% |88-\>84, 278-\>280, 281, 310-\>312 |
+| cozer/reports/final.py        |      239 |        1 |      100 |        4 |     99% |88-\>84, 291-\>293, 294, 323-\>325 |
 | cozer/reports/inspection.py   |       80 |        0 |       10 |        0 |    100% |           |
-| cozer/reports/intermediate.py |      133 |        0 |       52 |        1 |     99% | 167-\>138 |
+| cozer/reports/intermediate.py |      142 |        0 |       58 |        1 |     99% | 179-\>150 |
 | cozer/reports/labels.py       |       15 |        0 |        0 |        0 |    100% |           |
 | cozer/reports/laps.py         |       54 |        0 |       16 |        0 |    100% |           |
 | cozer/reports/latexish.py     |       74 |        4 |       44 |        4 |     93% |59, 78, 104, 114 |
@@ -44,9 +44,9 @@
 | cozer/reports/render.py       |       10 |        0 |        0 |        0 |    100% |           |
 | cozer/reports/timetrial.py    |       91 |        5 |       38 |       10 |     88% |39-\>41, 50, 54, 66-\>62, 72-\>44, 89-\>91, 92, 99-\>101, 102, 107 |
 | cozer/seeding.py              |       89 |        0 |       36 |        1 |     99% | 144-\>142 |
-| cozer/store.py                |      227 |        5 |       72 |        3 |     97% |98, 267-268, 317-\>319, 351-\>exit, 354-355 |
+| cozer/store.py                |      227 |        5 |       72 |        2 |     98% |98, 267-268, 317-\>319, 354-355 |
 | cozer/validate.py             |      114 |        7 |       52 |        3 |     94% |63-\>65, 74-\>85, 105-106, 156, 166-167, 206-207 |
-| **TOTAL**                     | **6581** |  **501** | **2390** |  **260** | **90%** |           |
+| **TOTAL**                     | **6619** |  **501** | **2412** |  **259** | **90%** |           |
 
 
 ## Setup coverage badge
