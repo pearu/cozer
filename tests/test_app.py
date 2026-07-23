@@ -1814,6 +1814,9 @@ def test_build_mark_menu_and_actions(tmp_path, monkeypatch):
     menu = ep.build_mark_menu("1", 10.0)
     assert any("Insert lap" in a.text() for a in menu.actions())
     assert any(a.menu() for a in menu.actions())                # rules submenu present
+    # rule items carry the UIM article in the label (issue #33): "313.4 — Disqualification"
+    rule_labels = [aa.text() for a in menu.actions() if a.menu() for aa in a.menu().actions()]
+    assert any("313.4" in t and "Disqualification" in t for t in rule_labels)
     d = ep._draft                                               # edits land in the draft buffer
     for a in menu.actions():
         if "Insert lap" in a.text():

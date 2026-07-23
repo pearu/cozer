@@ -675,7 +675,8 @@ class EditRecordsPanel(QWidget):
         for code_name in by_code:
             sub = menu.addMenu("%s…" % code_name)
             for r in by_code[code_name]:
-                act = sub.addAction(r[3] or r[2])
+                art, desc = (r[2] or "").strip(), (r[3] or "").strip()   # UIM article + rule text
+                act = sub.addAction("%s — %s" % (art, desc) if art and desc else (art or desc))
                 act.triggered.connect(
                     lambda _=False, rr=r: self.insert_rule_mark(cl, h, pid, reccodemap[rr[1]], ct, rr[2]))
         if by_code:
