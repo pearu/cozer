@@ -21,7 +21,7 @@ LABELS = {
         "From": "From", "No": "No.", "Res": "Res.", "LapTime": "Lap Time", "Qualify": "Q/DNQ",
         "Repechage": "Rep.", "Nationality": "Nat.",   # short header: the column holds a 3-char code
         "Results": "Results", "Pts": "Pts.", "Points": "Points", "Starttime": "Start time",
-        "Summary": "Summary", "Lp": "L", "Lap": "Lap", "Start": "Start", "None": "None",
+        "Summary": "Summary", "Lp": "L", "Lap": "Lap", "Laps": "Laps", "Start": "Start", "None": "None",
         "ResNote": "Result = AverSpeed / MaxLapSpeed [km/h]",
         "LapTimeNote": "Lap Time = best full lap [s]",   # time-trial footer (305.04.02)
         "QualifyNote": "Q = qualified, DNQ = did not qualify",   # qualification Q/DNQ key
@@ -56,7 +56,7 @@ LABELS = {
         "From": "Klubi", "No": "Nr.", "Res": "Tul.", "LapTime": "Ringi aeg", "Qualify": "Q/DNQ",
         "Repechage": "Rep.", "Nationality": "Rahvus",   # ET verified by owner
         "Results": "Tulemus", "Pts": "Pnkt.", "Points": "Punktid", "Starttime": "Stardi aeg",
-        "Summary": "Kokkuvõte", "Lp": "R", "Lap": "Ring", "Start": "Start", "None": "-",
+        "Summary": "Kokkuvõte", "Lp": "R", "Lap": "Ring", "Laps": "Ringe", "Start": "Start", "None": "-",
         "ResNote": "Tulemus = (Keskmine kiirus) / (Parim ringi kiirus) [km/h]",
         "LapTimeNote": "Ringi aeg = kiireim täisring [s]",   # ET verified by owner
         "QualifyNote": "Q = kvalifitseerus, DNQ = ei kvalifitseerunud",   # ET verified by owner

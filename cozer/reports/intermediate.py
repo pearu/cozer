@@ -58,6 +58,10 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
             row = {"place": str(r["place"]) if scored else "", "name": names[0].strip(),
                    "extra": [n.strip() for n in names[1:]], "from": club,
                    "nat": nats.get((cl, str(pid)), ""), "id": str(pid)}
+            # "Show lap count for all finishers" moves the lap count out of the Res cell into a separate
+            # Laps column, for the circuit results table only (issue #34). Off -> unchanged (a short
+            # finisher still shows its /NL inline).
+            laps_col = show_laps and not istt and not isqual
             if istt:
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
@@ -65,8 +69,10 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                 row["result"] = _result_text(r, legend, show_laps, native=True)
                 row["status"] = qmarks.get(str(pid), "")           # "Q" / "DNQ"
             else:
-                row["result"] = _result_text(r, legend, show_laps, native=True)
+                row["result"] = _result_text(r, legend, show_laps, native=True, laps_col=laps_col)
                 row["points"] = str(r["points"]) if scored else "-"
+                if laps_col:
+                    row["laps"] = str(r["lapinfo"][0]) if scored else ""
             if multi:
                 sr = sumres.get(pid, {})
                 ok = sr.get("place", 0) > 0
@@ -80,7 +86,8 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
         resnote = labels["LapTimeNote"] if istt else None
         qnote = labels["QualifyNote"] if isqual else None
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
-                       "isqual": isqual, "qcount": qcount, "starttime": starttime,
+                       "isqual": isqual, "laps": (show_laps and not istt and not isqual),
+                       "qcount": qcount, "starttime": starttime,
                        "rows": rows, "legend": _legend_html(legend, labels, resnote, qnote, native=True)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables, "posting": True,
@@ -88,7 +95,7 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 
-def _header_and_cols(L, multi, istt, isqual=False, show_from=True, show_nat=False):
+def _header_and_cols(L, multi, istt, isqual=False, show_from=True, show_nat=False, laps=False):
     # leading columns Place, Name, [From], [Nationality], No -- then a mode-specific tail. From
     # and Nationality are optional (shown only when they vary across the event); Name (width None)
     # absorbs the leftover width.
@@ -106,6 +113,8 @@ def _header_and_cols(L, multi, istt, isqual=False, show_from=True, show_nat=Fals
         tail = [(16, L["Res"], "num"), (8, L["Pts"], "num"), (16, L["Res"], "num"), (8, L["Pts"], "num")]
     else:
         tail = [(20, L["Res"], "num"), (12, L["Pts"], "num")]
+    if laps:                                            # a Laps column just before Res (issue #34)
+        tail = [(7, L["Laps"], "num")] + tail
     allcols = lead + tail
     used = sum(w for w, _, _ in allcols if w is not None)
     cols = ['<col style="width:%d%%">' % (w if w is not None else max(18, 100 - used))
@@ -121,8 +130,8 @@ def intermediate_html(model):
     body = []
     show_f, show_n = model.get("show_from", True), model.get("show_nat", False)
     for t in model["tables"]:
-        multi, istt, isqual = t["multi"], t["istt"], t.get("isqual", False)
-        head, cols, ncols = _header_and_cols(L, multi, istt, isqual, show_f, show_n)
+        multi, istt, isqual, laps = t["multi"], t["istt"], t.get("isqual", False), t.get("laps", False)
+        head, cols, ncols = _header_and_cols(L, multi, istt, isqual, show_f, show_n, laps)
         rows = []
         for r in t["rows"]:
             cells = '<td class="num">%s</td><td class="name">%s</td>' % (esc(r["place"]), display(r["name"]))
@@ -131,6 +140,8 @@ def intermediate_html(model):
             if show_n:
                 cells += '<td class="num">%s</td>' % esc(r["nat"])
             cells += '<td class="num">%s</td>' % esc(r["id"])
+            if laps:                                    # Laps column just before Res (issue #34)
+                cells += '<td class="num">%s</td>' % esc(r.get("laps", ""))
             if istt:
                 cells += '<td class="num">%s</td>' % esc(r["result"])
             elif isqual:

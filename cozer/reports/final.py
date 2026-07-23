@@ -22,16 +22,17 @@ def _legend_index(legend, code, rules):
     return legend[key]
 
 
-def _result_text(r, legend, show_laps=False, native=False):
+def _result_text(r, legend, show_laps=False, native=False, laps_col=False):
     """Per-heat result cell (adapted from legacy res2latex): speeds + note codes. Numbers break only at
     the slash. The completed-lap count ``/NL`` is shown for a boat that finished short of the distance;
     with ``show_laps`` it is shown for every scored finisher (the Reports-tab "all finishers" option).
-    In ``native`` mode (issue #33) the note codes carry NO footnote superscript — the rule article + any
-    reason live in the Notes section — and the codes seen are recorded for a plain footer key instead."""
+    In ``laps_col`` mode the lap count is moved OUT to a separate Laps column (issue #34), so the result
+    cell is just the speeds. In ``native`` mode (issue #33) the note codes carry NO footnote superscript —
+    the rule article + any reason live in the Notes section — the codes seen feed a plain footer key."""
     laps, penlapsleft, lapsleft = r["lapinfo"]
     text = ""
     if r["points"] >= 0:
-        if lapsleft or show_laps:
+        if (lapsleft or show_laps) and not laps_col:
             text = "%.1f/%.1f/%sL" % (r["avgspeed"], r["maxlapspeed"], laps)
         else:
             text = "%.1f/%.1f" % (r["avgspeed"], r["maxlapspeed"])

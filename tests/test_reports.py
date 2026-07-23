@@ -728,9 +728,12 @@ def test_show_laps_option_all_finishers():
     ed = _full_finisher_event()
     strip = lambda h: h.replace("&#8203;", "")
     assert "3L" not in strip(full_final_html(build_full_final(ed)))                       # default: off
+    # Full Final keeps the count inline in each per-heat Res cell (owner: issue #34 Option 1)
     assert "3L" in strip(full_final_html(build_full_final(ed, options={"show_laps": True})))
     assert "3L" not in strip(intermediate_html(build_intermediate(ed)))
-    assert "3L" in strip(intermediate_html(build_intermediate(ed, options={"show_laps": True})))
+    # Intermediate (issue #34): the count moves to a separate "Laps" column, so it is NOT "/3L" inline
+    im_on = intermediate_html(build_intermediate(ed, options={"show_laps": True}))
+    assert "3L" not in strip(im_on) and ">Laps</th>" in im_on
     # the legacy _build gate ignores the option even if it is forced through
     leg = _build(ed, None, None, "landscape", True, phase_native=False, options={"show_laps": True})
     assert "3L" not in strip(full_final_html(leg))
