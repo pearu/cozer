@@ -12,6 +12,7 @@ from cozer.reports.common import (
 )
 from cozer.reports.labels import get_labels, phase_kinds_subtitle, RECCODE_LABEL
 from cozer.reports.render import render_pdf
+from cozer.records import UIM209_CODES
 
 
 def _legend_index(legend, code, rules):
@@ -68,6 +69,8 @@ def _legend_html(legend, labels, note=None, extra=None, native=False):
                 codes.append(code)
         bits += foot
     for code in codes:
+        if native and code in UIM209_CODES:         # §209 outcomes are standard UIM codes -> not keyed
+            continue
         lab = labels.get(RECCODE_LABEL.get(code, ""))
         if lab:
             bits.append("%s = %s" % (esc(code), esc(lab)))

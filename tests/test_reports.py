@@ -82,23 +82,28 @@ def test_report_output_paths():
 
 def test_collect_penalty_notes():
     from cozer.reports.common import collect_penalty_notes
+    from cozer.reports.labels import get_labels
+    from cozer.records import reccodemap
+    LL, DNF, DQ = reccodemap["LL"], reccodemap["DNF"], reccodemap["DQ"]
     ed = {
         "configure": {"language": "English"}, "scoringsystem": [10, 5, 3],
         "classes": [["x", "GT", "1*(3*1000):1"]],
         "participants": [["x", "A", "One", "EST", "GT", "1"], ["x", "B", "Two", "FIN", "GT", "2"]],
         "record": {"GT": {"1": [
             {"course": [1000, 1000, 1000], "racetime": 100.0},
-            {"1": [[1, 20.0], [12, 25.0, "313.4", "cut the buoy"], [1, 21.0]],   # DQ on lap 2, noted
-             "2": [[1, 20.0], [-12, 26.0, "313.4", "ignored"],                   # disabled -> excluded
-                   [12, 30.0, "313.4", ""],                                       # empty note -> excluded
-                   [12, 150.0, "205.1", "post-race protest"]]}]}},                # past racetime -> no lap#
+            {"1": [[1, 20.0], [LL, 25.0, "307.04"], [1, 21.0], [DNF, 60.0, ""],   # LL no note; DNF no note
+                   [-LL, 70.0, "307.04"]],                                         # disabled -> excluded
+             "2": [[1, 20.0], [DQ, 30.0, "313.4", "protest"], [1, 21.0]]},         # DQ noted
+        ]}},
     }
-    from cozer.reports.labels import get_labels
     notes = [line for _cl, _h, line in collect_penalty_notes(ed, labels=get_labels(ed))]
-    assert "#1 in heat 1 at L2 - Disqualif. (313.4): cut the buoy" in notes      # label, not code; short
-    assert "#2 in heat 1 - Disqualif. (205.1): post-race protest" in notes       # no L# past the stop line
-    assert not any("ignored" in n for n in notes)                                # disabled mark excluded
-    assert len(notes) == 2
+    # a non-§209 mark (LL) is listed even with NO note — no trailing colon (owner)
+    assert "#1 in heat 1 at L2 - Lost a lap (307.04)" in notes
+    # a noted mark shows the reason after a colon
+    assert "#2 in heat 1 at L2 - Disqualif. (313.4): protest" in notes
+    # a §209 outcome (DNF) with no note stays out of Notes (table + code key only)
+    assert not any("Did not finish" in n for n in notes)
+    assert len(notes) == 2                     # only LL (no note) + DQ (noted); DNF + disabled LL excluded
 
 
 def test_report_renders_penalty_notes_section():
@@ -115,9 +120,20 @@ def test_report_renders_penalty_notes_section():
     html = intermediate_html(build_intermediate(ed))
     assert "Notes" in html and "#1 in heat 1 at L2 - Disqualif. (313.4): cut the buoy" in html
     assert "DQ<sup>" not in html                    # issue #33: no footnote superscript on the code
-    # a clean heat (no notes) renders no Notes section
+    # a clean heat (no event marks) renders no Notes section
     ed["record"]["GT"]["1"][1]["1"] = [[1, 20.0], [1, 21.0], [1, 22.0]]
     assert "penalty-notes" not in intermediate_html(build_intermediate(ed))
+
+
+def test_legend_html_skips_uim209_codes_in_native_key():
+    from cozer.reports.final import _legend_html
+    from cozer.reports.labels import get_labels
+    L = get_labels({"configure": {"language": "English"}})
+    # native footer key: a §209 outcome (DSQ) is standard and NOT keyed; a non-§209 code (DQ) is
+    html = _legend_html({"DSQ": True, "DQ": True}, L, native=True)
+    assert "DQ = Disqualif." in html and "DSQ =" not in html
+    # legacy mode (byte-faithful) keys everything it is given
+    assert "DSQ = " in _legend_html({("DSQ", "205.02.02"): 1}, L, native=False)
 
 
 def test_result_text_renders_209_codes():

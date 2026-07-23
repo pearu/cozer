@@ -26,7 +26,7 @@ def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):
     class → heat → boat → mark order (empty when nothing is annotated)."""
     from cozer.phases import class_phase_map, phase_heat_map
     from cozer.racepattern import get_classes
-    from cozer.records import invreccodemap, marknote
+    from cozer.records import invreccodemap, marknote, UIM209_CODES
     from cozer.classes import getclass
     from cozer.reports.labels import RECCODE_LABEL
     labels = labels or {}
@@ -63,16 +63,21 @@ def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):
                             laps += 1
                         continue
                     note = marknote(m).strip()
-                    if code < 0 or not note:             # disabled mark or empty note -> ignore
-                        continue
-                    art = (m[2] if len(m) > 2 else "").strip()
                     cn = invreccodemap.get(abs(code), str(abs(code)))
+                    if code < 0:                          # disabled mark -> ignore
+                        continue
+                    if cn in UIM209_CODES and not note:   # §209 outcome without a reason -> table only
+                        continue                          # (a rule/penalty/LL mark is listed regardless)
+                    art = (m[2] if len(m) > 2 else "").strip()
                     mt = m[1] if len(m) > 1 else 0
                     where = "#%s in heat %s" % (pid, heat_label(h))
                     if racetime is None or mt <= racetime:   # not past the race stop line
                         where += " at L%d" % (laps + 1)
                     rule = "%s (%s)" % (_label(cn), art) if art else _label(cn)
-                    out.append((getclass(cl), h, "%s - %s: %s" % (where, rule, note)))
+                    line = "%s - %s" % (where, rule)
+                    if note:                              # a reason follows a colon; none -> no trailing ':'
+                        line += ": %s" % note
+                    out.append((getclass(cl), h, line))
     return out
 
 
