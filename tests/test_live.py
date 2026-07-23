@@ -44,6 +44,14 @@ def test_snapshot_shape():
     ]
 
 
+def test_snapshot_heat_is_bare_number():
+    # issue #34: a time-trial / qualification heat id publishes as a bare number, not "1t"/"1q"
+    assert live.snapshot(ED, "F 500", "1t", [], "u")["heat"] == "1"
+    assert live.snapshot(ED, "F 500", "3q", [], "u")["heat"] == "3"
+    assert live.snapshot(ED, "F 500", "1r", [], "u")["heat"] == "1R"     # restart notation kept
+    assert live.snapshot(ED, "F 500", "odd", [], "u")["heat"] == "odd"   # unparseable -> raw, no crash
+
+
 def test_snapshot_custom_view_and_unknown_boat():
     view = {"page_size": 12, "top_dwell_s": 15, "page_dwell_s": 5}
     snap = live.snapshot(ED, "F 500", "1", ["7", "999"], "T", view=view)

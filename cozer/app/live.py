@@ -12,11 +12,22 @@ import json
 
 from cozer.app.broadcast import feed_path        # light, shared with the Timer / Reports settings
 from cozer.classes import getclass
+from cozer.phases import heat_label              # bare heat number for the feed ('1t' -> '1', issue #34)
 from cozer.racepattern import race_kind
 from cozer.reports.common import nationalities_index, participants_index
 
 # Default display config; the operator overrides it in cozer and it ships in the feed (LIVE.md §4).
 DEFAULT_VIEW = {"page_size": 10, "top_dwell_s": 20, "page_dwell_s": 6, "poll_s": 0.5}
+
+
+def _heat_display(heat):
+    """The heat as shown in the feed: the bare number for a time-trial/qualification heat ('1t'->'1',
+    issue #34). Falls back to the raw string for anything heat_label can't parse (e.g. a synthesized
+    pre-start id), so publishing never fails on an odd heat id."""
+    try:
+        return heat_label(heat)
+    except (ValueError, TypeError):
+        return str(heat)
 
 
 def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=None, elapsed=None):
@@ -61,7 +72,7 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=N
     return {
         "class": getclass(cl),
         "phase": race_kind(eventdata, cl),
-        "heat": str(heat),
+        "heat": _heat_display(heat),           # bare number, no t/q suffix leak (issue #34)
         "updated": updated,
         "unofficial": True,
         "live": live,

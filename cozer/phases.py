@@ -115,6 +115,15 @@ def heat_number(heat_id):
     return _parse_heat_id(heat_id)[0]
 
 
+def heat_label(heat_id):
+    """A heat id as *displayed*: the bare number for a time-trial/qualification heat (``'1t'``→``'1'``,
+    ``'3q'``→``'3'`` — the phase kind is shown separately, so the ``t``/``q`` would be a redundant leak),
+    and UIM restart notation for a circuit heat (``'1'``→``'1'``, ``'1r'``→``'1R'``, ``'1R'``→``'1R2'``).
+    The single source for this mapping (reports + the live feed both use it)."""
+    number, suffix = _parse_heat_id(heat_id)
+    return "%d%s" % (number, {"r": "R", "R": "R2", "t": "", "q": ""}.get(suffix, suffix))
+
+
 def phase_heat_ids(phase):
     """The legacy heat id per heat record in this phase, in results-list order — the
     phase's preserved originals, or canonically synthesized (:func:`synth_heat_id`)

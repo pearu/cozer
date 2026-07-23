@@ -1509,14 +1509,21 @@ def test_broadcast_settings_persist_and_viewer_url(tmp_path, monkeypatch):
     # refreshes the Timer viewer link to the feed path.
     monkeypatch.setenv("COZER_CONFIG_DIR", str(tmp_path))
     import json
+    from PySide6.QtWidgets import QDialog
     import cozer.app.crashreport as cr
+    import cozer.app.dialogs as dialogs_mod
     _app()
     w = MainWindow(_timer_event())
-    w.live_url_edit.setText("https://live.cozer.ee/")
-    w.live_secret_edit.setText("  sek  ")
-    w.live_event_edit.setText("Harku 2026")                    # free text -> slugified into the event
-    w.live_channel_edit.setText("A")
-    w._save_broadcast_settings()
+    # the broadcast controls are a popup now (issue #34): drive it by filling the fields it builds and
+    # accepting. run_modal is patched to fill + accept, exercising the real open->save flow.
+    def _fill_and_accept(dlg, parent=None):
+        w.live_url_edit.setText("https://live.cozer.ee/")
+        w.live_secret_edit.setText("  sek  ")
+        w.live_event_edit.setText("Harku 2026")                # free text -> slugified into the event
+        w.live_channel_edit.setText("A")
+        return QDialog.Accepted
+    monkeypatch.setattr(dialogs_mod, "run_modal", _fill_and_accept)
+    w._open_broadcast_dialog()
     cfg = cr.load_config()
     assert cfg["live_server_url"] == "https://live.cozer.ee/"                   # stored (rstrip at use)
     assert cfg["live_publish_secret"] == "sek"                                  # trimmed

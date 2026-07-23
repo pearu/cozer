@@ -1,21 +1,12 @@
 """Shared helpers for building and rendering cozer reports."""
 from datetime import datetime
 
-from cozer.phases import _parse_heat_id
+from cozer.phases import heat_label      # single source (reports + the live feed share it); re-exported
 from cozer.racepattern import crack_race_pattern
 from cozer.reports.latexish import latex_to_html
 from cozer.reports.render import TABLE_CSS, page_css
 
-
-def heat_label(heat_id):
-    """A heat id as displayed in a report header. UIM 209 restart notation: ``1``→``1``,
-    ``1r``→``1R`` (first restart), ``1R``→``1R2`` (second restart). Time-trial (``2t``) and
-    qualification (``3q``) ids show a **bare number** (``2``/``3``) — the phase kind is already
-    shown separately (report subtitle / column), so the ``t``/``q`` would be a redundant leak.
-    Presentation-only; the ``R`` suffix already means "second restart", so no finals/last-heat
-    context is needed. An unrecognized id raises (surfaced, not silently mangled)."""
-    number, suffix = _parse_heat_id(heat_id)
-    return "%d%s" % (number, {"r": "R", "R": "R2", "t": "", "q": ""}.get(suffix, suffix))
+_ = heat_label     # re-exported: report modules import heat_label from here (keep the name bound)
 
 
 def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):

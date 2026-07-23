@@ -17,7 +17,7 @@ from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QTabWidget, QToolButton, QTreeWidget,
     QTreeWidgetItem, QVBoxLayout, QWidget,
@@ -1011,45 +1011,16 @@ class MainWindow(QMainWindow):
             "circuit finals and intermediate reports. (Endurance reports always show laps.)")
         ol.addWidget(self.opt_all_laps)
 
-        # Live broadcast (docs/broadcast-urls.md §4): all the live.cozer.ee settings live here (broadcast
-        # and reports are both *outputs*). The server URL + publish secret go to cozer config (per
-        # operator; the secret must NEVER reach the .coz -- its content is embedded in bug reports). The
-        # event name + channel go to the event, forming the public address <server>/<event>/feed/<channel>/.
-        live = QGroupBox("Live broadcast")
-        lf = QFormLayout(live)
-        lintro = QLabel("Publish the unofficial live running order to your own live server. The event "
-                        "name and channel form the public address "
-                        "<b>&lt;server&gt;/&lt;event&gt;/feed/&lt;channel&gt;/</b> — turn it on from the "
-                        "Timer tab.")
-        lintro.setWordWrap(True)
-        lf.addRow(lintro)
-        self.live_url_edit = QLineEdit()
-        self.live_url_edit.setPlaceholderText("https://live.cozer.ee")
-        self.live_secret_edit = QLineEdit()
-        self.live_secret_edit.setEchoMode(QLineEdit.Password)     # the publish secret is masked
-        self.live_secret_edit.setToolTip("Kept in cozer's own settings, never written to the event "
-                                         "file (so it can't leak through a bug report).")
-        self.live_event_edit = QLineEdit()
-        self.live_event_edit.setToolTip("A short broadcast name, lowercase (letters, digits, hyphens). "
-                                        "Left blank, cozer uses the current month+year, e.g. 0726.")
-        self.live_channel_edit = QLineEdit()
-        self.live_channel_edit.setPlaceholderText("a")
-        self.live_channel_edit.setToolTip("Separate feed for a second timekeeper on the same event "
-                                          "(a, b, …). Left blank, it is 'a'.")
-        lf.addRow("Live server URL:", self.live_url_edit)
-        lf.addRow("Publish secret:", self.live_secret_edit)
-        lf.addRow("Event name:", self.live_event_edit)
-        lf.addRow("Channel:", self.live_channel_edit)
-        live_save = QPushButton("Save broadcast settings")
-        live_save.clicked.connect(self._save_broadcast_settings)
-        lf.addRow("", live_save)
+        # Live broadcast is a ONE-TIME setup (server URL / secret / event name / channel), so it lives in
+        # a popup (issue #34) rather than taking permanent space next to the per-render report options.
+        # A small button opens it; the toggle to actually go live is on the Timer.
+        live_btn = QPushButton("Live broadcast…")
+        live_btn.setToolTip("Set up the live running-order broadcast (server, event name, channel). "
+                            "One-time setup; turn it on from the Timer tab.")
+        live_btn.clicked.connect(self._open_broadcast_dialog)
+        ol.addWidget(live_btn)
 
-        # Report options + Live broadcast are both per-render *outputs* -> place them side by side,
-        # top-aligned, so neither pushes the classes/heats tree down (owner's layout request).
-        optsrow = QHBoxLayout()
-        optsrow.addWidget(opts, 1, Qt.AlignTop)
-        optsrow.addWidget(live, 1, Qt.AlignTop)
-        v.addLayout(optsrow)
+        v.addWidget(opts, 0, Qt.AlignTop)
 
         v.addWidget(QLabel("Classes / heats to include (none checked = all):"))
         self.report_tabs = QTabWidget()                  # one tab per phase; each holds that phase's tree
@@ -1065,10 +1036,51 @@ class MainWindow(QMainWindow):
         v.addLayout(btnrow)
         return w
 
+    def _open_broadcast_dialog(self):     # pragma: no cover - modal dialog
+        """The one-time live-broadcast setup, in a popup (issue #34). Builds the fields (as the same
+        ``self.live_*`` attributes the save/reload helpers use), populates them, and persists on OK.
+        The server URL + publish secret go to cozer config (the secret NEVER to the .coz); the event
+        name + channel to the event, forming <server>/<event>/feed/<channel>/."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Live broadcast")
+        v = QVBoxLayout(dlg)
+        intro = QLabel("Publish the unofficial live running order to your own live server. The event "
+                       "name and channel form the public address "
+                       "<b>&lt;server&gt;/&lt;event&gt;/feed/&lt;channel&gt;/</b>. This is one-time "
+                       "setup — turn the broadcast on from the Timer tab.")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        form = QFormLayout()
+        self.live_url_edit = QLineEdit()
+        self.live_url_edit.setPlaceholderText("https://live.cozer.ee")
+        self.live_secret_edit = QLineEdit()
+        self.live_secret_edit.setEchoMode(QLineEdit.Password)     # the publish secret is masked
+        self.live_secret_edit.setToolTip("Kept in cozer's own settings, never written to the event "
+                                         "file (so it can't leak through a bug report).")
+        self.live_event_edit = QLineEdit()
+        self.live_event_edit.setToolTip("A short broadcast name, lowercase (letters, digits, hyphens). "
+                                        "Left blank, cozer uses the current month+year, e.g. 0726.")
+        self.live_channel_edit = QLineEdit()
+        self.live_channel_edit.setPlaceholderText("a")
+        self.live_channel_edit.setToolTip("Separate feed for a second timekeeper on the same event "
+                                          "(a, b, …). Left blank, it is 'a'.")
+        form.addRow("Live server URL:", self.live_url_edit)
+        form.addRow("Publish secret:", self.live_secret_edit)
+        form.addRow("Event name:", self.live_event_edit)
+        form.addRow("Channel:", self.live_channel_edit)
+        v.addLayout(form)
+        self._reload_broadcast_settings()          # populate from config + event
+        bb = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        v.addWidget(bb)
+        if dialogs.run_modal(dlg) == QDialog.Accepted:
+            self._save_broadcast_settings()
+
     def _reload_broadcast_settings(self):
-        """Populate the Reports-tab live-broadcast fields from cozer config (server URL + secret) and
-        the event (name + channel). Called on load + on each Reports-tab entry (not on every class
-        change, so it never stomps an in-progress edit)."""
+        """Populate the live-broadcast dialog fields from cozer config (server URL + secret) and
+        the event (name + channel). Safe to call before the dialog exists (guarded) — the load-time and
+        tab-entry calls just no-op until the popup is first opened, which reloads on open."""
         if not hasattr(self, "live_url_edit"):
             return
         from cozer.app import broadcast, crashreport
