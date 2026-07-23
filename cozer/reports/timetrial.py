@@ -73,7 +73,7 @@ def build_timetrial(eventdata, classes=None, heat_map=None, options=None):
             tables.append({"class": getclass(cl), "rows": rows})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["PracticeTimeTrial"], "tables": tables, "posting": True,
-            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 

@@ -18,18 +18,24 @@ def heat_label(heat_id):
     return "%d%s" % (number, {"r": "R", "R": "R2", "t": "", "q": ""}.get(suffix, suffix))
 
 
-def collect_penalty_notes(eventdata, classes=None, heat_map=None):
+def collect_penalty_notes(eventdata, classes=None, heat_map=None, labels=None):
     """The free-text notes on non-disabled operator-inserted marks in the included heats (issue #33), as
-    display lines: ``"boat <n> / heat <h> / lap <k> = CODE (article): reason"`` — the ``/ lap <k>`` part
-    is dropped when the mark is past the race stop line. Returns ``[(class_display, heat_id, line), ...]``
-    in class → heat → boat → mark order (empty when nothing is annotated)."""
+    display lines: ``"#<boat> in heat <h> at L<k> - <Label> (<article>): <reason>"`` — the mark's human
+    label (``Lost a lap``) not its code, the ``at L<k>`` dropped when the mark is past the race stop line.
+    A mark appears only when its note is non-empty. Returns ``[(class_display, heat_id, line), ...]`` in
+    class → heat → boat → mark order (empty when nothing is annotated)."""
     from cozer.phases import class_phase_map, phase_heat_map
     from cozer.racepattern import get_classes
     from cozer.records import invreccodemap, marknote
     from cozer.classes import getclass
+    from cozer.reports.labels import RECCODE_LABEL
+    labels = labels or {}
     phase_of = class_phase_map(eventdata)
     if classes is None:
         classes = get_classes(eventdata)
+
+    def _label(code_name):                            # human label ("Lost a lap"), else the raw code
+        return labels.get(RECCODE_LABEL.get(code_name, ""), code_name)
 
     def _bk(p):
         s = str(p)
@@ -62,11 +68,11 @@ def collect_penalty_notes(eventdata, classes=None, heat_map=None):
                     art = (m[2] if len(m) > 2 else "").strip()
                     cn = invreccodemap.get(abs(code), str(abs(code)))
                     mt = m[1] if len(m) > 1 else 0
-                    where = "boat %s / heat %s" % (pid, heat_label(h))
+                    where = "#%s in heat %s" % (pid, heat_label(h))
                     if racetime is None or mt <= racetime:   # not past the race stop line
-                        where += " / lap %d" % (laps + 1)
-                    codepart = "%s (%s)" % (cn, art) if art else cn
-                    out.append((getclass(cl), h, "%s = %s: %s" % (where, codepart, note)))
+                        where += " at L%d" % (laps + 1)
+                    rule = "%s (%s)" % (_label(cn), art) if art else _label(cn)
+                    out.append((getclass(cl), h, "%s - %s: %s" % (where, rule, note)))
     return out
 
 

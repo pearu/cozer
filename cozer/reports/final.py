@@ -21,11 +21,12 @@ def _legend_index(legend, code, rules):
     return legend[key]
 
 
-def _result_text(r, legend, show_laps=False):
-    """Per-heat result cell (adapted from legacy res2latex): speeds + note codes
-    with footnote references. Numbers break only at the slash. The completed-lap count
-    ``/NL`` is shown for a boat that finished short of the distance; with ``show_laps``
-    it is shown for every scored finisher (the Reports-tab "all finishers" option)."""
+def _result_text(r, legend, show_laps=False, native=False):
+    """Per-heat result cell (adapted from legacy res2latex): speeds + note codes. Numbers break only at
+    the slash. The completed-lap count ``/NL`` is shown for a boat that finished short of the distance;
+    with ``show_laps`` it is shown for every scored finisher (the Reports-tab "all finishers" option).
+    In ``native`` mode (issue #33) the note codes carry NO footnote superscript — the rule article + any
+    reason live in the Notes section — and the codes seen are recorded for a plain footer key instead."""
     laps, penlapsleft, lapsleft = r["lapinfo"]
     text = ""
     if r["points"] >= 0:
@@ -40,24 +41,32 @@ def _result_text(r, legend, show_laps=False):
     parts = [text] if text else []
     for code in notes:
         rules = notes[code]
-        if not rules:
+        if native:
             parts.append(esc(code))
-        else:
+            legend[code] = True                     # code-string key -> footer glossary (no footnote)
+        elif rules:
             parts.append("%s<sup>%s</sup>" % (esc(code), _legend_index(legend, code, rules)))
+        else:
+            parts.append(esc(code))
     return " ".join(parts).strip() or "-"
 
 
-def _legend_html(legend, labels, note=None, extra=None):
-    """Footnotes (¹ rule-text) + code glossary (DQ = Disqualif.) + a leading result note. The note
-    defaults to the speed ``ResNote``; a caller whose result column is not speed (e.g. a time-trial
-    Lap Time table) passes its own, so the footer describes the column that is actually shown.
-    ``extra`` appends one more note at the end (e.g. the Q/DNQ key for a qualification report)."""
-    foot, codes = [], []
-    for (code, rules), idx in sorted(legend.items(), key=lambda kv: kv[1]):
-        foot.append("<sup>%s</sup> %s" % (idx, display(rules)))
-        if code not in codes:
-            codes.append(code)
-    bits = [esc(note if note is not None else labels["ResNote"])] + foot
+def _legend_html(legend, labels, note=None, extra=None, native=False):
+    """The footer: the result-column note (ResNote) + a code key (DQ = Disqualif.). Legacy mode also
+    lists the rule-article footnotes referenced by result-cell superscripts; ``native`` mode (issue #33)
+    has no such footnotes — the article + reason are in the Notes section — just the code key. The note
+    defaults to the speed ``ResNote``; a caller whose result column is not speed passes its own. ``extra``
+    appends one more note at the end (e.g. the Q/DNQ key for a qualification report)."""
+    bits = [esc(note if note is not None else labels["ResNote"])]
+    if native:
+        codes = list(legend)                        # code-string keys, insertion order; no footnotes
+    else:
+        foot, codes = [], []
+        for (code, rules), idx in sorted(legend.items(), key=lambda kv: kv[1]):
+            foot.append("<sup>%s</sup> %s" % (idx, display(rules)))
+            if code not in codes:
+                codes.append(code)
+        bits += foot
     for code in codes:
         lab = labels.get(RECCODE_LABEL.get(code, ""))
         if lab:
@@ -144,7 +153,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
                 rh = res[h].get(pid)                # a boat need not have raced every heat
                 heatcells.append(
                     {"result": "-", "points": "-"} if rh is None else
-                    {"result": _result_text(rh, legend, show_laps),
+                    {"result": _result_text(rh, legend, show_laps, native=phase_native),
                      "points": str(rh["points"]) if rh["place"] > 0 else "-"})
             rows.append({
                 "place": str(sr["place"]) if scored else "",
@@ -160,7 +169,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
         if finalist_set is not None:
             rows.extend(_dnq_rows(eventdata, cl, finalist_set, parts, nats, len(heats)))
         tables.append({"class": getclass(cl), "heats": heats, "rows": rows,
-                       "legend": _legend_html(legend, labels)})
+                       "legend": _legend_html(legend, labels, native=phase_native)})
         kinds.append(ph.kind)
     subtitle = phase_kinds_subtitle(labels, kinds) if phase_native else ""
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": orientation,
@@ -168,7 +177,7 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
             "subtitle": subtitle,
             # From/Nationality columns + the §209 posting block + the issue-#33 notes are native-only
             # (legacy stays byte-faithful: From always, no Nationality, no posting block, no notes).
-            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map) if phase_native else None,
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels) if phase_native else None,
             "show_from": show_from(eventdata) if phase_native else True,
             "show_nat": show_nationality(eventdata) if phase_native else False,
             "posting": phase_native}

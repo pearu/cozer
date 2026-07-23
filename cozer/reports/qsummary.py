@@ -48,7 +48,7 @@ def build_qualification(eventdata, classes=None, heat_map=None):
             res = analyze(hid, [dict(rec[0]), rec[1]], ss, rulecodes)
             is_rep = (nq >= 2 and number == nq)
             for pid in getresorder(res):
-                info[str(pid)] = (number, _result_text(res[pid], legend), res[pid]["place"], is_rep)
+                info[str(pid)] = (number, _result_text(res[pid], legend, native=True), res[pid]["place"], is_rep)
 
         nats = nationalities_index(eventdata)
         rows = []
@@ -68,10 +68,10 @@ def build_qualification(eventdata, classes=None, heat_map=None):
         for r in rows:
             del r["_sort"]
         tables.append({"class": getclass(cl), "rows": rows,
-                       "legend": _legend_html(legend, labels, extra=labels["QualifyNote"])})
+                       "legend": _legend_html(legend, labels, extra=labels["QualifyNote"], native=True)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["PhaseQualification"], "tables": tables, "posting": True,
-            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 

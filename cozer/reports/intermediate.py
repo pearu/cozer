@@ -62,10 +62,10 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                 lt = r.get("laptime", 0)
                 row["result"] = ("%.3f" % lt) if lt else "-"
             elif isqual:
-                row["result"] = _result_text(r, legend, show_laps)
+                row["result"] = _result_text(r, legend, show_laps, native=True)
                 row["status"] = qmarks.get(str(pid), "")           # "Q" / "DNQ"
             else:
-                row["result"] = _result_text(r, legend, show_laps)
+                row["result"] = _result_text(r, legend, show_laps, native=True)
                 row["points"] = str(r["points"]) if scored else "-"
             if multi:
                 sr = sumres.get(pid, {})
@@ -81,10 +81,10 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
         qnote = labels["QualifyNote"] if isqual else None
         tables.append({"class": getclass(cl), "heat": curheat, "multi": multi, "istt": istt,
                        "isqual": isqual, "qcount": qcount, "starttime": starttime,
-                       "rows": rows, "legend": _legend_html(legend, labels, resnote, qnote)})
+                       "rows": rows, "legend": _legend_html(legend, labels, resnote, qnote, native=True)})
     return {"meta": meta_of(eventdata), "labels": labels, "orientation": "portrait",
             "heading": labels["IntermediateResults"], "tables": tables, "posting": True,
-            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map),
+            "penalty_notes": collect_penalty_notes(eventdata, classes, heat_map, labels),
             "show_from": show_from(eventdata), "show_nat": show_nationality(eventdata)}
 
 

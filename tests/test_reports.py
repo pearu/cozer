@@ -93,9 +93,10 @@ def test_collect_penalty_notes():
                    [12, 30.0, "313.4", ""],                                       # empty note -> excluded
                    [12, 150.0, "205.1", "post-race protest"]]}]}},                # past racetime -> no lap#
     }
-    notes = [line for _cl, _h, line in collect_penalty_notes(ed)]
-    assert "boat 1 / heat 1 / lap 2 = DQ (313.4): cut the buoy" in notes
-    assert "boat 2 / heat 1 = DQ (205.1): post-race protest" in notes            # no lap# past the stop line
+    from cozer.reports.labels import get_labels
+    notes = [line for _cl, _h, line in collect_penalty_notes(ed, labels=get_labels(ed))]
+    assert "#1 in heat 1 at L2 - Disqualif. (313.4): cut the buoy" in notes      # label, not code; short
+    assert "#2 in heat 1 - Disqualif. (205.1): post-race protest" in notes       # no L# past the stop line
     assert not any("ignored" in n for n in notes)                                # disabled mark excluded
     assert len(notes) == 2
 
@@ -112,7 +113,8 @@ def test_report_renders_penalty_notes_section():
         ]}},
     }
     html = intermediate_html(build_intermediate(ed))
-    assert "Notes" in html and "boat 1 / heat 1 / lap 2 = DQ (313.4): cut the buoy" in html
+    assert "Notes" in html and "#1 in heat 1 at L2 - Disqualif. (313.4): cut the buoy" in html
+    assert "DQ<sup>" not in html                    # issue #33: no footnote superscript on the code
     # a clean heat (no notes) renders no Notes section
     ed["record"]["GT"]["1"][1]["1"] = [[1, 20.0], [1, 21.0], [1, 22.0]]
     assert "penalty-notes" not in intermediate_html(build_intermediate(ed))
