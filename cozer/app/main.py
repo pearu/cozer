@@ -1040,6 +1040,7 @@ class MainWindow(QMainWindow):
         name + channel to the event, forming <server>/<event>/feed/<channel>/."""
         dlg = QDialog(self)
         dlg.setWindowTitle("Live broadcast")
+        dlg.setMinimumWidth(680)                   # roomier form (issue #34: ~2x the default width)
         v = QVBoxLayout(dlg)
         intro = QLabel("Publish the unofficial live running order to your own live server. The event "
                        "name and channel form the public address "
@@ -1089,7 +1090,7 @@ class MainWindow(QMainWindow):
             return
         from cozer.app import broadcast, crashreport
         cfg = crashreport.load_config()
-        self.live_url_edit.setText(cfg.get("live_server_url") or "")
+        self.live_url_edit.setText(broadcast.server_url(cfg))     # pre-filled with live.cozer.ee default
         self.live_secret_edit.setText(cfg.get("live_publish_secret") or "")
         b = self.eventdata.get("broadcast") or {}
         self.live_event_edit.setText(b.get("eventname") or "")

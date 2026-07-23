@@ -13,7 +13,15 @@ import re
 from datetime import datetime
 
 DEFAULT_CHANNEL = "a"
+DEFAULT_SERVER_URL = "https://live.cozer.ee"   # the public cozer live server, used when none is configured
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def server_url(cfg):
+    """The live-server base URL to publish to / build viewer links from: the operator's configured
+    ``live_server_url`` if set, else the public ``live.cozer.ee`` default (issue #34). So an operator
+    only needs a publish secret; the URL is never something they must type."""
+    return ((cfg or {}).get("live_server_url") or "").strip() or DEFAULT_SERVER_URL
 
 
 def slugify(text):

@@ -46,3 +46,12 @@ def test_feed_path_and_viewer_url():
     assert broadcast.feed_path("0726", "a") == "0726/feed/a"
     assert broadcast.viewer_url("https://live.cozer.ee/", "0726", "a") == "https://live.cozer.ee/0726/feed/a/"
     assert broadcast.viewer_url("https://live.cozer.ee", "worlds", "b") == "https://live.cozer.ee/worlds/feed/b/"
+
+
+def test_server_url_defaults_to_live_cozer_ee():
+    # issue #34: an unset / blank server URL resolves to the public default, so an operator only needs
+    # a publish secret; a configured URL wins.
+    assert broadcast.server_url(None) == "https://live.cozer.ee"
+    assert broadcast.server_url({}) == "https://live.cozer.ee"
+    assert broadcast.server_url({"live_server_url": "  "}) == "https://live.cozer.ee"
+    assert broadcast.server_url({"live_server_url": "http://ex:8099"}) == "http://ex:8099"

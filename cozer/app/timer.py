@@ -704,12 +704,12 @@ class TimerPanel(QWidget):
         enabled while already broadcasting so it can be turned off."""
         from cozer.app import crashreport
         cfg = crashreport.load_config()
-        ready = bool(cfg.get("live_server_url") and cfg.get("live_publish_secret"))
+        ready = bool(cfg.get("live_publish_secret"))   # URL defaults to live.cozer.ee (issue #34)
         self.broadcast_btn.setEnabled(ready or self.broadcast_btn.isChecked())
         self.broadcast_btn.setToolTip(
             "Publish the unofficial live running order for a broadcast / venue display. "
             "Never affects timing." if ready else
-            "Set up the broadcast in the Reports tab first (live server address + publish secret).")
+            "Set up the broadcast first (Broadcast ▸ Live broadcast setup — a publish secret).")
 
     def _style_broadcast_button(self, on):
         # 🔴 (red-circle emoji) renders the "live" dot red without recolouring the whole label.
@@ -743,9 +743,9 @@ class TimerPanel(QWidget):
         if on:
             from cozer.app import crashreport
             cfg = crashreport.load_config()
-            if not (cfg.get("live_server_url") and cfg.get("live_publish_secret")):
-                self.status.setText("Set up the broadcast in the Reports tab first "
-                                    "(live server address + publish secret).")
+            if not cfg.get("live_publish_secret"):     # URL defaults to live.cozer.ee (issue #34)
+                self.status.setText("Set up the broadcast first "
+                                    "(Broadcast ▸ Live broadcast setup — a publish secret).")
                 self._set_broadcast_button(False)
                 return
             self._style_broadcast_button(True)
@@ -803,9 +803,9 @@ class TimerPanel(QWidget):
         from datetime import datetime, timezone
         from cozer.app import broadcast, crashreport
         cfg = crashreport.load_config()
-        server_url = cfg.get("live_server_url")
+        server_url = broadcast.server_url(cfg)         # defaults to live.cozer.ee (issue #34)
         secret = cfg.get("live_publish_secret")
-        if not (server_url and secret):     # no transport configured -> skip quietly
+        if not secret:                      # no publish secret -> can't publish, skip quietly
             return
         ed = self.eventdata
         eventname = broadcast.event_name(ed)      # per-event (lives in the .coz), not config
@@ -849,8 +849,8 @@ class TimerPanel(QWidget):
         from cozer.app import broadcast, crashreport
         cfg = crashreport.load_config()
         url = ""
-        if cfg.get("live_server_url") and cfg.get("live_publish_secret"):
-            url = broadcast.viewer_url(cfg["live_server_url"],
+        if cfg.get("live_publish_secret"):             # URL defaults to live.cozer.ee (issue #34)
+            url = broadcast.viewer_url(broadcast.server_url(cfg),
                                        broadcast.event_name(self.eventdata),
                                        broadcast.event_channel(self.eventdata))
         self._viewer_url = url
