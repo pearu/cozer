@@ -626,6 +626,26 @@ def test_editor_picks_up_heats_recorded_after_load():
     assert "GT / 1" in w.editor_panel.heat_combo.itemText(0)
 
 
+def test_editor_heat_combo_drops_class_suffix_keeps_heat_suffix():
+    # issue #34: the Class/Heat combo shows the base class name (no /T /Q) + the heat id -- so a
+    # time-trial heat reads "GT15 / 1t" (not the redundant "GT15/T / 1t"), still distinct from the
+    # circuit "GT15 / 1".
+    _app()
+    from cozer.native import to_native
+    from cozer.store import apply_op
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT15/T", "1*(2*1000):1"], ["", "GT15", "1*(3*1000):1"]],
+                    "record": {}, "races": []})
+    apply_op(ed, {"op": "heat", "cl": "GT15/T", "h": "1t", "info": {"course": [1000, 1000]}, "ids": ["1"]})
+    apply_op(ed, {"op": "lap", "cl": "GT15/T", "h": "1t", "id": "1", "mark": [1, 8.0]})
+    apply_op(ed, {"op": "heat", "cl": "GT15", "h": "1", "info": {"course": [1000]}, "ids": ["1"]})
+    apply_op(ed, {"op": "lap", "cl": "GT15", "h": "1", "id": "1", "mark": [1, 20.0]})
+    w = MainWindow(ed)
+    items = [w.editor_panel.heat_combo.itemText(i) for i in range(w.editor_panel.heat_combo.count())]
+    assert "GT15 / 1t" in items and "GT15 / 1" in items       # heat suffix distinguishes; class /T dropped
+    assert not any("/T" in it for it in items)                # the class /T suffix is gone
+
+
 def test_editor_delete_race_data(tmp_path, monkeypatch):
     # owner: a "Delete race data" button in Edit Records warns (default No) when there IS measured data
     # and, on Yes, RESTORES the heat to a pre-Start state — it removes the record slot (delheat op), so

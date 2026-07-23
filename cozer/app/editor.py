@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from cozer.analyzer import analyze, getresorder, rule_action_codes, deprecation_warning
 from cozer.app.grids import combo, confirm_delete
+from cozer.classes import getclass
 from cozer.app import dialogs
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
@@ -470,7 +471,9 @@ class EditRecordsPanel(QWidget):
         for cl, phase in sorted(class_phase_map(self.window.eventdata).items()):
             for h in phase_heat_ids(phase):
                 self._heatkeys.append((cl, h))
-                self.heat_combo.addItem("%s / %s" % (cl, h))
+                # base class name (no /T /Q) + the heat id: the heat's t/q keeps a time-trial/qualification
+                # heat distinct from the class's circuit heat without repeating the phase (issue #34).
+                self.heat_combo.addItem("%s / %s" % (getclass(cl), h))
         self.heat_combo.blockSignals(False)
         self.refresh()
 
