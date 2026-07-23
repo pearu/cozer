@@ -32,7 +32,7 @@ from cozer.app.grids import (
     GridTab, RacesTab, StringListEditor, parse_scoring, validate_rule_cell,
 )
 from cozer.app.timer import TimerPanel
-from cozer.phases import class_phase_map, phase_heat_ids
+from cozer.phases import class_phase_map, heat_label, phase_heat_ids
 from cozer.racepattern import get_classes, race_kind
 from cozer.native import to_native
 from cozer.store import EventStore, load_event, read_legacy_coz
@@ -98,6 +98,16 @@ _REPORTS = [
     ("Inspection (Cockpit)", "render_inspection_cockpit", True, False, False),
     ("Inspection (Non-cockpit)", "render_inspection_open", True, False, False),
 ]
+
+
+def _heat_label(h):
+    """The heat as shown in the Reports-tab tree: the bare number for a time-trial/qualification heat
+    ('1t'->'1', issue #36). Falls back to the raw id for anything unparseable, so one odd id can't break
+    the whole tab."""
+    try:
+        return heat_label(h)
+    except (ValueError, TypeError):
+        return str(h)
 
 
 def _system_child_env():
@@ -1137,9 +1147,10 @@ class MainWindow(QMainWindow):
         for tree in self._report_trees():
             for j in range(tree.topLevelItemCount()):
                 c = tree.topLevelItem(j)
-                prev[c.data(0, Qt.UserRole)] = (
+                prev[c.data(0, Qt.UserRole)] = (       # heats keyed by their REAL id (UserRole), not label
                     c.checkState(0),
-                    {c.child(k).text(0): c.child(k).checkState(0) for k in range(c.childCount())})
+                    {c.child(k).data(0, Qt.UserRole): c.child(k).checkState(0)
+                     for k in range(c.childCount())})
         cur = self.report_tabs.tabText(self.report_tabs.currentIndex()) if self.report_tabs.count() else None
         self.report_tabs.clear()
         phase_map = class_phase_map(self.eventdata)  # synthesized class name -> its Phase (recorded)
@@ -1163,7 +1174,8 @@ class MainWindow(QMainWindow):
                 c.setFlags(c.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
                 heat_ids = phase_heat_ids(ph) if ph is not None else []
                 for h in heat_ids:
-                    hi = QTreeWidgetItem(c, [str(h)])
+                    hi = QTreeWidgetItem(c, [_heat_label(h)])   # bare number shown (issue #36: was "1t"),
+                    hi.setData(0, Qt.UserRole, str(h))          # real heat id kept for selection
                     hi.setFlags(hi.flags() | Qt.ItemIsUserCheckable)
                     hi.setCheckState(0, pheats.get(str(h), Qt.Unchecked))
                 if not heat_ids:                     # childless class: no auto-tristate to derive from
@@ -1191,8 +1203,8 @@ class MainWindow(QMainWindow):
                 cl = c.data(0, Qt.UserRole)
                 classes.append(cl)
                 if st == Qt.PartiallyChecked:
-                    heat_map[cl] = [c.child(k).text(0) for k in range(c.childCount())
-                                    if c.child(k).checkState(0) == Qt.Checked]
+                    heat_map[cl] = [c.child(k).data(0, Qt.UserRole) for k in range(c.childCount())
+                                    if c.child(k).checkState(0) == Qt.Checked]   # the REAL heat id
         if not any_checked:
             return None, None
         return classes, (heat_map or None)

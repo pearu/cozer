@@ -692,6 +692,31 @@ def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     assert heats_of("GT") == ["1", "2"]
 
 
+def test_reports_tree_shows_bare_heat_label_but_selects_real_id():
+    # issue #36: a time-trial heat shows as "1" in the Reports tree, not "1t"; selection still uses the
+    # real id "1t".
+    _app()
+    from cozer.native import to_native
+    from cozer.store import apply_op
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT/T", "2*(2*1000):1"]], "record": {}, "races": []})
+    for h in ("1t", "2t"):                                # two time-trial heats -> can select just one
+        apply_op(ed, {"op": "heat", "cl": "GT/T", "h": h, "info": {"course": [1000, 1000]}, "ids": ["1"]})
+        apply_op(ed, {"op": "lap", "cl": "GT/T", "h": h, "id": "1", "mark": [1, 8.0]})
+        apply_op(ed, {"op": "lap", "cl": "GT/T", "h": h, "id": "1", "mark": [1, 20.0]})
+    w = MainWindow(ed)
+    # find the GT time-trial class item + its heat children under the Time-trials tab
+    tt = w.report_tabs.widget(
+        [w.report_tabs.tabText(i) for i in range(w.report_tabs.count())].index("Time-trials"))
+    cls = tt.topLevelItem(0)
+    assert [cls.child(k).text(0) for k in range(cls.childCount())] == ["1", "2"]        # labels: bare
+    assert [cls.child(k).data(0, Qt.UserRole) for k in range(cls.childCount())] == ["1t", "2t"]  # real ids
+    # check just the first heat -> partial class -> selection returns the REAL id
+    cls.child(0).setCheckState(0, Qt.Checked)
+    classes, heat_map = w._report_selection()
+    assert classes == ["GT/T"] and heat_map == {"GT/T": ["1t"]}
+
+
 def test_delete_confirmation_guards_real_data(monkeypatch):
     # Deleting REAL data asks "are you sure?" (No keeps, Yes deletes); a blank target is deleted
     # straight away (nothing to lose).
