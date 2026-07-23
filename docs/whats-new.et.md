@@ -19,6 +19,31 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Enam ei "hangu", karistuste märkused tulemustel ja täielik ülevaatuse vorm (juuli 2026)
+
+<!-- release-notes:3.0.0rc9 -->
+
+- **COZER ei näi enam "hangununa".** Kui COZER midagi küsib (salvestamise küsimus, kinnitus), tuleb
+  dialoog nüüd alati **ette ja vilgub tegumiribal**, nii et see ei saa vastust oodates peituda teise akna
+  taha — brauseri, otseülekande lehe või teise ekraani akna taha. Puhtinformatiivsed teated
+  ("no data warnings", "up to date") ei sega enam üldse — need ilmuvad olekuribale. Parandatud ka krahh
+  **Phases** akna avamisel.
+- **Kirjuta karistuse põhjus ja see trükitakse tulemustele.** **Edit Records**'is saab nüüd lisada
+  karistus-/reeglimärgile lühikese **märkuse** (miks see anti); see kogutakse tulemuste väljatrüki
+  **Notes** (märkused) jaotisse. Reegli lisamise menüü näitab ka iga reegli kõrval **U.I.M. artiklit**.
+- **Täielik stardieelse ülevaatuse vorm.** **Inspection (Cockpit)** väljatrükk sisaldab nüüd
+  **täielikku U.I.M. 2026 kontroll-loendit** tugevdatud kabiiniga klassile (F2 / F4 / F 500) **ühel
+  lehel** — iga punkt on kohustuslik, kui pole märgitud teisiti, ja sertifikaadiga tõendatavad punktid on
+  eraldi "documents" plokis, mitte ei kontrollita neid rambil uuesti.
+- **Tulemused: vali kiirus või aeg, selgemad ringiarvud.** Uus valik **Result: speed / total time**
+  Reports-sakil; ja läbitud ringide arv näidatakse nüüd **ainult paadil, kes ei lõpetanud täisdistantsi**
+  (allmärkus selgitab, et ringiarvu puudumine tähendab kõigi ringide läbimist).
+- **Korrastatud otseülekanne.** Ülekande seadistus on nüüd oma **Broadcast** menüüs, vaikimisi
+  **live.cozer.ee**, ja pakub **kanalivalijat**, et vaataja saaks valida ajavõtjate voogude vahel.
+- **Väiksemad parandused.** Rippmenüüd on taas loetavad (esiletõstetud rida oli mõnel süsteemil
+  nähtamatu); faasisakkide all näidatakse sõidu number tavalise numbrina; ja Edit Recordsi Class/Heat
+  valija ei näita enam `/T`/`/Q` lõppu.
+
 ## Ajasõidud, ülevaatuse vormid ja otseülekanne telefonis (juuli 2026)
 
 <!-- release-notes:3.0.0rc8 -->

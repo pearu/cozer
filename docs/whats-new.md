@@ -17,6 +17,31 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## No more "frozen" screen, penalty notes on results, and a complete inspection form (July 2026)
+
+<!-- release-notes:3.0.0rc9 -->
+
+- **COZER no longer looks "frozen."** When COZER asks something (a save prompt, a confirmation), the
+  dialog now always **jumps to the front and flashes in the taskbar**, so it can never hide behind
+  another window — a browser, the broadcast page, or a window on a second monitor — while quietly waiting
+  for an answer. Purely-informational messages ("no data warnings", "up to date") no longer interrupt at
+  all; they appear in the status bar. A crash when opening the **Phases** window was also fixed.
+- **Write the reason for a penalty, and it prints on the results.** In **Edit Records** you can now add a
+  short **note** to a penalty/rule mark (why it was given); it is collected into a **Notes** section on
+  the result printout. The insert-rule menu also shows the **U.I.M. article** beside each rule.
+- **A complete pre-race inspection form.** The **Inspection (Cockpit)** printout now lists the **full
+  U.I.M. 2026 checklist** for a reinforced-cockpit class (F2 / F4 / F 500) on **one page** — every item
+  is mandatory unless marked otherwise, and items proven by a certificate sit in a separate "documents"
+  block rather than being re-checked at the ramp.
+- **Results: choose speed or time, cleaner lap counts.** A new **Result: speed / total time** choice in
+  the Reports tab; and the completed-lap count now shows **only for a boat that did not finish the full
+  distance** (a footnote explains that no lap count means all laps were completed).
+- **A tidier live broadcast.** Broadcast setup now lives in its own **Broadcast** menu, defaults to
+  **live.cozer.ee**, and offers a **channel switcher** so a viewer can pick between the timekeepers' feeds.
+- **Small fixes.** Drop-down lists are readable again (the highlighted row was invisible on some
+  systems); heat numbers under the phase tabs show as a plain number; and the Class/Heat picker in Edit
+  Records drops the `/T`/`/Q` ending.
+
 ## Time-trials, inspection forms, and the broadcast on a phone (July 2026)
 
 <!-- release-notes:3.0.0rc8 -->
