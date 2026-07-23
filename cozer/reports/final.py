@@ -178,9 +178,12 @@ def _build(eventdata, classes, heat_map, orientation, full, phase_native=False, 
                      "points": str(rh["points"]) if rh["place"] > 0 else "-"})
             if not scored:
                 best = "-"
-            elif metric == "total_time":            # summary = the boat's total race time across heats
-                best = fmt_race_time(sum(htime[h].get(str(pid), htime[h].get(pid, 0)) for h in heats
-                                         if res[h].get(pid)))
+            elif metric == "total_time":            # summary = the boat's FASTEST single-heat race time
+                # (the time counterpart of the speed-mode summary "best avg speed" = best heat; §318.02
+                # "faster race time in any heat"). NOT the sum -- the summary is a BEST, not an aggregate.
+                times = [t for t in (htime[h].get(str(pid), htime[h].get(pid, 0))
+                                     for h in heats if res[h].get(pid)) if t > 0]
+                best = fmt_race_time(min(times)) if times else "-"
             else:
                 best = "%.1f/%.1f" % (sr["avgspeed"], sr["maxlapspeed"])
             rows.append({

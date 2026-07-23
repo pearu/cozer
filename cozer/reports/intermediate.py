@@ -77,10 +77,11 @@ def build_intermediate(eventdata, classes=None, heat_map=None, options=None):
                 ok = sr.get("place", 0) > 0
                 if not ok:
                     row["best"] = "-"
-                elif metric == "total_time":        # summary = the boat's total race time across heats
-                    row["best"] = fmt_race_time(sum(
+                elif metric == "total_time":        # summary = the boat's FASTEST single-heat race time
+                    times = [t for t in (                                  # (mirrors best-avg-speed summary
                         sum(gettimes(heat_recs[h][1].get(str(pid), heat_recs[h][1].get(pid, []))))
-                        for h in heats if res[h].get(pid)))
+                        for h in heats if res[h].get(pid)) if t > 0]       # / §318.02; not the sum)
+                    row["best"] = fmt_race_time(min(times)) if times else "-"
                 else:
                     row["best"] = "%.1f/&#8203;%.1f" % (sr["avgspeed"], sr["maxlapspeed"])
                 row["sumpoints"] = str(sr["points"]) if ok else "-"

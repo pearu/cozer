@@ -767,6 +767,25 @@ def test_report_result_metric_speed_or_total_time():
     assert "180.0" in leg.replace("&#8203;", "") and "1:00.0" not in leg
 
 
+def test_full_final_summary_time_is_fastest_heat_not_sum():
+    # issue #34 (Flag A, §318.02): the multi-heat SUMMARY cell in time mode is the boat's FASTEST
+    # single-heat race time (mirrors the speed-mode "best avg speed" = best heat), NOT the sum of heats.
+    from cozer.native import to_native
+    from cozer.reports.final import build_full_final, full_final_html
+    ed = to_native({
+        "configure": {"language": "English"}, "scoringsystem": [10, 8], "rules": [], "races": [],
+        "participants": [["", "A", "", "EST", "GT", "1"]],
+        "classes": [["", "GT", "2*(3*1000):2"]],
+        "record": {"GT": {
+            "1": [{"course": [1000, 1000, 1000], "racetime": 1000.0}, {"1": [(1, 20.0)] * 3}],   # 60s
+            "2": [{"course": [1000, 1000, 1000], "racetime": 1000.0}, {"1": [(1, 30.0)] * 3}]}},  # 90s
+    })
+    html = full_final_html(build_full_final(ed, options={"metric": "time"}))
+    # per-heat cells show each heat's own time (1:00.0 and 1:30.0); the summary = the FASTER, 1:00.0
+    assert "1:00.0" in html and "1:30.0" in html
+    assert "2:30.0" not in html                          # NOT the sum (60+90=150s = 2:30.0)
+
+
 def test_report_restart_notation():
     # UIM 209 restart notation in report heat headers: 1r -> 1R (first restart),
     # 1R -> 1R2 (second restart); time-trial/qualification suffixes pass through.
