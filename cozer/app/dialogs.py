@@ -14,12 +14,22 @@ must acknowledge, ``run_modal`` for a custom ``QDialog``/``QMessageBox`` the cal
 the Log instead of interrupting with a modal.
 """
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 
 def _log(widget, msg):
     """Write to the MainWindow Log/status bar if one is reachable from ``widget`` (best-effort)."""
-    win = widget.window() if widget is not None else None
+    if widget is None:
+        win = None
+    elif isinstance(widget, QWidget):
+        # Call the real QWidget.window() explicitly: many cozer panels shadow `.window` with an instance
+        # attribute (self.window = the MainWindow reference), so `widget.window()` would try to CALL that
+        # attribute -> "'MainWindow' object is not callable" (issue #39). QWidget.window(widget) bypasses
+        # the shadow and returns the top-level window regardless.
+        win = QWidget.window(widget)
+    else:
+        wf = getattr(widget, "window", None)   # a duck-typed object with a window() method
+        win = wf() if callable(wf) else None
     logfn = getattr(win, "log", None)
     if callable(logfn):
         logfn(msg)

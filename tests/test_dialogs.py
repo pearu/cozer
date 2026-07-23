@@ -45,6 +45,25 @@ def test_notify_tolerates_missing_logger():
     dialogs.notify(None, "x")        # widget None -> no-op
 
 
+def test_log_handles_window_attribute_shadow():
+    # issue #39: a real cozer panel shadows QWidget.window() with an instance attribute
+    # (self.window = the MainWindow), so dialogs._log calling widget.window() raised
+    # "'MainWindow' object is not callable". _log must reach the top-level window's .log anyway.
+    from PySide6.QtWidgets import QApplication, QWidget
+    QApplication.instance() or QApplication([])
+    logged = []
+
+    class _Win(QWidget):
+        def log(self, m):
+            logged.append(m)
+
+    win = _Win()
+    panel = QWidget(win)             # a child whose top-level window() is `win`
+    panel.window = win               # shadow the method with the MainWindow ref (as the panels do)
+    dialogs.notify(panel, "hi")      # must not raise; routes to win.log via the real QWidget.window()
+    assert logged == ["hi"]
+
+
 def test_api_surface():
     for name in ("question", "warn", "error", "info", "notify", "run_modal", "bring_to_front"):
         assert callable(getattr(dialogs, name))
