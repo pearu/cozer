@@ -28,9 +28,9 @@
 | cozer/racepattern.py          |      323 |       18 |      188 |       14 |     94% |34, 36, 63, 96, 98, 185-\>182, 216-217, 319, 333-334, 336, 339, 342, 355, 365, 374-375, 425, 439-\>418 |
 | cozer/records.py              |       67 |        0 |       20 |        2 |     98% |77-\>71, 111-\>110 |
 | cozer/reports/\_\_init\_\_.py |       10 |        0 |        0 |        0 |    100% |           |
-| cozer/reports/common.py       |      159 |        4 |       68 |        4 |     96% |120, 134, 167, 170 |
+| cozer/reports/common.py       |      164 |        4 |       72 |        4 |     97% |125, 139, 172, 175 |
 | cozer/reports/endurance.py    |       95 |        1 |       36 |        2 |     98% |38-\>40, 53 |
-| cozer/reports/final.py        |      212 |        2 |       84 |        5 |     98% |72-\>70, 245-\>247, 248, 277-\>279, 287 |
+| cozer/reports/final.py        |      215 |        1 |       86 |        4 |     98% |75-\>71, 248-\>250, 251, 280-\>282 |
 | cozer/reports/inspection.py   |       77 |        0 |       14 |        0 |    100% |           |
 | cozer/reports/intermediate.py |      126 |        0 |       48 |        1 |     99% | 152-\>123 |
 | cozer/reports/labels.py       |       15 |        0 |        0 |        0 |    100% |           |
@@ -39,13 +39,13 @@
 | cozer/reports/letters.py      |       54 |        2 |       10 |        0 |     97% |     55-56 |
 | cozer/reports/output.py       |       15 |        0 |        4 |        0 |    100% |           |
 | cozer/reports/participants.py |       70 |        1 |       22 |        2 |     97% |17-\>19, 22 |
-| cozer/reports/qsummary.py     |       74 |        4 |       28 |        6 |     90% |26-\>28, 36, 46, 102, 107-\>93, 111 |
+| cozer/reports/qsummary.py     |       74 |        3 |       28 |        5 |     92% |26-\>28, 36, 46, 102, 107-\>93 |
 | cozer/reports/render.py       |       10 |        0 |        0 |        0 |    100% |           |
-| cozer/reports/timetrial.py    |       91 |        6 |       38 |       11 |     87% |39-\>41, 50, 54, 66-\>62, 72-\>44, 89-\>91, 92, 99-\>101, 102, 107, 115 |
+| cozer/reports/timetrial.py    |       91 |        5 |       38 |       10 |     88% |39-\>41, 50, 54, 66-\>62, 72-\>44, 89-\>91, 92, 99-\>101, 102, 107 |
 | cozer/seeding.py              |       89 |        0 |       36 |        1 |     99% | 144-\>142 |
 | cozer/store.py                |      227 |        5 |       72 |        3 |     97% |98, 267-268, 317-\>319, 351-\>exit, 354-355 |
 | cozer/validate.py             |      114 |        7 |       52 |        3 |     94% |63-\>65, 74-\>85, 105-106, 156, 166-167, 206-207 |
-| **TOTAL**                     | **6496** |  **486** | **2368** |  **267** | **90%** |           |
+| **TOTAL**                     | **6504** |  **483** | **2374** |  **264** | **90%** |           |
 
 
 ## Setup coverage badge
