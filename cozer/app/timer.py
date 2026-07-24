@@ -621,9 +621,12 @@ class TimerPanel(QWidget):
                            for cl, h in self._recorded_heats())
         return dialogs.question(
             self, "Overwrite race record?",
-            "This race already has recorded data — Start will OVERWRITE:\n\n%s\n\n"
-            "Start over and lose it? (Use Resume to continue timing instead.)" % detail
-            ) == QMessageBox.Yes
+            "This race already has recorded data — Start will ERASE and LOSE it:\n\n%s\n\n"
+            "• To re-run a heat and KEEP this original, add a restart under the Races tab, then Start "
+            "that race instead.\n"
+            "• To continue timing this same record, use Resume.\n\n"
+            "Erase the recorded data and start over anyway?" % detail,
+            default=QMessageBox.No) == QMessageBox.Yes
 
     def on_resume(self):
         if not self._ensure_store():
