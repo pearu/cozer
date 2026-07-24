@@ -355,25 +355,39 @@ def _heat_numbers(eventdata, base, kind):
 
 
 def _heat_options(races, eventdata, base, kind):
-    """Restart-aware, in-order heat choices for the add-a-heat form, each ``(label, number, occurrence)``:
-    a ``"<n> - restart"`` for every already-scheduled heat that can still be restarted (a circuit heat
-    restarts at most twice), then the single next un-scheduled original. Never a number beyond the next --
-    heat 3 cannot be scheduled before heat 2 (legacy cozer behaviour). ``occurrence`` is the entry's
-    restart rank: 0 original, 1 first restart (``1r``), 2 second restart (``1R``)."""
+    """Restart-aware, in-order heat choices for the add-a-heat form, each ``(label, number, occurrence)``
+    (issues #45-49). Let ``current`` be the highest heat already scheduled for this (base, kind) and ``c``
+    its occurrence count:
+      • ``c == 1`` (current run once, not yet restarted) -> you are still on it: offer its
+        ``"<current> - restart"`` and the SINGLE next un-scheduled original (never look further ahead --
+        heat 3 can't be scheduled before heat 2);
+      • else, if an un-scheduled original remains -> offer just that next original;
+      • else (all originals scheduled, so ``current`` is the last heat) -> offer another restart of the
+        last heat while restarts remain -- the final can be re-run repeatedly, a mid-schedule heat cannot.
+    ``occurrence`` is the entry's restart rank: 0 original, 1 first restart (``1r``), 2 second restart
+    (``1R``); a circuit heat restarts at most twice (len(_CIRCUIT_RESTART))."""
     nums = _heat_numbers(eventdata, base, kind)          # [1..N] from the pattern
     if not nums:
         return []
-    counts = {}                                          # heat number -> entries already in the schedule
+    counts = {}                                          # heat number -> occurrences already scheduled
     for race in races or []:
         for e in race:
             if isinstance(e, dict) and e.get("name") == base and e.get("kind") == kind:
                 counts[e.get("number")] = counts.get(e.get("number"), 0) + 1
-    opts = [("%d - restart" % n, n, counts[n])           # next restart of an already-scheduled heat
-            for n in sorted(k for k in counts if k in nums) if counts[n] < len(_CIRCUIT_RESTART)]
-    nxt = next((n for n in nums if n not in counts), None)   # the single next un-scheduled original
-    if nxt is not None:
-        opts.append((str(nxt), nxt, 0))
-    return opts
+    current = max((n for n in counts if n in nums), default=0)   # highest heat scheduled so far
+    c = counts.get(current, 0)
+    nxt = next((n for n in nums if n not in counts), None)       # next un-scheduled original, in order
+    if c == 1:                                           # run once -> its (first) restart, then next
+        opts = [("%d - restart" % current, current, 1)]
+        if nxt is not None:
+            opts.append((str(nxt), nxt, 0))
+        return opts
+    if nxt is not None:                                  # current done -> just the next original
+        return [(str(nxt), nxt, 0)]
+    if current and c < len(_CIRCUIT_RESTART):            # last heat, none left -> restart it again
+        label = "%d - restart" % current + (" %d" % c if c > 1 else "")
+        return [(label, current, c)]
+    return []
 
 
 class RaceHeatsModel(QAbstractTableModel):
@@ -516,13 +530,55 @@ class RacesTab(QWidget):
 
     def _reload_phases(self, *args):
         base = self.class_combo.currentText().strip()
+        kinds = _phases_of(self.window.eventdata, base) if (base and self.window is not None) else []
         self.phase_combo.blockSignals(True)
         self.phase_combo.clear()
-        if base and self.window is not None:
-            self.phase_combo.addItems(
-                [_PHASE_LABEL[k] for k in _phases_of(self.window.eventdata, base)])
+        self.phase_combo.addItems([_PHASE_LABEL[k] for k in kinds])
+        self.phase_combo.setCurrentIndex(self._default_phase_index(kinds))   # #45: first phase w/ heats left
         self.phase_combo.blockSignals(False)
         self._reload_heats()
+
+    def _phase_pending(self, base, kind):
+        """The phase still has mainline work to schedule: an un-scheduled original heat, or the current
+        (highest) heat run EXACTLY once -- its first restart is a natural next choice. A heat already
+        restarted (occurrence >= 2, i.e. an exceptional re-run of the final) is not mainline, so a new
+        race defaults past it (issue #45), though the operator can still pick the phase to re-restart."""
+        nums = _heat_numbers(self.window.eventdata, base, kind)
+        if not nums:
+            return False
+        counts = {}
+        for race in self._races or []:
+            for e in race:
+                if isinstance(e, dict) and e.get("name") == base and e.get("kind") == kind:
+                    counts[e.get("number")] = counts.get(e.get("number"), 0) + 1
+        if any(n not in counts for n in nums):
+            return True                                 # an un-scheduled original remains
+        current = max((n for n in counts if n in nums), default=0)
+        return counts.get(current, 0) == 1             # current heat run once -> first restart pending
+
+    def _default_phase_index(self, kinds):
+        """Index of the first phase with mainline work left -- so a new race defaults to e.g. Circuit once
+        the time-trial is scheduled (issue #45). 0 when none pend (all raced)."""
+        base = self.class_combo.currentText().strip()
+        for i, k in enumerate(kinds):
+            if self._phase_pending(base, k):
+                return i
+        return 0
+
+    def _retarget_phase(self):
+        """Advance the form's phase to the first one with mainline work, but only when the current phase
+        has none left -- keeps a deliberate mid-schedule choice, yet moves off a finished phase (issue #45)."""
+        base, kind = self.class_combo.currentText().strip(), self._form_kind()
+        if not (base and self.window is not None):
+            return
+        if kind and self._phase_pending(base, kind):
+            return                                      # current phase still has mainline heats -> leave it
+        kinds = _phases_of(self.window.eventdata, base)
+        idx = self._default_phase_index(kinds)
+        if idx != self.phase_combo.currentIndex():
+            self.phase_combo.blockSignals(True)
+            self.phase_combo.setCurrentIndex(idx)
+            self.phase_combo.blockSignals(False)
 
     def _reload_heats(self, *args):
         base, kind = self.class_combo.currentText().strip(), self._form_kind()
@@ -555,6 +611,7 @@ class RacesTab(QWidget):
         self.model.add_entry({"name": base, "kind": self._form_kind(),
                               "number": number, "occurrence": occurrence})
         self._update_current_label()
+        self._retarget_phase()                        # #45: phase may now be done -> advance to the next
         self._reload_heats()                          # the schedule changed -> refresh restart options
 
     def _delete_heat(self):
@@ -597,6 +654,7 @@ class RacesTab(QWidget):
         if 0 <= row < len(self._races):
             self.model.set_race(self._races[row])
         self._sync_enabled()
+        self._retarget_phase()                        # #45: a new race may need a fresh phase (e.g. Circuit)
         self._reload_heats()                          # a restart in this race depends on the whole schedule
 
     def _add_race(self):

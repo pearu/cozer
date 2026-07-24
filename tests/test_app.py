@@ -34,7 +34,7 @@ def test_window_builds_and_populates():
     n_classes = sum(w.report_tabs.widget(i).topLevelItemCount()
                     for i in range(w.report_tabs.count()))
     assert n_classes == len(get_classes(ed))               # every class appears under some phase tab
-    assert w.report_combo.count() == 15                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial)
+    assert w.report_combo.count() == 16                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial + Start List)
     # issue #37: combos use a QStyledItemDelegate so the app stylesheet colours the highlighted popup
     # item (else it renders invisible light-on-light). Covers the app's dropdowns via grids.combo().
     from PySide6.QtWidgets import QStyledItemDelegate
@@ -988,15 +988,76 @@ def test_races_add_heat_form_cascades_and_validates():
     rt._add_heat()                                     # -> a DISTINCT restart entry (occurrence 1 -> "1r")
     assert ed["races"][1] == [{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 1}]
     assert "restart" in race_label(1, ed["races"][1]).lower()   # the race list marks it a restart
-    # heat 1 now has one restart; a further race can add its 2nd restart, plus the next original 2
+    # heat 1 is now restarted; a mid-schedule heat is NOT restartable again -> only the next original 2
     rt._add_race()
-    assert heats() == ["1 - restart", "2"]             # still offers the 2nd restart of 1 (occ -> 2) + 2
+    assert heats() == ["2"]                            # NOT "1 - restart" (issue #46) and NOT "3" (in order)
     rt.heat_combo.setCurrentIndex(rt.heat_combo.findText("2"))
     rt._add_heat()
     assert ed["races"][2] == [{"name": "GT", "kind": "circuit", "number": 2, "occurrence": 0}]
 
     rt.phase_combo.setCurrentText("Time trial")        # cascade updates the heat list (TT = 1 heat)
     assert heats() == ["1"]
+
+
+def test_heat_options_restart_progression():
+    """The restart-aware heat dropdown, state by state (issues #45-49): a heat run once offers its restart
+    + the single next original; a restarted mid-schedule heat offers just the next original; the final
+    heat alone may be restarted twice; never a number before its predecessor has run."""
+    _app()
+    from cozer.app.grids import _heat_options
+    from cozer.native import to_native
+
+    ed = to_native({"classes": [["", "GT", "3*(1000):1"]], "record": {}, "races": []})
+    full = lambda races: _heat_options(races, ed, "GT", "circuit")
+    labels = lambda races: [lbl for lbl, _n, _o in full(races)]
+
+    def r(num, occ):                                   # one race scheduling GT circuit heat `num`/`occ`
+        return [{"name": "GT", "kind": "circuit", "number": num, "occurrence": occ}]
+
+    assert labels([]) == ["1"]                                       # empty -> only the next original
+    assert full([r(1, 0)]) == [("1 - restart", 1, 1), ("2", 2, 0)]   # run once -> restart(occ 1) + next
+    assert labels([r(1, 0), r(1, 1)]) == ["2"]                       # restarted -> just next (issue #46)
+    assert labels([r(1, 0), r(1, 1), r(2, 0)]) == ["2 - restart", "3"]          # issue #47
+    assert labels([r(1, 0), r(1, 1), r(2, 0), r(2, 1)]) == ["3"]                # issue #48
+    done = [r(1, 0), r(1, 1), r(2, 0), r(2, 1), r(3, 0)]
+    assert labels(done) == ["3 - restart"]                          # final run once (issue #49)
+    assert full(done + [r(3, 1)]) == [("3 - restart 2", 3, 2)]       # the FINAL alone may restart again
+    assert labels(done + [r(3, 1), r(3, 2)]) == []                   # two restarts done -> nothing more
+
+
+def test_races_add_heat_default_phase_skips_finished_phase():
+    """#45: a new race defaults to the first phase with mainline work left -- once the time-trial's heat
+    is run + restarted the form pre-selects Circuit, not the (mainline-)finished Time trial."""
+    _app()
+    from cozer.app.grids import RacesTab
+    from cozer.native import to_native
+
+    class FakeWin:
+        def __init__(self, ed):
+            self.eventdata = ed
+            self.logs = []
+
+        def log(self, m):
+            self.logs.append(m)
+
+    ed = to_native({"classes": [["", "GT", "3*(1000):1"], ["", "GT/T", "1*(1000):1"]],
+                    "record": {}, "races": []})
+    ed["races"] = [[]]
+    rt = RacesTab(FakeWin(ed))
+    rt.set_data(ed["races"])
+    rt.race_list.setCurrentRow(0)
+    rt.class_combo.setCurrentText("GT")
+    assert rt.phase_combo.currentText() == "Time trial"   # first phase with work -> time trial runs first
+
+    rt.phase_combo.setCurrentText("Time trial")
+    rt._add_heat()                                        # TT heat 1 (run once) -> restart still pending
+    rt._add_race()
+    assert rt.phase_combo.currentText() == "Time trial"   # stays: heat 1 run once, its restart is mainline
+    rt.heat_combo.setCurrentIndex(rt.heat_combo.findText("1 - restart"))
+    rt._add_heat()                                        # TT heat 1 restarted -> TT mainline is done
+    rt._add_race()
+    assert rt.phase_combo.currentText() == "Circuit"      # #45: defaults past the finished Time trial
+    assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1"]
 
 
 def test_timer_race_combo_label_has_class_heat():
