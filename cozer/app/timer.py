@@ -34,6 +34,7 @@ from cozer.native import native_races_to_legacy, record_heat
 from cozer.phases import heat_number
 from cozer.qualification import qheat_boats
 from cozer.racepattern import crack_race_pattern, class_pattern, pattern_speed, race_kind
+from cozer.seeding import start_order
 from cozer.raceclock import make_race_clock
 from cozer.records import gettimes
 
@@ -121,14 +122,20 @@ def calclayout(ids):
     return rows
 
 
-def standings(rec):
+def standings(rec, start_rank=None):
     """Running order for a heat record ``[info, {id: marks}]`` — a list of
     ``{id, laps, time, finished, laptimes}`` sorted leader-first (finished first, then more laps, then
     less elapsed time). Disabled laps are excluded (via gettimes). ``gettimes`` yields per-lap
     *durations*; ``laptimes`` is their running sum — the **cumulative** elapsed time at each lap line
     the boat crossed (``laptimes[n-1]`` = when it crossed lap ``n``), so the broadcast can show the
     catch-up *interval* to the boat ahead at the same lap line (a real time even a lap down, not
-    "+1L"). ``time`` == ``laptimes[-1]`` — its latest crossing."""
+    "+1L"). ``time`` == ``laptimes[-1]`` — its latest crossing.
+
+    ``start_rank`` (``{boat_id_str: position}``, from ``seeding.start_order``) breaks ties by the
+    derived **start order** instead of boat number — so boats at equal progress (in particular the
+    whole field *before Start*) appear in grid/seed order, e.g. heat 2 in heat 1's finishing order
+    (PHASES.md §5). A boat missing from it (a mid-series joiner) sorts to the back. ``None`` keeps the
+    plain boat-number tiebreak (the broadcast/legacy behaviour)."""
     info, boats = rec[0], rec[1]
     need = len(info.get("course", []))
     rows = []
@@ -144,19 +151,24 @@ def standings(rec):
             cum.append(round2(s))
         rows.append({"id": pid, "laps": laps, "time": round2(sum(times)),
                      "finished": bool(need) and laps >= need, "laptimes": cum})
-    rows.sort(key=lambda r: (0 if r["finished"] else 1, -r["laps"], r["time"], _idkey(r["id"])))
+    if start_rank is not None:
+        tiebreak = lambda pid: (start_rank.get(str(pid), len(start_rank)), _idkey(pid))
+    else:
+        tiebreak = _idkey
+    rows.sort(key=lambda r: (0 if r["finished"] else 1, -r["laps"], r["time"], tiebreak(r["id"])))
     return rows
 
 
-def ladder(rec):
+def ladder(rec, start_rank=None):
     """Marker-zone ladder rows for the running-order column, top->bottom:
     ``('marker', label)`` and ``('boat', standing_dict)``. Each boat sits in the
     zone right after the ``Lap k`` marker for its completed-lap count; finished
-    boats drop past the ``Finish`` marker to the bottom (legacy order). Returns ``(rows, need)``."""
+    boats drop past the ``Finish`` marker to the bottom (legacy order). ``start_rank`` seeds the
+    order (see ``standings``): before Start the field shows in grid order. Returns ``(rows, need)``."""
     need = len(rec[0].get("course", []))
     zones = {}
     finished = []
-    for b in standings(rec):
+    for b in standings(rec, start_rank):
         if b["finished"]:
             finished.append(b)
         else:
@@ -555,7 +567,12 @@ class TimerPanel(QWidget):
         if rec is None:                        # not started yet -> draw all boats "Ready to Start"
             rec = [{"course": heat_course(self.eventdata, cl, h)[0]},
                    {pid: [] for pid in heat_membership(self.eventdata, cl, h)}]
-        rows, _ = ladder(rec)
+        # Seed the running order by the derived START ORDER (PHASES.md §5): before Start the field
+        # shows in grid order (heat 2 in heat 1's finishing order, a final in qualifying order, ...);
+        # once boats are lapping, progress leads and the seed only breaks same-progress ties.
+        order = start_order(self.eventdata, cl, h)
+        start_rank = {str(pid): i for i, pid in enumerate(order)}
+        rows, _ = ladder(rec, start_rank)
         for r in rows:
             if r[0] == "marker":
                 lbl = QLabel(r[1])
