@@ -44,44 +44,65 @@ _ENDURANCE_HIGH_MAX = 2.5      # endurance: a lap past 250% of the median is a p
 _MIN_BODY_LAPS = 3             # laps (excluding the start leg) needed for a median one outlier can't skew
 
 
-def suspect_marks(marks, need, kind="circuit"):
-    """Enabled lap marks that look like operator mis-clicks: ``{mark_index: (category, hint)}`` where
-    category is ``"short"`` / ``"long"`` / ``"order"`` and hint is a plain-terms tooltip. See the module
-    comment for the model. Pure; shared by ``check_results`` (status-bar count) and the Edit-Records
-    timeline (blink + hover)."""
-    laps = []                        # (mark_index, effective_duration) for the enabled laps, in order
+def enabled_laps(marks, need=None):
+    """``[(mark_index, duration, crossing_time)]`` for the ENABLED laps in order: ``duration`` is the
+    lap time (a disabled lap's time rolled into the next kept lap, as ``gettimes`` and the Edit-Records
+    timeline do) and ``crossing_time`` is the cumulative clock time of that lap-line crossing. Truncated
+    to the first ``need`` laps when given (clicks past the finish line are ignored). Pure."""
+    out = []
     dt = 0.0                         # a disabled lap's time is rolled into the next enabled lap
+    cum = 0.0                        # cumulative crossing time of the enabled laps
     for i, m in enumerate(marks):
         code = m[0]
         t = m[1] if len(m) > 1 else 0
         if abs(code) in (LAP, INSERTED_LAP):
             if code > 0:             # enabled lap
-                laps.append((i, t + dt))
+                dur = t + dt
+                cum += dur
+                out.append((i, dur, cum))
                 dt = 0.0
             else:                    # disabled lap
                 dt += t
     if need:
-        laps = laps[:need]           # ignore clicks past the finish line
+        out = out[:need]             # ignore clicks past the finish line
+    return out
+
+
+def suspect_marks(marks, need, kind="circuit", acked=()):
+    """Enabled lap marks that look like operator mis-clicks: ``{mark_index: (category, hint)}`` where
+    category is ``"short"`` / ``"long"`` / ``"order"`` and hint is a plain-terms tooltip. See the module
+    comment for the model. ``acked`` is the set of lap CROSSING TIMES the operator has confirmed as real
+    outliers (right-click ▸ Acknowledge in Edit Records): such a lap stays in the median and in the
+    results but is never flagged, so a genuinely slow lap can be silenced without *disabling* (removing)
+    it. Pure; shared by ``check_results`` (status-bar count) and the Edit-Records timeline (blink +
+    hover)."""
+    laps = enabled_laps(marks, need)          # (mark_index, duration, crossing_time)
+    ack = {round(c, 2) for c in (acked or ())}
     out = {}
-    for idx, dur in laps:            # out-of-order: the crossing time did not advance
-        if dur <= 0:
+    for idx, dur, cross in laps:              # out-of-order: the crossing time did not advance
+        if dur <= 0 and round(cross, 2) not in ack:
             out[idx] = ("order", "Crossing time does not advance (%.2fs) — an impossible ordering (a "
                         "timing glitch, not a normal click). Right-click the mark to disable it." % dur)
-    body = [(idx, dur) for idx, dur in laps[1:] if idx not in out]   # skip lap 1 (the start leg)
-    durs = [dur for _, dur in body]
+    body = [(idx, dur, cross) for idx, dur, cross in laps[1:]    # skip lap 1 (the start leg)
+            if dur > 0 and idx not in out]
+    durs = [dur for _idx, dur, _cross in body]
     if len(durs) >= _MIN_BODY_LAPS:
         med = statistics.median(durs)
         if med > 0:
             solo = kind in ("timetrial", "training")
             hi_max = _ENDURANCE_HIGH_MAX * med if kind == "endurance" else float("inf")
-            for idx, dur in body:
+            for idx, dur, cross in body:
+                if round(cross, 2) in ack:    # operator confirmed this lap is a real outlier -> keep, silent
+                    continue
                 if dur < _OUTLIER_LOW * med:
                     out[idx] = ("short", "This lap (%.2fs) is far shorter than the ~%.1fs median — "
                                 "likely a double-click or two merged crossings. Right-click to disable "
                                 "it." % (dur, med))
                 elif not solo and _OUTLIER_HIGH * med < dur <= hi_max:
                     out[idx] = ("long", "This lap (%.2fs) is far longer than the ~%.1fs median — a "
-                                "crossing may have been missed. Right-click to check/disable." % (dur, med))
+                                "crossing may have been missed. If the lap is real, right-click ▸ "
+                                "Acknowledge to keep it; if it's a mis-click, right-click ▸ Disable."
+                                % (dur, med))
     return out
 
 
@@ -149,8 +170,9 @@ def check_results(eventdata):
                 info, rec = heats[h]
                 need = len(info.get("course", []) or [])
 
+                acks = info.get("ack") or {}        # operator-acknowledged real outliers (per boat)
                 if ph.kind in ("timetrial", "training"):
-                    findings.extend(_misclick_findings(cl, h, rec, need, ph.kind))
+                    findings.extend(_misclick_findings(cl, h, rec, need, ph.kind, acks))
                     continue                        # best-lap scoring: no restart / place-gap
                 if ph.kind not in ("circuit", "endurance", "qualification"):
                     continue                        # unknown kind: no click checks
@@ -159,7 +181,7 @@ def check_results(eventdata):
                 # lap far off its OWN median -- too short (double-click) or too long (missed crossing) --
                 # or a crossing that doesn't advance. Runs independent of analyze/placements (a heat where
                 # everyone DNF'd can still have a click error). Report for Edit-Records review; unchanged.
-                findings.extend(_misclick_findings(cl, h, rec, need, ph.kind))
+                findings.extend(_misclick_findings(cl, h, rec, need, ph.kind, acks))
 
                 try:
                     res = analyze(h, heats[h], ss, rulecodes)
@@ -208,14 +230,16 @@ def check_results(eventdata):
     return findings
 
 
-def _misclick_findings(cl, h, rec, need, kind):
+def _misclick_findings(cl, h, rec, need, kind, acks=None):
     """Per-boat mis-click findings from the shared ``suspect_marks`` detector (see the module comment).
     Two codes for continuity: ``misclick`` (a lap far shorter than the boat's median, or a crossing that
     doesn't advance) and ``missed-click`` (a lap well above typical). The per-mark detail is shown on
-    hover in Edit Records; this is the status-bar summary."""
+    hover in Edit Records; this is the status-bar summary. ``acks`` maps boat id -> the lap crossing times
+    the operator acknowledged as real outliers (``info['ack']``); an acknowledged lap is not counted."""
+    acks = acks or {}
     out = []
     for pid in sorted(rec, key=str):
-        cats = [c for c, _hint in suspect_marks(rec[pid], need, kind).values()]
+        cats = [c for c, _hint in suspect_marks(rec[pid], need, kind, acked=acks.get(str(pid), ())).values()]
         n_low = cats.count("short") + cats.count("order")
         n_high = cats.count("long")
         if n_low:

@@ -748,6 +748,50 @@ def test_editor_delete_race_data(tmp_path, monkeypatch):
     assert not asks
 
 
+def test_acknowledge_suspect_lap_keeps_it_and_silences_the_warning(tmp_path, monkeypatch):
+    # right-click ▸ Acknowledge in Edit Records: a genuinely slow lap is kept fully scored but stops
+    # blinking / counting as a mis-click. The lap is NOT disabled (still a live +1). Persists in
+    # info['ack'] and toggles back. (The bug this closes: today the only way to quiet a legit slow lap
+    # is to Disable it, which wrongly removes a real lap from the results.)
+    from cozer.native import to_native, record_heat
+    from cozer.store import apply_op
+    from cozer.validate import suspect_marks, enabled_laps, check_results
+    _app()
+    ed = to_native({"title": "T", "scoringsystem": [10], "rules": [], "participants": [],
+                    "classes": [["", "GT", "1*(6*1000):1"]], "record": {}, "races": []})
+    apply_op(ed, {"op": "heat", "cl": "GT", "h": "1", "info": {"course": [1000] * 6}, "ids": ["7"]})
+    for dt in (40.0, 40.0, 40.0, 80.0):        # three ~40s laps + one slow 80s lap (a "long" suspect)
+        apply_op(ed, {"op": "lap", "cl": "GT", "h": "1", "id": "7", "mark": [1, dt]})
+    w = MainWindow(ed)
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(tmp_path / "ev.cozj"), "")))
+    w.on_save_as()
+    assert "missed-click" in {f.code for f in check_results(w.eventdata)}   # flagged before acknowledging
+    w.tabs.setCurrentWidget(w.editor_panel)
+    p = w.editor_panel
+    p.heat_combo.setCurrentIndex(0)
+    assert p._cur() == ("GT", "1")
+    marks = p._draft[1]["7"]
+    assert [c for c, _ in suspect_marks(marks, 6, "circuit").values()] == ["long"]
+    cross = enabled_laps(marks, 6)[3][2]                              # crossing time of the 80s lap (200.0)
+
+    p.acknowledge_at("GT", "1", "7", cross)                          # right-click ▸ Acknowledge on it
+    assert p._draft[0]["ack"] == {"7": [round(cross, 2)]}            # buffered into the draft's heat info
+    assert p._draft[1]["7"][3][0] == 1                               # lap NOT disabled (still a live +1 lap)
+    assert suspect_marks(p._draft[1]["7"], 6, "circuit",
+                         acked=p._draft[0]["ack"]["7"]) == {}         # no longer flagged
+    # a non-suspect click offers no Acknowledge action (nothing to do)
+    assert p._acknowledge_menu_label("7", 0.0) is None
+
+    assert p.save_draft() is True                                    # persist
+    assert record_heat(w.eventdata, "GT", "1")[0]["ack"] == {"7": [round(cross, 2)]}
+    assert "missed-click" not in {f.code for f in check_results(w.eventdata)}   # status summary drops it
+
+    p.acknowledge_at("GT", "1", "7", cross)                          # acknowledging again restores the warning
+    assert p._draft[0]["ack"] == {}
+    assert [c for c, _ in suspect_marks(p._draft[1]["7"], 6, "circuit").values()] == ["long"]
+
+
 def test_reports_tree_shows_native_heats_and_refreshes_on_entry():
     # Regression: the Reports class/heat tree read the record by synthesized class name, so on the
     # native model (record keyed by base->kind->number) heats were missing; and it wasn't refreshed

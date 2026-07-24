@@ -33,7 +33,7 @@ from cozer.app import dialogs
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
 from cozer.records import insertmark, invreccodemap, marknote, reccodemap, setmarknote
-from cozer.validate import suspect_marks       # shared self-calibrating mis-click detector
+from cozer.validate import suspect_marks, enabled_laps   # shared self-calibrating mis-click detector
 
 LAP = QColor(255, 127, 0)
 INSLAP = QColor(90, 190, 60)
@@ -561,7 +561,9 @@ class EditRecordsPanel(QWidget):
         need = len(rec[0].get("course", []))
         ph = class_phase_map(self.window.eventdata).get(cl)   # discipline -> missed-click banding
         kind = ph.kind if ph is not None else "circuit"
-        suspects = [suspect_marks(marks, need, kind) for (_pid, _hdr, marks) in rows]
+        acks = self._draft[0].get("ack", {}) or {}       # operator-acknowledged real outliers (per boat)
+        suspects = [suspect_marks(marks, need, kind, acked=acks.get(pid, ()))
+                    for (pid, _hdr, marks) in rows]
         self.header_col.set_data(rows)
         self.timeline.set_data(rows, maxtime, racetime, coef, suspects)
         self._sync_header_scroll(self.area.verticalScrollBar().value())
@@ -614,6 +616,74 @@ class EditRecordsPanel(QWidget):
         marks = [list(m) for m in self._draft[1][pid]]
         if toggle_nearest(marks, ct, self._coef):
             self._commit(cl, h, pid, marks)
+
+    # ---- acknowledge a flagged-but-real lap (issue: keep the lap, silence the mis-click warning) ----
+    def _nearest_enabled_lap(self, marks, ct, need):
+        """``(mark_index, crossing_time)`` of the enabled lap whose lap-line crossing is nearest ``ct``,
+        within a small pixel tolerance at the current zoom; ``None`` if the click isn't on a lap."""
+        laps = enabled_laps(marks, need)
+        if not laps:
+            return None
+        idx, _dur, cross = min(laps, key=lambda c: abs(c[2] - ct))
+        if self._coef and abs(cross - ct) * self._coef > 8:      # click landed away from any lap mark
+            return None
+        return idx, cross
+
+    def _acknowledge_menu_label(self, pid, ct):
+        """The Acknowledge / Restore menu label for the enabled lap nearest ``ct``, or ``None`` when the
+        nearest lap is not a mis-click suspect (nothing to acknowledge). Keeps the action off the menu
+        unless it would do something."""
+        if self._draft is None:
+            return None
+        marks = self._draft[1].get(pid) or []
+        need = len(self._draft[0].get("course", []) or [])
+        near = self._nearest_enabled_lap(marks, ct, need)
+        if near is None:
+            return None
+        idx, cross = near
+        ack = (self._draft[0].get("ack", {}) or {}).get(str(pid), [])
+        if any(round(x, 2) == round(cross, 2) for x in ack):
+            return "Restore mis-click warning on this lap"
+        cl = self._cur()[0]
+        ph = class_phase_map(self.window.eventdata).get(cl)
+        kind = ph.kind if ph is not None else "circuit"
+        if idx in suspect_marks(marks, need, kind, acked=ack):
+            return "Acknowledge — keep this lap, silence the warning"
+        return None
+
+    def acknowledge_at(self, cl, h, pid, ct):
+        """Toggle the mis-click warning on the enabled lap nearest ``ct`` for boat ``pid``: acknowledge
+        it (the lap stays fully scored, but stops blinking and no longer counts as a suspect) or, if it
+        was already acknowledged, restore the warning. The acknowledged lap CROSSING TIMES live per boat
+        in the heat's ``info['ack']`` -- buffered into the draft and persisted on Save. If an earlier
+        mark is later edited the crossing time shifts, so the lap re-flags for a fresh look."""
+        if self._draft is None:
+            return
+        marks = self._draft[1].get(pid) or []
+        need = len(self._draft[0].get("course", []) or [])
+        near = self._nearest_enabled_lap(marks, ct, need)
+        if near is None:
+            self.window.log("No lap mark here to acknowledge — right-click on the flagged (blinking) lap.")
+            return
+        _idx, cross = near
+        key = round(cross, 2)
+        ack = dict(self._draft[0].get("ack", {}) or {})
+        current = list(ack.get(str(pid), []))
+        kept = [x for x in current if round(x, 2) != key]
+        if len(kept) == len(current):                  # the crossing wasn't acknowledged -> acknowledge it
+            kept.append(key)
+            msg = ("Acknowledged boat %s's lap at %.2f s as a real outlier — kept in the results, "
+                   "warning silenced." % (pid, cross))
+        else:                                          # it was acknowledged -> we removed it (restore)
+            msg = "Restored the mis-click warning on boat %s's lap at %.2f s." % (pid, cross)
+        if kept:
+            ack[str(pid)] = kept
+        else:
+            ack.pop(str(pid), None)
+        self._draft[0]["ack"] = ack                    # keep the key present so Save journals a clear too
+        self._dirty = True
+        self.refresh()
+        self.window.log(msg)
 
     def delete_at(self, cl, h, pid, ct):
         marks = [list(m) for m in self._draft[1][pid]]
@@ -725,6 +795,9 @@ class EditRecordsPanel(QWidget):
             menu.addSeparator()
         menu.addAction("Insert lap here").triggered.connect(lambda: self.insert_lap(cl, h, pid, ct))
         menu.addAction("Enable/Disable nearest").triggered.connect(lambda: self.toggle_at(cl, h, pid, ct))
+        ack_label = self._acknowledge_menu_label(pid, ct)     # only when the nearest lap is a suspect
+        if ack_label is not None:
+            menu.addAction(ack_label).triggered.connect(lambda: self.acknowledge_at(cl, h, pid, ct))
         menu.addAction("Delete nearest").triggered.connect(lambda: self.delete_at(cl, h, pid, ct))
         menu.addAction("Edit note…").triggered.connect(lambda: self.open_note_dialog(pid, ct))
         return menu

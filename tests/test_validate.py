@@ -201,6 +201,42 @@ def test_misclick_needs_a_stable_median_not_a_physics_limit():
     assert "misclick" in _codes(check_results(_race_event(off)))
 
 
+def test_acknowledged_lap_is_not_flagged():
+    # right-click ▸ Acknowledge: a genuinely slow lap the operator confirmed is kept scored but no
+    # longer flagged. The ack key is the lap's CROSSING TIME (cumulative), so it targets exactly one lap.
+    from cozer.validate import suspect_marks, enabled_laps
+    marks = [(1, 40.0), (1, 40.0), (1, 40.0), (1, 80.0)]           # three ~40s laps + a slow 80s lap
+    flagged = suspect_marks(marks, 6, "circuit")
+    assert [c for c, _ in flagged.values()] == ["long"]            # the 80s lap is a missed-click
+    cross = enabled_laps(marks, 6)[3][2]                           # its lap-line crossing time
+    assert cross == 200.0
+    assert suspect_marks(marks, 6, "circuit", acked=[cross]) == {}  # acknowledged -> silent
+    # and the status-bar summary drops it too, fed from info['ack']
+    rec = {"7": marks}
+    assert [f.code for f in _misclick_findings("C", "1", rec, 6, "circuit")] == ["missed-click"]
+    assert _misclick_findings("C", "1", rec, 6, "circuit", {"7": [cross]}) == []
+
+
+def test_acknowledge_targets_one_lap_not_the_others():
+    # acknowledging one outlier's crossing time leaves a DIFFERENT outlier still flagged
+    from cozer.validate import suspect_marks
+    marks = [(1, 40.0), (1, 40.0), (1, 12.0), (1, 40.0), (1, 90.0)]   # a short (12) AND a long (90)
+    assert sorted(c for c, _ in suspect_marks(marks, 6, "circuit").values()) == ["long", "short"]
+    left = suspect_marks(marks, 6, "circuit", acked=[92.0])          # 40+40+12 = crossing of the short lap
+    assert sorted(c for c, _ in left.values()) == ["long"]           # the 90s long lap is still flagged
+
+
+def test_acknowledgement_rides_the_native_reshape():
+    # info['ack'] lives in the heat info dict -> survives to_native (the heat slot is copied verbatim);
+    # check_results honours it identically on the legacy and native models.
+    from cozer.native import to_native
+    ed = _race_event({"7": [(1, 40.0), (1, 40.0), (1, 40.0), (1, 80.0)]})
+    assert "missed-click" in _codes(check_results(ed))
+    ed["record"]["C"]["1"][0]["ack"] = {"7": [200.0]}               # acknowledge the slow lap
+    assert "missed-click" not in _codes(check_results(ed))
+    assert check_results(ed) == check_results(to_native(ed))
+
+
 @pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
 def test_check_results_native_matches_legacy(path):
     # check_results reads the record via the phase view, so validation is identical whether the
