@@ -655,8 +655,10 @@ class EditRecordsPanel(QWidget):
         """Toggle the mis-click warning on the enabled lap nearest ``ct`` for boat ``pid``: acknowledge
         it (the lap stays fully scored, but stops blinking and no longer counts as a suspect) or, if it
         was already acknowledged, restore the warning. The acknowledged lap CROSSING TIMES live per boat
-        in the heat's ``info['ack']`` -- buffered into the draft and persisted on Save. If an earlier
-        mark is later edited the crossing time shifts, so the lap re-flags for a fresh look."""
+        in the heat's ``info['ack']`` -- buffered into the draft and persisted on Save. Keyed by crossing
+        time, NOT by list index: inserting or disabling a mark before it preserves the running time, so
+        the acknowledgement stays on the same lap even as its index moves (unlike the cached-index bug
+        #42/#43). Only a change to that lap's OWN crossing time would re-flag it, for a fresh look."""
         if self._draft is None:
             return
         marks = self._draft[1].get(pid) or []

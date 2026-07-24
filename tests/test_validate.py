@@ -226,6 +226,23 @@ def test_acknowledge_targets_one_lap_not_the_others():
     assert sorted(c for c, _ in left.values()) == ["long"]           # the 90s long lap is still flagged
 
 
+def test_acknowledgement_survives_a_mark_inserted_before_it():
+    # the acknowledgement is keyed by the lap's CROSSING TIME, not its list index, so inserting a mark
+    # before it (which shifts every later index but preserves the running time) keeps the same lap
+    # acknowledged -- it is structurally immune to the cached-index shift behind #42/#43.
+    from cozer.validate import suspect_marks, enabled_laps
+    from cozer.app.editor import insert_lap_split
+    marks = [[1, 40.0], [1, 40.0], [1, 40.0], [1, 80.0]]
+    cross = enabled_laps(marks, 6)[3][2]                            # 200.0 -- the slow lap
+    assert {i: c for i, (c, _h) in suspect_marks(marks, 6, "circuit", acked=[cross]).items()} == {}
+    insert_lap_split(marks, 50.0)                                   # insert a lap BEFORE the slow one
+    laps = enabled_laps(marks, 6)
+    assert [i for i, _d, c in laps if round(c, 2) == 200.0] == [4]  # slow lap: index 3 -> 4, crossing kept
+    flagged = {i: c for i, (c, _h) in suspect_marks(marks, 6, "circuit", acked=[cross]).items()}
+    assert 4 not in flagged                                         # still acknowledged (crossing matched)
+    assert flagged.get(1) == "short"                                # the new short split lap flags fresh
+
+
 def test_acknowledgement_rides_the_native_reshape():
     # info['ack'] lives in the heat info dict -> survives to_native (the heat slot is copied verbatim);
     # check_results honours it identically on the legacy and native models.
