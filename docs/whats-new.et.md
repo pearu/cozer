@@ -19,6 +19,16 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Parandus osalejate sisestamisel (juuli 2026)
+
+<!-- release-notes:3.0.0rc12 -->
+
+- **Osaleja kustutamine ei sega enam teisi klasse.** Classes / Participants -sakil võis sõitja
+  eemaldamine ühest klassist — pärast teisele klassile üleminekut — näidata sõitjaid **vales klassis**
+  või panna COZERi osalejate sisestamise ajal hanguma. See on parandatud: iga klassi nimekiri kontrollib
+  end nüüd praeguste kirjete järgi üle, nii et kustutamine ühes klassis jätab kõik teised klassid
+  puutumata.
+
 ## Tulemused märgivad, kui koht otsustati kiireima ringi järgi (juuli 2026)
 
 <!-- release-notes:3.0.0rc11 -->

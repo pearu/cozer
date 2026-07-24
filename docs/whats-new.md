@@ -17,6 +17,16 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## A fix for entering participants (July 2026)
+
+<!-- release-notes:3.0.0rc12 -->
+
+- **Deleting a participant no longer disturbs the other classes.** On the Classes / Participants tab,
+  removing a driver from one class could — after switching to another class — show drivers under the
+  **wrong class**, or make COZER stop responding while entering participants. That is fixed: each class
+  list now re-checks itself against the current entries, so a deletion in one class leaves every other
+  class untouched.
+
 ## Results note when a place was decided on the fastest lap (July 2026)
 
 <!-- release-notes:3.0.0rc11 -->
