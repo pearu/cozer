@@ -364,8 +364,10 @@ def _heat_options(races, eventdata, base, kind):
       • else, if an un-scheduled original remains -> offer just that next original;
       • else (all originals scheduled, so ``current`` is the last heat) -> offer another restart of the
         last heat while restarts remain -- the final can be re-run repeatedly, a mid-schedule heat cannot.
+    A **time trial** is individual timed runs, not a race, so it is never restarted (UIM) -- it offers only
+    its next un-scheduled original, no restart. Circuit / endurance / qualification heats restart.
     ``occurrence`` is the entry's restart rank: 0 original, 1 first restart (``1r``), 2 second restart
-    (``1R``); a circuit heat restarts at most twice (len(_CIRCUIT_RESTART))."""
+    (``1R``); a restartable heat restarts at most twice (len(_CIRCUIT_RESTART))."""
     nums = _heat_numbers(eventdata, base, kind)          # [1..N] from the pattern
     if not nums:
         return []
@@ -377,6 +379,8 @@ def _heat_options(races, eventdata, base, kind):
     current = max((n for n in counts if n in nums), default=0)   # highest heat scheduled so far
     c = counts.get(current, 0)
     nxt = next((n for n in nums if n not in counts), None)       # next un-scheduled original, in order
+    if kind == "timetrial":                              # no restarts -> only the next original, in order
+        return [(str(nxt), nxt, 0)] if nxt is not None else []
     if c == 1:                                           # run once -> its (first) restart, then next
         opts = [("%d - restart" % current, current, 1)]
         if nxt is not None:
@@ -553,6 +557,8 @@ class RacesTab(QWidget):
                     counts[e.get("number")] = counts.get(e.get("number"), 0) + 1
         if any(n not in counts for n in nums):
             return True                                 # an un-scheduled original remains
+        if kind == "timetrial":                         # no restarts -> done once every heat is scheduled
+            return False
         current = max((n for n in counts if n in nums), default=0)
         return counts.get(current, 0) == 1             # current heat run once -> first restart pending
 

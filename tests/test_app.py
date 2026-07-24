@@ -1025,9 +1025,31 @@ def test_heat_options_restart_progression():
     assert labels(done + [r(3, 1), r(3, 2)]) == []                   # two restarts done -> nothing more
 
 
+def test_time_trial_offers_no_restart():
+    """A time trial is individual timed runs, never restarted (UIM): its dropdown offers only the next
+    original heat, no ``"- restart"`` -- unlike a circuit heat. Circuit/endurance/qualification restart."""
+    _app()
+    from cozer.app.grids import _heat_options
+    from cozer.native import to_native
+
+    ed = to_native({"classes": [["", "GT", "3*(1000):1"], ["", "GT/T", "2*(1000):1"]],
+                    "record": {}, "races": []})
+    tt = lambda races: [lbl for lbl, _n, _o in _heat_options(races, ed, "GT", "timetrial")]
+
+    def r(kind, num, occ):
+        return [{"name": "GT", "kind": kind, "number": num, "occurrence": occ}]
+
+    assert tt([]) == ["1"]                               # first TT session
+    assert tt([r("timetrial", 1, 0)]) == ["2"]           # heat 1 run -> next session, NO "1 - restart"
+    assert tt([r("timetrial", 1, 0), r("timetrial", 2, 0)]) == []   # both sessions run -> done
+    # a circuit heat in the same class still restarts (only time-trial is excluded)
+    assert _heat_options([r("circuit", 1, 0)], ed, "GT", "circuit")[0][0] == "1 - restart"
+
+
 def test_races_add_heat_default_phase_skips_finished_phase():
-    """#45: a new race defaults to the first phase with mainline work left -- once the time-trial's heat
-    is run + restarted the form pre-selects Circuit, not the (mainline-)finished Time trial."""
+    """#45: a new race defaults to the first phase with mainline work left -- once the (single-heat)
+    time-trial is scheduled the form pre-selects Circuit, not the finished Time trial (which, having no
+    restart, is done as soon as its heat is scheduled)."""
     _app()
     from cozer.app.grids import RacesTab
     from cozer.native import to_native
@@ -1048,13 +1070,10 @@ def test_races_add_heat_default_phase_skips_finished_phase():
     rt.race_list.setCurrentRow(0)
     rt.class_combo.setCurrentText("GT")
     assert rt.phase_combo.currentText() == "Time trial"   # first phase with work -> time trial runs first
+    assert rt.heat_combo.findText("1 - restart") < 0      # ... and it offers NO restart (UIM)
 
     rt.phase_combo.setCurrentText("Time trial")
-    rt._add_heat()                                        # TT heat 1 (run once) -> restart still pending
-    rt._add_race()
-    assert rt.phase_combo.currentText() == "Time trial"   # stays: heat 1 run once, its restart is mainline
-    rt.heat_combo.setCurrentIndex(rt.heat_combo.findText("1 - restart"))
-    rt._add_heat()                                        # TT heat 1 restarted -> TT mainline is done
+    rt._add_heat()                                        # TT heat 1 -> the single session is now scheduled
     rt._add_race()
     assert rt.phase_combo.currentText() == "Circuit"      # #45: defaults past the finished Time trial
     assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1"]
