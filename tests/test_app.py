@@ -388,6 +388,30 @@ def test_class_subtab_shows_participant_count():
     assert cp.tabs.tabText(i) == "GT (2)"
 
 
+def test_participant_delete_keeps_other_class_tables_consistent():
+    # issue #42/#43: class tabs share one participants list and each caches row positions (`_idx`);
+    # deleting in one class shifted the list and left the others stale -> wrong-class drivers shown +
+    # `data()` ran off the end (IndexError). The model must bounds-guard (no crash) and refresh() must
+    # re-sync it to the mutated list.
+    _app()
+    from cozer.app.classpart import ParticipantClassModel
+    parts = [
+        ["", "A", "One", "", "F 500", "1", "EST"],
+        ["", "B", "Two", "", "F 500", "2", "GBR"],
+        ["", "C", "Three", "", "GT15", "3", "FIN"],
+    ]
+    m500 = ParticipantClassModel(parts, "F 500")
+    mgt = ParticipantClassModel(parts, "GT15")
+    assert mgt.rowCount() == 1 and mgt.data(mgt.index(0, 2)) == "Three"   # col 2 = Surname
+    m500.delete_row(0)                              # delete F500 "A" -> shifts the shared list
+    # mgt is now stale (its cached position points past the shorter list): must NOT raise
+    assert mgt.data(mgt.index(0, 2)) is None        # bounds guard -> None instead of IndexError
+    assert mgt.data(mgt.index(0, 1)) is None        # (the exact crash site in #42)
+    mgt.refresh()                                   # re-sync (what the tab-switch now does)
+    assert mgt.rowCount() == 1 and mgt.data(mgt.index(0, 2)) == "Three"  # correct GT15 driver again
+    assert m500.rowCount() == 1 and m500.data(m500.index(0, 2)) == "Two"  # F500 correct post-delete
+
+
 def test_add_class_dialog_is_catalog_only():
     _app()
     from cozer.app.classpart import AddClassDialog

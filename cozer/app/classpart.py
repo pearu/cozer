@@ -245,6 +245,15 @@ class ParticipantClassModel(QAbstractTableModel):
         self._idx = [i for i, p in enumerate(self._all)
                      if len(p) > 4 and p[4] == self._class]
 
+    def refresh(self):
+        """Re-sync with the shared master list after it was mutated *elsewhere*. Every class tab shares
+        one participants list; a delete in another tab shifts positions and leaves this model's cached
+        ``_idx`` stale (wrong-class rows + an IndexError in ``data``) — issue #42/#43. The owning panel
+        calls this when a tab is shown."""
+        self.beginResetModel()
+        self._reindex()
+        self.endResetModel()
+
     def _qheat1_list(self):
         """The mutable qheat1 boat-id list for this class's base (created on demand)."""
         return self._qheat1.setdefault(getclass(self._class), [])
@@ -264,9 +273,12 @@ class ParticipantClassModel(QAbstractTableModel):
         return None
 
     def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
+        if not index.isValid() or index.row() >= len(self._idx):
             return None
-        row = self._all[self._idx[index.row()]]
+        master = self._idx[index.row()]
+        if master >= len(self._all):      # a stale index into a list mutated in another tab (#42/#43)
+            return None
+        row = self._all[master]
         ci = self._cols[index.column()][0]
         if ci is None:                    # the qheat1 checkbox column
             if role == Qt.CheckStateRole:
@@ -278,9 +290,11 @@ class ParticipantClassModel(QAbstractTableModel):
         return None
 
     def setData(self, index, value, role=Qt.EditRole):
-        if not index.isValid():
+        if not index.isValid() or index.row() >= len(self._idx):
             return False
         master = self._idx[index.row()]
+        if master >= len(self._all):      # stale index (list mutated in another tab, #42/#43)
+            return False
         row = self._all[master]
         ci = self._cols[index.column()][0]
         if ci is None:                    # toggle qheat1 membership (organizer's split)
@@ -698,7 +712,16 @@ class ClassesParticipantsPanel(QWidget):
         bar.addStretch()
         v.addLayout(bar)
         self.tabs = QTabWidget()
+        # All class tables share one participants list; showing a tab re-syncs its model so a delete
+        # made in another class can't leave it stale (wrong-class rows / IndexError — issue #42/#43).
+        self.tabs.currentChanged.connect(self._refresh_current_tab)
         v.addWidget(self.tabs, 1)
+
+    def _refresh_current_tab(self, i):
+        w = self.tabs.widget(i) if i >= 0 else None
+        grid = getattr(w, "_cozer_grid", None) if w is not None else None
+        if grid is not None:
+            grid.model.refresh()
 
     def _classes(self):
         return self.window.eventdata.setdefault("classes", [])
@@ -740,6 +763,7 @@ class ClassesParticipantsPanel(QWidget):
             show_qheat1=has_qualification(self.window.eventdata, base))
         grid.model.rowsInserted.connect(self._update_counts)
         grid.model.rowsRemoved.connect(self._update_counts)
+        w._cozer_grid = grid                         # so _refresh_current_tab can re-sync it on show
         lv.addWidget(grid, 1)
         return w
 
