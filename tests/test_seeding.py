@@ -80,6 +80,21 @@ def test_restart_of_unraced_heat_falls_back():
     assert start_order(ed, "C", "1r") == ["7", "3"]       # participant order
 
 
+def test_heat2_restart_seeds_from_heat2_stopped_run():
+    # issue #52 / §311.01.7: "2r" grids from heat 2's OWN stopped running order, NOT heat 1's finish --
+    # proves the restart branch wins over the heat_number>1 branch. Heat 1: 7 ahead; heat 2 stopped: 3 ahead.
+    ed = _ev(_PARTS, {"C": {"1": _heat(("7", "3")), "2": _heat(("3", "7"))}})
+    assert start_order(ed, "C", "2r") == ["3", "7"]       # heat 2's stoppage order, not heat 1's ["7","3"]
+
+
+def test_heat2_restart_with_no_laps_falls_back_to_previous_start():
+    # §311.01.7 second clause: no laps scored at stoppage -> "previous start" positions. For "2r" that is
+    # heat 2's grid = heat 1's finishing order (7 ahead), NOT the participant base and NOT heat 2's own data.
+    empty = [dict(_INFO), {"7": [], "3": []}]
+    ed = _ev(_PARTS, {"C": {"1": _heat(("7", "3")), "2": empty}})
+    assert start_order(ed, "C", "2r") == ["7", "3"]       # falls through to heat_number>1 = heat 1 finish
+
+
 # --- cross-phase: time-trial -> finals (decision A / 307.01) ---------------------
 
 # A time-trial always has >= 2 laps: the first lap is the Start->first-lap-line run-up (excluded from
