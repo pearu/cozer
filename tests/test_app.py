@@ -412,6 +412,40 @@ def test_participant_delete_keeps_other_class_tables_consistent():
     assert m500.rowCount() == 1 and m500.data(m500.index(0, 2)) == "Two"  # F500 correct post-delete
 
 
+def test_participant_delete_refreshes_the_shown_class_tab():
+    # issue #42/#43 (the operator-facing half): the model test above proves a class model must be
+    # re-synced after a sibling class deletes a participant; THIS proves the panel actually does it --
+    # switching to a class tab refreshes its table via `tabs.currentChanged`, with NO manual refresh().
+    # Guards the wiring the model-level test can't: drop the currentChanged connect and this fails.
+    _app()
+    from cozer.app.classpart import ClassParticipantsWidget
+    ed = {
+        "title": "T", "venue": "V", "date": "D", "officer": "O", "secretary": "S",
+        "scoringsystem": [10, 5, 3],
+        "classes": [["x", "F 500", "1*(3*1000):1"], ["x", "GT15", "1*(3*1000):1"]],
+        "participants": [
+            ["x", "A", "One", "EST", "F 500", "1"],
+            ["x", "B", "Two", "GBR", "F 500", "2"],
+            ["x", "C", "Three", "FIN", "GT15", "3"],
+        ],
+        "races": [[["x", "F 500", "1"], ["x", "GT15", "1"]]],
+        "rules": [], "record": {}, "configure": {"language": "English"},
+    }
+    w = MainWindow(ed)
+    cp = w.classpart_panel
+    f_i = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "F 500")
+    g_i = next(i for i in range(cp.tabs.count()) if cp._tab_class(i) == "GT15")
+    fmodel = cp.tabs.widget(f_i).findChild(ClassParticipantsWidget).model
+    gmodel = cp.tabs.widget(g_i).findChild(ClassParticipantsWidget).model
+    cp.tabs.setCurrentIndex(f_i)                             # start on the F 500 tab
+    assert gmodel.data(gmodel.index(0, 2)) == "Three"        # col 2 = Surname; GT15 correct initially
+    fmodel.delete_row(0)                                     # delete F 500 "A One" -> shifts shared list
+    assert gmodel.data(gmodel.index(0, 2)) is None           # GT15 model now stale (guarded, not shown yet)
+    cp.tabs.setCurrentIndex(g_i)                             # switching to GT15 must re-sync it...
+    assert gmodel.rowCount() == 1                            # ...with NO manual refresh() call
+    assert gmodel.data(gmodel.index(0, 2)) == "Three"        # right driver, not stale/None/wrong-class
+
+
 def test_add_class_dialog_is_catalog_only():
     _app()
     from cozer.app.classpart import AddClassDialog
