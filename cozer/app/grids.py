@@ -23,6 +23,7 @@ def combo():
     c.setItemDelegate(QStyledItemDelegate(c))
     return c
 from cozer.racepattern import class_pattern, crack_race_pattern, get_classes, race_kind
+from cozer.phases import _CIRCUIT_RESTART   # ["", "r", "R"] -> a circuit heat has at most 2 restarts
 from cozer.app import dialogs
 
 # Suffix-free phase presentation. Circuit (the main/final race) needs no tag; the others get
@@ -51,7 +52,8 @@ def _entry_label(e):
             return None
         tag = _PHASE_TAG.get(kind, "")
         occ = e.get("occurrence", 0)
-        return "%s %s%d%s" % (base, tag, num, ("·R%d" % occ if occ else ""))
+        restart = (" restart" + (" %d" % occ if occ > 1 else "")) if occ else ""   # "1 restart" / "1 restart 2"
+        return "%s %s%d%s" % (base, tag, num, restart)
     return "%s %s" % (e[1], e[2]) if len(e) > 2 and e[1] and e[2] else None
 
 
@@ -352,6 +354,28 @@ def _heat_numbers(eventdata, base, kind):
     return list(range(1, len(crack_race_pattern(pat)[0]) + 1))
 
 
+def _heat_options(races, eventdata, base, kind):
+    """Restart-aware, in-order heat choices for the add-a-heat form, each ``(label, number, occurrence)``:
+    a ``"<n> - restart"`` for every already-scheduled heat that can still be restarted (a circuit heat
+    restarts at most twice), then the single next un-scheduled original. Never a number beyond the next --
+    heat 3 cannot be scheduled before heat 2 (legacy cozer behaviour). ``occurrence`` is the entry's
+    restart rank: 0 original, 1 first restart (``1r``), 2 second restart (``1R``)."""
+    nums = _heat_numbers(eventdata, base, kind)          # [1..N] from the pattern
+    if not nums:
+        return []
+    counts = {}                                          # heat number -> entries already in the schedule
+    for race in races or []:
+        for e in race:
+            if isinstance(e, dict) and e.get("name") == base and e.get("kind") == kind:
+                counts[e.get("number")] = counts.get(e.get("number"), 0) + 1
+    opts = [("%d - restart" % n, n, counts[n])           # next restart of an already-scheduled heat
+            for n in sorted(k for k in counts if k in nums) if counts[n] < len(_CIRCUIT_RESTART)]
+    nxt = next((n for n in nums if n not in counts), None)   # the single next un-scheduled original
+    if nxt is not None:
+        opts.append((str(nxt), nxt, 0))
+    return opts
+
+
 class RaceHeatsModel(QAbstractTableModel):
     """One race's scheduled heats as native, suffix-free entries
     (``{name, kind, number, occurrence}``), edited in place. Columns Class (base) / Phase
@@ -505,8 +529,8 @@ class RacesTab(QWidget):
         self.heat_combo.blockSignals(True)
         self.heat_combo.clear()
         if base and kind and self.window is not None:
-            self.heat_combo.addItems(
-                [str(n) for n in _heat_numbers(self.window.eventdata, base, kind)])
+            for label, number, occ in _heat_options(self._races, self.window.eventdata, base, kind):
+                self.heat_combo.addItem(label, (number, occ))   # carry (number, restart-rank) as itemData
         self.heat_combo.blockSignals(False)
 
     def _form_kind(self):
@@ -524,13 +548,14 @@ class RacesTab(QWidget):
         if any(isinstance(e, dict) and e.get("name") == base for e in self.model._race):
             self.window.log("Class %s is already in this race" % base)
             return
-        try:
-            number = int(self.heat_combo.currentText())
-        except (ValueError, TypeError):
-            number = 1
+        data = self.heat_combo.currentData()          # (number, occurrence) from _heat_options
+        if not data:
+            return
+        number, occurrence = data
         self.model.add_entry({"name": base, "kind": self._form_kind(),
-                              "number": number, "occurrence": 0})
+                              "number": number, "occurrence": occurrence})
         self._update_current_label()
+        self._reload_heats()                          # the schedule changed -> refresh restart options
 
     def _delete_heat(self):
         idx = self.view.currentIndex()
@@ -541,6 +566,7 @@ class RacesTab(QWidget):
             return
         self.model.delete_row(idx.row())
         self._update_current_label()
+        self._reload_heats()                          # the schedule changed -> refresh restart options
 
     # ---- races ----
     def set_data(self, races):
@@ -571,6 +597,7 @@ class RacesTab(QWidget):
         if 0 <= row < len(self._races):
             self.model.set_race(self._races[row])
         self._sync_enabled()
+        self._reload_heats()                          # a restart in this race depends on the whole schedule
 
     def _add_race(self):
         self._races.append([])                          # a new, empty race (fill it via the form)

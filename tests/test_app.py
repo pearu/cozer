@@ -966,21 +966,37 @@ def test_races_add_heat_form_cascades_and_validates():
     rt.set_data(ed["races"])
     rt.race_list.setCurrentRow(0)
 
+    from cozer.app.grids import race_label
     # the add-heat form's three dropdowns are always visible + cascade:
     assert {rt.class_combo.itemText(i) for i in range(rt.class_combo.count())} == {"GT", "OT"}  # bases, no /T
     rt.class_combo.setCurrentText("GT")                # -> phases of GT (circuit + time trial)
     assert {rt.phase_combo.itemText(i) for i in range(rt.phase_combo.count())} == {"Circuit", "Time trial"}
-    rt.phase_combo.setCurrentText("Circuit")           # -> heat numbers 1..3 (GT circuit = 3 heats)
-    assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1", "2", "3"]
+    rt.phase_combo.setCurrentText("Circuit")
+    # restart-aware + in-order: an empty schedule offers ONLY the next original heat (not all of 1..3)
+    heats = lambda: [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())]
+    assert heats() == ["1"]
 
-    rt.heat_combo.setCurrentText("2")                  # Add appends a native suffix-free entry
-    rt._add_heat()
-    assert ed["races"][0] == [{"name": "GT", "kind": "circuit", "number": 2, "occurrence": 0}]
-    rt._add_heat()                                     # GT already in the race -> rejected + logged
+    rt._add_heat()                                     # adds heat 1 (occurrence 0)
+    assert ed["races"][0] == [{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 0}]
+    rt._add_heat()                                     # GT already in THIS race -> rejected + logged
     assert len(ed["races"][0]) == 1 and any("already in this race" in s for s in win.logs)
 
+    # a subsequent race offers the RESTART of the scheduled heat 1 + the next original 2 -- never 3
+    rt._add_race()                                     # new empty race, selected
+    assert heats() == ["1 - restart", "2"]
+    rt.heat_combo.setCurrentIndex(rt.heat_combo.findText("1 - restart"))
+    rt._add_heat()                                     # -> a DISTINCT restart entry (occurrence 1 -> "1r")
+    assert ed["races"][1] == [{"name": "GT", "kind": "circuit", "number": 1, "occurrence": 1}]
+    assert "restart" in race_label(1, ed["races"][1]).lower()   # the race list marks it a restart
+    # heat 1 now has one restart; a further race can add its 2nd restart, plus the next original 2
+    rt._add_race()
+    assert heats() == ["1 - restart", "2"]             # still offers the 2nd restart of 1 (occ -> 2) + 2
+    rt.heat_combo.setCurrentIndex(rt.heat_combo.findText("2"))
+    rt._add_heat()
+    assert ed["races"][2] == [{"name": "GT", "kind": "circuit", "number": 2, "occurrence": 0}]
+
     rt.phase_combo.setCurrentText("Time trial")        # cascade updates the heat list (TT = 1 heat)
-    assert [rt.heat_combo.itemText(i) for i in range(rt.heat_combo.count())] == ["1"]
+    assert heats() == ["1"]
 
 
 def test_timer_race_combo_label_has_class_heat():
