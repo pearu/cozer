@@ -13,6 +13,9 @@ LABELS = {
         "IntermediateResults": "Intermediate Results", "FinalResults": "Final Results",
         "PracticeTimeTrial": "Practice / Time-trial",
         "NoTimeTrialData": "No time-trial results recorded for the selected classes.",
+        "StartList": "Start List",
+        "StartPos": "Pos.",   # jetty / grid position (start order), not the finishing place
+        "NoStartListData": "No start order available for the selected classes.",
         "PenaltyNotes": "Notes",
         "DriversMeetingChecklist": "Drivers Meeting Checklist",
         "LapsCounterProtocol": "Laps Counter Protocol", "Inspection": "Inspection",
@@ -53,6 +56,9 @@ LABELS = {
         "IntermediateResults": "Vahetulemused", "FinalResults": "Tulemused",
         "PracticeTimeTrial": "Treening / ajasõit",
         "NoTimeTrialData": "Valitud klassidele pole ajasõidu tulemusi salvestatud.",
+        "StartList": "Stardinimekiri",   # ET draft — owner to verify
+        "StartPos": "Koht",              # ET draft — owner to verify (grid/jetty position)
+        "NoStartListData": "Valitud klassidele pole stardijärjekorda saadaval.",   # ET draft — owner to verify
         "PenaltyNotes": "Märkused",
         "DriversMeetingChecklist": "Võistlejate koosoleku kontrolltabel",
         "LapsCounterProtocol": "Ringilugeja protokoll", "Inspection": "Ülevaatus",

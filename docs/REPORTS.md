@@ -83,6 +83,11 @@ per kind). All 209 common content applies per heat and in the summary.
   Time**, where Lap Time = analyze `laptime`. Shows start time.
 - **Laps Protocol** (`laps.py`): per-lap crossing tally.
 - **Endurance Full Final** (`endurance.py`): laps completed within the duration.
+- **Start List** (`startlist.py`): per class + heat, the **derived start order / jetty positions**
+  (`seeding.start_order`, §5) — columns Pos · No. · Name · From · Nat. Heat 1 = participant order;
+  heat N = heat N-1's finishing order; a final = qualifying/time-trial order (307.01). The report
+  consumer of the same start order the timer ladder shows; derived, so a grid can be posted before its
+  heat is raced.
 
 ## 5. Discrepancies (audit 2026-07)
 

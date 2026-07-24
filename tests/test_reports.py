@@ -359,6 +359,39 @@ def test_intermediate_report():
     assert "Intermediate Results" in text
 
 
+def test_startlist_report_seeds_heat2_from_heat1_finish():
+    # Start List / jetty positions (PHASES.md §5): the printed grid IS the derived start order --
+    # heat 1 = participant order, heat 2 = heat 1's finishing order (the same seeding the timer uses).
+    from cozer.native import to_native
+    from cozer.store import apply_op
+    from cozer.reports.startlist import build_startlist, startlist_html
+    ed = to_native({"title": "T", "venue": "V", "date": "D", "scoringsystem": [10, 8, 6], "rules": [],
+                    "participants": [["", "A", "1", "", "GT", "11"], ["", "B", "2", "", "GT", "22"],
+                                     ["", "C", "3", "", "GT", "33"]],
+                    "classes": [["", "GT", "2*(3*1000):2"]], "record": {}, "races": []})
+    apply_op(ed, {"op": "heat", "cl": "GT", "h": "1", "info": {"course": [1000, 1000, 1000]},
+                  "ids": ["11", "22", "33"]})
+    for pid, dt in [("33", 20.0), ("11", 21.0), ("22", 22.0)]:
+        for _ in range(3):
+            apply_op(ed, {"op": "lap", "cl": "GT", "h": "1", "id": pid, "mark": [1, dt]})
+    model = build_startlist(ed)
+    by_heat = {t["heat"]: [r["id"] for r in t["rows"]] for t in model["tables"]}
+    assert by_heat[1] == ["11", "22", "33"]        # base heat = participant order
+    assert by_heat[2] == ["33", "11", "22"]        # heat 2 seeded by heat 1's finishing order
+    text = _fits_portrait(render_pdf_bytes(startlist_html(model)))
+    assert "Start List" in text and "Heat" in text
+
+
+def test_startlist_report_empty_is_a_note_not_blank():
+    from cozer.reports.startlist import build_startlist, startlist_html
+    model = build_startlist({"title": "", "venue": "", "date": "", "officer": "", "secretary": "",
+                             "classes": [], "participants": [], "record": {}, "scoringsystem": [],
+                             "rules": [], "configure": {}})
+    assert model["tables"] == []
+    text = _fits_portrait(render_pdf_bytes(startlist_html(model)))
+    assert "No start order available" in text
+
+
 def test_laps_protocol_report():
     from cozer.reports.laps import build_laps_protocol, laps_protocol_html
     ed = read_legacy_coz(EVENT)
