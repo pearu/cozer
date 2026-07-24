@@ -52,7 +52,7 @@ def _entry_label(e):
             return None
         tag = _PHASE_TAG.get(kind, "")
         occ = e.get("occurrence", 0)
-        restart = (" restart" + (" %d" % occ if occ > 1 else "")) if occ else ""   # "1 restart" / "1 restart 2"
+        restart = "" if not occ else " restart" if occ == 1 else " 2nd restart"   # "1 restart" / "1 2nd restart"
         return "%s %s%d%s" % (base, tag, num, restart)
     return "%s %s" % (e[1], e[2]) if len(e) > 2 and e[1] and e[2] else None
 
@@ -385,7 +385,7 @@ def _heat_options(races, eventdata, base, kind):
     if nxt is not None:                                  # current done -> just the next original
         return [(str(nxt), nxt, 0)]
     if current and c < len(_CIRCUIT_RESTART):            # last heat, none left -> restart it again
-        label = "%d - restart" % current + (" %d" % c if c > 1 else "")
+        label = "%d - restart" % current if c == 1 else "%d - 2nd restart" % current
         return [(label, current, c)]
     return []
 

@@ -1021,7 +1021,7 @@ def test_heat_options_restart_progression():
     assert labels([r(1, 0), r(1, 1), r(2, 0), r(2, 1)]) == ["3"]                # issue #48
     done = [r(1, 0), r(1, 1), r(2, 0), r(2, 1), r(3, 0)]
     assert labels(done) == ["3 - restart"]                          # final run once (issue #49)
-    assert full(done + [r(3, 1)]) == [("3 - restart 2", 3, 2)]       # the FINAL alone may restart again
+    assert full(done + [r(3, 1)]) == [("3 - 2nd restart", 3, 2)]     # the FINAL alone may restart again
     assert labels(done + [r(3, 1), r(3, 2)]) == []                   # two restarts done -> nothing more
 
 
