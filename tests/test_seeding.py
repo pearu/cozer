@@ -63,6 +63,23 @@ def test_unraced_predecessor_falls_back_to_base_case():
     assert start_order(ed, "C", "2") == ["7", "3"]        # can't seed -> participant order
 
 
+def test_restart_seeds_from_the_stopped_run():
+    # issue #52: a restart grids in the boats' running order when the run it restarts was STOPPED,
+    # NOT the original's start order. Heat 1 was stopped with 3 ahead of 7 -> restart 1r starts [3, 7]
+    # even though the original heat 1 started in participant order [7, 3].
+    ed = _ev(_PARTS, {"C": {"1": _heat(("3", "7"))}})
+    assert start_order(ed, "C", "1") == ["7", "3"]        # original heat 1 = participant grid
+    assert start_order(ed, "C", "1r") == ["3", "7"]       # restart = heat 1's order at stoppage
+
+
+def test_restart_of_unraced_heat_falls_back():
+    # if the run being restarted has no laps yet, the restart can't seed from it -> base case,
+    # never a crash (defensive: an operator can add a restart before recording the original).
+    empty = [dict(_INFO), {"7": [], "3": []}]
+    ed = _ev(_PARTS, {"C": {"1": empty}})
+    assert start_order(ed, "C", "1r") == ["7", "3"]       # participant order
+
+
 # --- cross-phase: time-trial -> finals (decision A / 307.01) ---------------------
 
 # A time-trial always has >= 2 laps: the first lap is the Start->first-lap-line run-up (excluded from

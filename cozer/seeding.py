@@ -25,7 +25,8 @@ timer button grid stays boat-number (§5, rev 29). Pure and read-only.
 """
 from cozer.analyzer import analyze, getresorder, rule_action_codes
 from cozer.classes import getclass
-from cozer.phases import canonical_record, class_phase_map, heat_number, phase_heat_ids
+from cozer.phases import (canonical_record, class_phase_map, heat_number,
+                          heat_occurrence, phase_heat_ids)
 from cozer.qualification import classify, participant_boats, qheat_boats
 from cozer.racepattern import get_classes, race_kind
 
@@ -35,6 +36,14 @@ _KIND_ORDER = {"timetrial": 0, "qualification": 1}   # finals/endurance sort las
 def start_order(eventdata, cl, heat):
     """Ordered boat-id list (strings) for class ``cl``'s ``heat`` start positions."""
     ph = class_phase_map(eventdata).get(cl)
+    # A RESTART (occurrence >= 1) grids in the order boats held when the run it restarts was
+    # STOPPED (issue #52 / §5.2), NOT the original's start order: seed from this heat number's
+    # canonical (last non-empty) record -- the stopped run, empty restarts skipped -- so e.g. the
+    # restart of heat 1 lines up in heat 1's running order at stoppage, not the participant grid.
+    if heat_occurrence(heat) >= 1 and ph is not None and ph.kind in ("circuit", "endurance"):
+        stopped = canonical_record(ph, heat_number(heat))
+        if stopped is not None:
+            return _rank(eventdata, *stopped)
     # Intra-phase heat N -> N+1 seeding applies ONLY to a CONTINUATION phase (circuit /
     # finals / endurance): heat N is seeded by heat N-1's finishing order. A qualification
     # phase's qheats are DISJOINT groups, not a sequence (§5.1), and time-trial sessions

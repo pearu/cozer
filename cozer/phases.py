@@ -115,6 +115,13 @@ def heat_number(heat_id):
     return _parse_heat_id(heat_id)[0]
 
 
+def heat_occurrence(heat_id):
+    """The restart occurrence encoded in a legacy heat id: original ``'1'`` → 0, ``'1r'`` → 1,
+    ``'1R'`` → 2. Companion to :func:`heat_number` — a time-trial/qualification id (``'2t'``,
+    ``'3q'``) carries no restart rank, so 0. Lets a consumer detect a restart without ``h[-1]``."""
+    return _restart_rank(_parse_heat_id(heat_id)[1])
+
+
 def heat_label(heat_id):
     """A heat id as *displayed*: the bare number for a time-trial/qualification heat (``'1t'``→``'1'``,
     ``'3q'``→``'3'`` — the phase kind is shown separately, so the ``t``/``q`` would be a redundant leak),
