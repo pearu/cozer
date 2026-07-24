@@ -616,16 +616,26 @@ class TimerPanel(QWidget):
         self.status.setText("Recording…")
         self._broadcast_refresh()          # publish the fresh field if broadcasting is on
 
+    def _overwrite_detail(self):
+        """Per already-recorded heat, its identity + how many crossings would be lost — so the operator
+        can tell real timing from a few stray test clicks before erasing it (owner)."""
+        lines = []
+        for cl, h in self._recorded_heats():
+            boats = (self._rec(cl, h) or [None, {}])[1] or {}
+            n = sum(len(m) for m in boats.values())
+            lines.append("  • %s — %d recorded crossing%s"
+                         % (heat_identity(self.eventdata, cl, h), n, "" if n == 1 else "s"))
+        return "\n".join(lines)
+
     def _confirm_overwrite(self):      # pragma: no cover - modal dialog
-        detail = "\n".join("  • " + heat_identity(self.eventdata, cl, h)
-                           for cl, h in self._recorded_heats())
         return dialogs.question(
             self, "Overwrite race record?",
             "This race already has recorded data — Start will ERASE and LOSE it:\n\n%s\n\n"
+            "(A large count is real timing; a few crossings are usually leftover test clicks.)\n\n"
             "• To re-run a heat and KEEP this original, add a restart under the Races tab, then Start "
             "that race instead.\n"
             "• To continue timing this same record, use Resume.\n\n"
-            "Erase the recorded data and start over anyway?" % detail,
+            "Erase the recorded data and start over anyway?" % self._overwrite_detail(),
             default=QMessageBox.No) == QMessageBox.Yes
 
     def on_resume(self):

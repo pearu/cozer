@@ -1224,6 +1224,9 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     from cozer.analyzer import analyze
     res = analyze("1", copy.deepcopy(record_heat(w.eventdata, "GT", "1")), [10, 5, 3])
     assert "1" in res and "2" in res
+    # the Start-overwrite confirm counts recorded crossings (real timing vs stray test clicks — owner)
+    assert tp._has_data()
+    assert "3 recorded crossings" in tp._overwrite_detail()
 
 
 def test_standings_orders_by_progress():
