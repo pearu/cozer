@@ -17,6 +17,21 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Safer against losing work, and share a heat's timing between computers (July 2026)
+
+<!-- release-notes:3.0.0rc17 -->
+
+- **COZER guards against losing unsaved work.** If you try to quit with unsaved changes, COZER now asks
+  whether to **Save**, **Discard**, or **Cancel** — no more accidental loss. And in the **Timer**, pressing
+  **Stop** now **saves automatically**, so a finished session's timing is written to the file at once.
+- **Move a heat's timing between two computers running the same event.** If a second timer records a heat on
+  another laptop, you can transfer it: there, tick that one heat on the **Reports** tab and use **Export heat
+  records…** (it suggests a file name like *event-class-heat-phase*); on the main laptop, use **Import heat
+  records…** on the **Timer** tab and choose the file. COZER matches the heat by its **class, phase and
+  number** — even if the two race orders differ — adds it to the schedule if it's missing, and asks before
+  overwriting any timing you already have. It refuses if the class, phase or race pattern don't match, or if
+  a boat in the file isn't in your event.
+
 ## Time-trial timer clock, clearer records title, and combined-class broadcast (July 2026)
 
 <!-- release-notes:3.0.0rc16 -->

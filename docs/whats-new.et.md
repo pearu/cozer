@@ -19,6 +19,22 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Turvalisem töö kaotamise vastu, ja jaga sõidu ajavõttu arvutite vahel (juuli 2026)
+
+<!-- release-notes:3.0.0rc17 -->
+
+- **COZER kaitseb salvestamata töö kaotamise eest.** Kui proovid väljuda salvestamata muudatustega, küsib
+  COZER nüüd, kas **salvestada** (Save), **hüljata** (Discard) või **tühistada** (Cancel) — enam ei lähe
+  töö kogemata kaotsi. Ja **taimeris** salvestab **Stop** nupu vajutamine nüüd **automaatselt**, nii et
+  lõpetatud seansi ajavõtt kirjutatakse kohe faili.
+- **Liiguta sõidu ajavõttu kahe sama sündmust jooksva arvuti vahel.** Kui teine taimer salvestab sõidu
+  teises sülearvutis, saad selle üle tuua: seal märgi see üks sõit **Reports** (raportid) sakil ja kasuta
+  **Export heat records…** (see pakub failinime kujul *sündmus-klass-sõit-faas*); põhiarvutis kasuta
+  **Import heat records…** **taimeri** sakil ja vali fail. COZER seob sõidu selle **klassi, faasi ja numbri**
+  järgi — isegi kui kahe arvuti sõidujärjekord erineb — lisab selle vajadusel ajakavasse ja küsib enne
+  olemasoleva ajavõtu ülekirjutamist. See keeldub, kui klass, faas või sõidumuster ei ühti, või kui failis
+  olev paat pole sinu sündmuses.
+
 ## Ajasõidu taimeri kell, selgem kirjete pealkiri ja liitklassi ülekanne (juuli 2026)
 
 <!-- release-notes:3.0.0rc16 -->

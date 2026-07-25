@@ -225,3 +225,4 @@ per-release summary lives in `whats-new.md` (users) + the Change log (devs).
 - **2026-07-25** — **`v3.0.0rc14` cut**. See `docs/whats-new.md`.
 - **2026-07-25** — **`v3.0.0rc15` cut**. See `docs/whats-new.md`.
 - **2026-07-25** — **`v3.0.0rc16` cut**. See `docs/whats-new.md`.
+- **2026-07-25** — **`v3.0.0rc17` cut**. See `docs/whats-new.md`.
