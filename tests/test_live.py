@@ -96,6 +96,36 @@ _TT_ED = {
 }
 
 
+_MULTI_ED = {
+    "schema": 2,
+    "classes": [{"name": "F 500", "phases": [{"kind": "circuit", "pattern": "1*(1000+2*1000):1"}]},
+                {"name": "F 250", "phases": [{"kind": "circuit", "pattern": "1*(1000+2*1000):1"}]}],
+    "participants": [["", "Ann", "Tamm", "A", "F 500", "7", "EST"],
+                     ["", "Cy", "Berg", "C", "F 250", "3", "LAT"]],
+    "record": {}, "races": [],
+}
+
+
+def test_snapshot_stacks_multiple_classes_into_sections():
+    # A combined heat (issue #56): two classes share one heat -> the feed carries a `sections` list, one
+    # per class, so the viewer can STACK their tables. The first class also stays at the top level so an
+    # older viewer that doesn't know `sections` still shows it.
+    a = [{"id": "7", "laps": 2, "time": 30.0}]
+    b = [{"id": "3", "laps": 1, "time": 20.0}]
+    snap = live.snapshot(_MULTI_ED, "F 500", "1", a, "T", course=[1000, 1000, 1000],
+                         extra=[("F 250", "1", b, [1000, 1000, 1000])])
+    assert snap["class"] == "F 500" and snap["order"][0]["boat"] == "7"     # top level = first class
+    secs = snap["sections"]
+    assert len(secs) == 2
+    assert secs[0]["class"] == "F 500" and secs[0]["order"][0]["surname"] == "Tamm"
+    assert secs[1]["class"] == "F 250" and secs[1]["order"][0]["surname"] == "Berg"   # per-class names/nats
+    assert secs[1]["order"][0]["nat"] == "LAT"
+    assert all({"class", "phase", "heat", "started", "course", "order"} <= set(s) for s in secs)
+    # EVERY section carries its own course (the first section's was dropped in an early refactor -> the
+    # anchor class then had no leader speed). Both must have the per-lap lengths.
+    assert secs[0]["course"] == [1000, 1000, 1000] and secs[1]["course"] == [1000, 1000, 1000]
+
+
 def test_timetrial_feed_carries_phase_laptimes_and_course_for_the_tt_view():
     # The TT broadcast view is viewer-only (docs/live-viewer.html): it derives each boat's best FULL lap
     # from `laptimes` (excluding the run-up, #29), needs `course` for the leader's speed, and switches on

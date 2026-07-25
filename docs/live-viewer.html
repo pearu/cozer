@@ -26,6 +26,12 @@
   ol.pre li{ grid-template-columns:34px 44px 1fr }
   ol.run li{ grid-template-columns:30px 38px 1fr 34px 88px; gap:8px }
   ol.tt  li{ grid-template-columns:30px 40px 1fr 58px 48px; gap:8px }   /* TT: name gets the room; slim speed */
+  /* combined multi-class heat (issue #56): stacked class tables in one list -> per-ROW grids + a divider.
+     No class header for now (owner); the divider is plain vertical space (keys out cleanly on the overlay). */
+  ol.multi li.ttrow { grid-template-columns:30px 40px 1fr 58px 48px; gap:8px }
+  ol.multi li.runrow{ grid-template-columns:30px 38px 1fr 40px; gap:8px }
+  ol.multi li.prerow{ grid-template-columns:34px 44px 1fr; gap:8px }
+  ol.multi li.sep   { grid-template-columns:1fr; height:14px }
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -80,6 +86,9 @@
     ol.pre li{ grid-template-columns:30px 50px 1fr; gap:12px }
     ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
     ol.tt  li{ grid-template-columns:28px 50px 1fr 74px 96px; gap:10px }
+    ol.multi li.ttrow { grid-template-columns:28px 50px 1fr 74px 96px; gap:10px }
+    ol.multi li.runrow{ grid-template-columns:28px 44px 1fr 44px; gap:10px }
+    ol.multi li.prerow{ grid-template-columns:30px 50px 1fr; gap:12px }
     .nat,.flag{ height:24px }
     .code{ font-size:14px }
     .boat{ font-size:23px } .boat::before{ font-size:14px }
@@ -96,6 +105,7 @@
 <script>
   var boats = [], started = false;
   var isTT = false;                          // time-trial feed -> rank by best lap so far (issue: TT view)
+  var isMulti = false;                       // combined multi-class heat -> stacked class tables (issue #56)
   var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
   var course = [];                           // per-lap lengths (distance model for the live catch-up)
   var raceAnchor = null;                     // {elapsed, at} race-clock anchor -> live extrapolation
@@ -124,11 +134,13 @@
     return b.laps != null ? String(b.laps) : "";
   }
   // ---- time-trial: each boat's BEST full lap so far ----
-  function bestLapInfo(b){
+  function bestLapInfo(b, crs){
     // {dur, spd} of the boat's fastest FULL lap, or null if it has none yet. laptimes are cumulative
     // crossing times; the FIRST segment (t=0 -> lt[0]) is the Start->lap-line run-up and is excluded
     // (issue #29), so a full lap is lt[k]-lt[k-1] for k>=1 -> need >=2 crossings. Speed uses that lap's
     // course length (km/h = 3.6 * metres / seconds); null speed when the course isn't in the feed.
+    // `crs` = the (section's) per-lap lengths; defaults to the global course (single-class path).
+    crs = crs || course;
     var lt = b.laptimes;
     if(!lt || lt.length < 2) return null;
     var best = null, bk = 0;
@@ -137,7 +149,7 @@
       if(d > 0 && (best === null || d < best)){ best = d; bk = k; }
     }
     if(best === null) return null;
-    var spd = course.length ? 3.6 * course[Math.min(bk, course.length-1)] / best : null;
+    var spd = crs.length ? 3.6 * crs[Math.min(bk, crs.length-1)] / best : null;
     return {dur: best, spd: spd};
   }
   function fmtLapTime(s){                                   // "M:SS.d" (0:36.4, 1:12.4) — tabular, sortable
@@ -145,13 +157,14 @@
     var m = Math.floor(s / 60), sec = s - 60 * m;
     return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
   }
-  function ttCell(b, i){
+  function ttCell(b, i, bs){
     // best/gap column: leader (i===0) shows its best lap TIME; every other row shows "+gap" to the
     // leader's best (so the gap sits directly under the leader's time). "…" until a boat has a full lap.
-    // Ranking (applyFeed) already put the fastest best lap first.
+    // Ranking already put the fastest best lap first. `bs` = the (section's) boats; defaults to global.
+    bs = bs || boats;
     var info = b.best;
     if(i === 0) return info ? fmtLapTime(info.dur) : "…";
-    var lead = (boats[0] || {}).best;
+    var lead = (bs[0] || {}).best;
     if(!info || !lead) return "…";
     return "+" + (info.dur - lead.dur).toFixed(1);
   }
@@ -222,7 +235,7 @@
     return (secs >= 0 ? "+" : "") + secs.toFixed(1);           // < 0 => projected AHEAD -> overtake brewing
   }
   function tickCatch(){                                     // refresh the live column between renders
-    if(!started || isTT) return;                            // time-trial best-lap values are static
+    if(!started || isTT || isMulti) return;                 // TT best-lap is static; multi re-renders per feed
     var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
     var maxAbove = 0;                                        // the leader is the 0 reference
     boats.slice(0, maxRows).forEach(function(b, i){
@@ -296,6 +309,8 @@
         + '<li style="grid-template-columns:1fr;color:var(--ink);font-weight:900;'
         + 'letter-spacing:.22em;font-size:22px;padding-top:10px">COZER</li>';
       return; }
+    if(feed.sections && feed.sections.length > 1){ applyMulti(feed); return; }   // combined heat (issue #56)
+    isMulti = false;
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
     isTT = feed.phase === "timetrial";                     // rank by best lap so far, not by position
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
@@ -333,6 +348,73 @@
     }
     render();
   }
+
+  // ---- combined multi-class heat: STACK one table per class (issue #56) ----
+  function applyMulti(feed){
+    isMulti = true; isTT = false; started = false;
+    maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
+    var prevTops = {};
+    [].forEach.call(ol.children, function(li){ if(li.dataset.no) prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
+    ol.className = "multi";
+    ol.innerHTML = "";
+    feed.sections.forEach(function(sec, si){
+      if(si){ var d = document.createElement("li"); d.className = "sep"; ol.appendChild(d); }   // divider (space)
+      renderSection(sec, si);
+    });
+    if(!reduce){                                           // FLIP within each class (keys are section-scoped)
+      [].forEach.call(ol.children, function(li){
+        var o = prevTops[li.dataset.no]; if(o==null) return;
+        var dy = o - li.getBoundingClientRect().top;
+        if(dy) li.animate([{transform:"translateY("+dy+"px)"},{transform:"translateY(0)"}],
+                          {duration:480, easing:"cubic-bezier(.22,.61,.36,1)"});
+      });
+    }
+  }
+  function renderSection(sec, si){
+    var secTT = sec.phase === "timetrial";
+    var crs = sec.course || [], N = crs.length;
+    var started = sec.started != null ? !!sec.started
+                : (sec.order||[]).some(function(r){ return (r.laps||0) >= 1; });
+    var bs = (sec.order||[]).map(function(r){
+      var laps = r.laps, lt = r.laptimes, time = r.time;
+      if(!secTT && N && laps > N){ laps = N; if(lt && lt.length > N) lt = lt.slice(0, N);
+                                   if(lt && lt.length) time = lt[N-1]; }
+      var b = {no:String(r.boat), name:r.surname||"", nat:r.nat||"", laps:laps, time:time,
+               finished:r.finished, laptimes:lt};
+      if(secTT) b.best = bestLapInfo(b, crs);
+      return b;
+    });
+    if(secTT){
+      bs.sort(function(a,b){
+        if(!!a.best !== !!b.best) return a.best ? -1 : 1;
+        if(a.best && b.best && a.best.dur !== b.best.dur) return a.best.dur - b.best.dur;
+        return (parseInt(a.no,10)||1e9) - (parseInt(b.no,10)||1e9);
+      });
+    } else if(started){
+      bs.sort(function(a,b){
+        var fa = a.finished?0:1, fb = b.finished?0:1; if(fa!==fb) return fa-fb;
+        if((b.laps||0)!==(a.laps||0)) return (b.laps||0)-(a.laps||0);
+        return (a.time||0)-(b.time||0);
+      });
+    }
+    var rowClass = secTT ? "ttrow" : (started ? "runrow" : "prerow");
+    bs.slice(0, maxRows).forEach(function(b, i){
+      var li = document.createElement("li");
+      li.dataset.no = si + ":" + b.no;                   // section-qualified (boat numbers repeat across classes)
+      li.className = rowClass + (i < 3 ? " p" + (i + 1) : "");
+      var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>'
+               + '<span class="name">'+(b.name||"")+'</span>';
+      if(secTT){
+        html += '<span class="best">'+ttCell(b, i, bs)+'</span>'
+              + '<span class="spd-col">'+ttSpeedCell(b, i)+'</span>';
+      } else if(started){
+        html += '<span class="laps">'+lapsCell(b)+'</span>';   // combined-race live catch-up deferred (#56)
+      }
+      li.innerHTML = html;
+      ol.appendChild(li);
+    });
+  }
+
   setInterval(tickCatch, 250);                 // keep the live catch-up column ticking between snapshots
   function status(msg){
     ol.className = "pre";

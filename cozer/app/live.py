@@ -30,7 +30,8 @@ def _heat_display(heat):
         return str(heat)
 
 
-def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=None, elapsed=None):
+def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=None, elapsed=None,
+             extra=None):
     """The unofficial live-order snapshot ``dict`` for class ``cl`` heat ``heat``.
 
     ``order`` — leader-first, one item per boat. Each item is either a **boat id** (scalar) or a
@@ -48,7 +49,33 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=N
     ``None`` when not timing (the viewer then falls back to the latest crossing — a static value).
 
     The ``order`` carries the **full** field; paging is the viewer's job (LIVE.md §7).
+
+    ``extra`` — optional ``[(cl, heat, order, course), ...]`` for further classes SHARING this heat (a
+    combined multi-class heat, issue #56). Each becomes another entry in the feed's ``sections`` list so
+    the viewer can STACK all the classes' tables. The first class's fields also stay at the top level, so
+    an older viewer that doesn't know ``sections`` still shows the first class.
     """
+    sec0 = _class_section(eventdata, cl, heat, order, course)
+    sections = [sec0]
+    for c, h, o, crs in (extra or []):
+        sections.append(_class_section(eventdata, c, h, o, crs))
+    out = dict(sec0)                                  # top level == first class (backward compatible)
+    out.update({
+        "updated": updated,
+        "unofficial": True,
+        "live": live,
+        "view": dict(view) if view else dict(DEFAULT_VIEW),
+        "course": [c for c in course] if course else [],   # first class's per-lap lengths (top level)
+        "elapsed": elapsed,                          # race-elapsed at publish (viewer clock anchor)
+        "sections": sections,                        # ALL classes of the heat, in order (issue #56)
+    })
+    return out
+
+
+def _class_section(eventdata, cl, heat, order, course=None):
+    """One class's feed section: ``{class, phase, heat, started, course, order}``. ``order`` is
+    leader-first (boat ids or ``timer.standings`` dicts). Shared by the top-level snapshot and each
+    stacked class of a combined heat (issue #56)."""
     parts = participants_index(eventdata)
     nats = nationalities_index(eventdata)
     rows, started = [], False
@@ -72,14 +99,9 @@ def snapshot(eventdata, cl, heat, order, updated, view=None, live=True, course=N
     return {
         "class": getclass(cl),
         "phase": race_kind(eventdata, cl),
-        "heat": _heat_display(heat),           # bare number, no t/q suffix leak (issue #34)
-        "updated": updated,
-        "unofficial": True,
-        "live": live,
-        "started": started,                          # any boat has completed >=1 lap
-        "view": dict(view) if view else dict(DEFAULT_VIEW),
+        "heat": _heat_display(heat),               # bare number, no t/q suffix leak (issue #34)
+        "started": started,                          # any boat in THIS class has completed >=1 lap
         "course": [c for c in course] if course else [],   # per-lap lengths -> distance model
-        "elapsed": elapsed,                          # race-elapsed at publish (viewer clock anchor)
         "order": rows,
     }
 

@@ -841,19 +841,29 @@ class TimerPanel(QWidget):
         eventname = broadcast.event_name(ed)      # per-event (lives in the .coz), not config
         channel = broadcast.event_channel(ed)
         updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        # For the live catch-up-to-leader column: the heat's per-lap lengths + the current race-elapsed
-        # time (only while timing) so the viewer can extrapolate each boat's distance between crossings.
-        rec = self._rec(cl, h)
-        course = (rec[0].get("course") if rec else None) or heat_course(ed, cl, h)[0]
         elapsed = round2(self._clock.read_ns() / 1e9) if self._started else None
+        # A combined heat has several classes (all of self._heats); publish one section per class so the
+        # viewer STACKS their tables (issue #56). Anchor on the race's FIRST heat for a stable order, and
+        # compute every heat's order + per-lap course HERE (GUI thread -- reads the record) so the snapshot
+        # is built off-thread. A single-class heat yields one section (feed shape unchanged + a 1-entry
+        # `sections` list). Not core scoring -- standings()/heat_course are the live-feed helpers.
+        heats = self._heats or [(cl, h)]
+        payloads = []                       # [(cl, heat, order, course), ...] in schedule order
+        for c, hh in heats:
+            hrec = self._rec(c, hh)
+            crs = (hrec[0].get("course") if hrec else None) or heat_course(ed, c, hh)[0]
+            payloads.append((c, hh, self._broadcast_order(c, hh), crs))
 
         def worker():
             result = None
             try:
                 from cozer.app import live  # heavy import (weasyprint) -> keep it OFF the GUI thread
-                snap = (live.stopped(ed, cl, h, updated) if kind == "stopped"
-                        else live.snapshot(ed, cl, h, order, updated, live.DEFAULT_VIEW,
-                                           course=course, elapsed=elapsed))
+                if kind == "stopped":
+                    snap = live.stopped(ed, cl, h, updated)
+                else:
+                    ac, ah, ao, acrs = payloads[0]
+                    snap = live.snapshot(ed, ac, ah, ao, updated, live.DEFAULT_VIEW,
+                                         course=acrs, elapsed=elapsed, extra=payloads[1:])
                 live.publish_server(server_url, eventname, channel, secret, snap)
                 result = True               # success
             except Exception as exc:        # surfaced to the operator; never breaks timing
