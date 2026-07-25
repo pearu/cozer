@@ -146,6 +146,17 @@ handlers; the abstraction does not change.
   lap** (an initial mark unselect) rather than the operator doing it by hand in Edit Records.
   *Code ripple: the implemented `RACE_KINDS` still lists `training` — drop it / alias to
   `timetrial`.*
+- **Practice *and* time-trial before the finals** — a program with both (e.g. `practice →
+  time-trial → finals`) needs no separate kind and no code change: author the `timetrial` phase
+  with **more than one heat** (e.g. `2*(…):1`) and record practice in the first heat, the
+  time-trial in the last. Seeding uses the best lap across the time-trial heats that **gained
+  laps**, so to keep a heat (e.g. practice) out of the seed, open it in **Edit Records and drag
+  its red *race-stopped* line back before the first full lap** — the heat then gains no laps,
+  contributes nothing to the finals seed *and* nothing to the Practice/Time-trial report, and the
+  seed comes from the heat(s) that still have laps. **Trim every timed heat except the one that
+  should count** (if more than one keeps gained laps they are combined by best lap, not "last
+  wins"). This reuses the stop-line the operator already sets to bound a heat at its stoppage
+  (§311.01.7) — see also §5.2.
 - **Time-trial gets *light* mis-click** — a solo run can still be double-tapped (too-fast) or
   miss a crossing, so the physics/too-fast check applies; there is no wrong-boat case (no pack),
   and the too-slow median check needs ≥4 laps so it's inert on a 3-lap run. *Code ripple:
