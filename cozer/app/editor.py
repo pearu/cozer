@@ -32,7 +32,8 @@ from cozer.classes import getclass
 from cozer.app import dialogs
 from cozer.native import record_heat
 from cozer.phases import class_phase_map, phase_heat_ids
-from cozer.records import insertmark, invreccodemap, marknote, reccodemap, setmarknote
+from cozer.records import (insertmark, invreccodemap, marknote, reccodemap, setmarknote,
+                           DEPRECATED_209, UIM209_CODES)
 from cozer.validate import suspect_marks, enabled_laps   # shared self-calibrating mis-click detector
 
 LAP = QColor(255, 127, 0)
@@ -783,8 +784,15 @@ class EditRecordsPanel(QWidget):
         if cl is None:
             return menu
         by_code = {}
-        for r in self.window.eventdata.get("rules", []):
+        ed = self.window.eventdata
+        # A 2026+ event (its ruleset defines §209 outcome codes) must not EXPOSE the deprecated legacy
+        # codes (IR/DQ/DS/NQ) for authoring -- only their §209 successors (DNF/DSQ/DNS/DNQ). A legacy
+        # event (no §209 codes) is unchanged: it keeps offering its own codes.
+        uses209 = bool(rule_action_codes(ed) & UIM209_CODES)
+        for r in ed.get("rules", []):
             if len(r) > 3 and r[1] in reccodemap:
+                if uses209 and r[1] in DEPRECATED_209:      # legacy code on a §209 event -> not offered
+                    continue
                 by_code.setdefault(r[1], []).append(r)
         for code_name in by_code:
             sub = menu.addMenu("%s…" % code_name)

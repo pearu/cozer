@@ -2126,6 +2126,32 @@ def test_build_mark_menu_and_actions(tmp_path, monkeypatch):
     assert ep._dirty is True
 
 
+def test_mark_menu_hides_legacy_codes_for_209_events(tmp_path, monkeypatch):
+    # A 2026+ event (its ruleset defines §209 outcome codes) must NOT expose the deprecated legacy codes
+    # (IR/DQ/DS/NQ) in the insert-mark menu -- only their §209 successors. A legacy event still shows them.
+    _app()
+    w = MainWindow(_recorded_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    ep = w.editor_panel
+    ep.reload()
+    submenu_codes = lambda: {a.text().rstrip("…") for a in ep.build_mark_menu("1", 10.0).actions() if a.menu()}
+
+    w.eventdata["rules"] = [                                     # ruleset with BOTH legacy + §209 codes
+        ["", "DQ", "313.4", "Disqualification"],                # legacy  -> hidden
+        ["", "IR", "311", "Interruption"],                      # legacy  -> hidden
+        ["", "DSQ", "209", "Disqualified"],                     # §209    -> shown
+        ["", "DNF", "209", "Did not finish"],                   # §209    -> shown
+        ["", "LL", "307.04", "Lost a lap"],                     # not deprecated -> shown
+    ]
+    codes = submenu_codes()
+    assert {"DSQ", "DNF", "LL"} <= codes                        # §209 + non-deprecated: offered
+    assert "DQ" not in codes and "IR" not in codes             # deprecated legacy: NOT offered (item 1)
+
+    w.eventdata["rules"] = [["", "DQ", "313.4", "Disqualification"], ["", "LL", "307.04", "Lost a lap"]]
+    legacy_codes = submenu_codes()                              # a legacy event (no §209) is unchanged
+    assert "DQ" in legacy_codes and "LL" in legacy_codes
+
+
 def test_edit_note_sets_and_reads_on_nearest_event_mark(tmp_path, monkeypatch):
     _app()
     from cozer.records import marknote
