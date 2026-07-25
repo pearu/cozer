@@ -25,6 +25,7 @@
   }
   ol.pre li{ grid-template-columns:34px 44px 1fr }
   ol.run li{ grid-template-columns:30px 38px 1fr 34px 88px; gap:8px }
+  ol.tt  li{ grid-template-columns:30px 44px 1fr 132px; gap:8px }   /* time-trial: best lap / gap column */
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -40,6 +41,10 @@
   .laps{ font-size:16px; font-weight:700; text-align:center }
   .catch{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
   .catch.overtake{ color:#ffd24a }   /* projected ahead of a boat ranked above -> overtake brewing */
+  /* time-trial: the leader shows its best lap TIME + that lap's speed; the rest show +gap to it. */
+  .best{ font-size:16px; font-weight:800; text-align:right; white-space:nowrap }
+  .best .spd{ font-size:13px; font-weight:700; color:var(--dim); margin-left:7px }
+  .best .spd::after{ content:" km/h"; font-size:10px; opacity:.7 }
   .startmsg{ grid-column:4 / -1; text-align:right; font-weight:800; font-size:13px;
              letter-spacing:.04em; white-space:nowrap }   /* pre-race WAITING TO START */
   /* START: a big, bright-green, pulsing banner across the whole first row — text-only (no background
@@ -73,11 +78,13 @@
     li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,.10) }
     ol.pre li{ grid-template-columns:30px 50px 1fr; gap:12px }
     ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
+    ol.tt  li{ grid-template-columns:28px 50px 1fr 150px; gap:10px }
     .nat,.flag{ height:24px }
     .code{ font-size:14px }
     .boat{ font-size:23px } .boat::before{ font-size:14px }
     .name{ font-size:23px }
-    .laps{ font-size:21px } .catch{ font-size:19px }
+    .laps{ font-size:21px } .catch{ font-size:19px } .best{ font-size:20px }
+    .best .spd{ font-size:16px }
     .p1 .name,.p2 .name,.p3 .name{ font-size:25px }
     .p1 .boat,.p2 .boat,.p3 .boat{ font-size:23px }
   }
@@ -87,6 +94,7 @@
 
 <script>
   var boats = [], started = false;
+  var isTT = false;                          // time-trial feed -> rank by best lap so far (issue: TT view)
   var maxRows = 24;                          // show top-N drivers; cozer sets view.max_rows
   var course = [];                           // per-lap lengths (distance model for the live catch-up)
   var raceAnchor = null;                     // {elapsed, at} race-clock anchor -> live extrapolation
@@ -113,6 +121,41 @@
   }
   function lapsCell(b){                                     // the previous column: just laps completed
     return b.laps != null ? String(b.laps) : "";
+  }
+  // ---- time-trial: each boat's BEST full lap so far ----
+  function bestLapInfo(b){
+    // {dur, spd} of the boat's fastest FULL lap, or null if it has none yet. laptimes are cumulative
+    // crossing times; the FIRST segment (t=0 -> lt[0]) is the Start->lap-line run-up and is excluded
+    // (issue #29), so a full lap is lt[k]-lt[k-1] for k>=1 -> need >=2 crossings. Speed uses that lap's
+    // course length (km/h = 3.6 * metres / seconds); null speed when the course isn't in the feed.
+    var lt = b.laptimes;
+    if(!lt || lt.length < 2) return null;
+    var best = null, bk = 0;
+    for(var k = 1; k < lt.length; k++){
+      var d = lt[k] - lt[k-1];
+      if(d > 0 && (best === null || d < best)){ best = d; bk = k; }
+    }
+    if(best === null) return null;
+    var spd = course.length ? 3.6 * course[Math.min(bk, course.length-1)] / best : null;
+    return {dur: best, spd: spd};
+  }
+  function fmtLapTime(s){                                   // "M:SS.d" (0:36.4, 1:12.4) — tabular, sortable
+    s = Math.round(s * 10) / 10;                           // round to 0.1 FIRST so 59.98 -> 1:00.0, not 0:60.0
+    var m = Math.floor(s / 60), sec = s - 60 * m;
+    return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
+  }
+  function ttCell(b, i){
+    // Leader (i===0): its best lap TIME + that lap's SPEED. Others: "+gap" to the leader's best time.
+    // "…" until a boat has a full lap. Ranking (applyFeed) already put the fastest best lap first.
+    var info = b.best;
+    if(i === 0){
+      if(!info) return "…";
+      var spd = info.spd != null ? ' <span class="spd">' + info.spd.toFixed(1) + '</span>' : "";
+      return fmtLapTime(info.dur) + spd;
+    }
+    var lead = (boats[0] || {}).best;
+    if(!info || !lead) return "…";
+    return "+" + (info.dur - lead.dur).toFixed(1);
   }
   function startMsg(){
     // Pre-race status shown in the first row's right-hand cell (before any lap crossing): the operator
@@ -174,7 +217,7 @@
     return (secs >= 0 ? "+" : "") + secs.toFixed(1);           // < 0 => projected AHEAD -> overtake brewing
   }
   function tickCatch(){                                     // refresh the live column between renders
-    if(!started) return;
+    if(!started || isTT) return;                            // time-trial best-lap values are static
     var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
     var maxAbove = 0;                                        // the leader is the 0 reference
     boats.slice(0, maxRows).forEach(function(b, i){
@@ -195,7 +238,8 @@
 
   function render(){
     var msg = started ? null : startMsg();                 // pre-race status for the first row
-    ol.className = (started || msg) ? "run" : "pre";        // show the right columns for the status too
+    var mode = (isTT && started) ? "tt" : ((started || msg) ? "run" : "pre");
+    ol.className = mode;                                    // show the right columns for the status/kind
     var prevTops = {};
     [].forEach.call(ol.children, function(li){ prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
     ol.innerHTML = "";
@@ -207,17 +251,24 @@
       var name = '<span class="name">'+(b.name||"")
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;
-      var winnerDone = started && i === 0 && b.finished;   // the leader has crossed the finish line
-      if(winnerDone){
-        html += '<span class="finishmsg">FINISH</span>';   // prominent winner banner (spans right cols)
-      } else if(started){
-        html += '<span class="laps">'+lapsCell(b)+'</span>'
-              + '<span class="catch"></span>';
-      } else if(msg && i === 0){                           // pre-race status in the first row
-        html += '<span class="startmsg' + (msg === "START" ? " go" : "") + '">'+msg+'</span>';
+      if(mode === "tt"){                                   // time trial: best-lap time+speed / +gap column
+        html += '<span class="best">' + ttCell(b, i) + '</span>';
+      } else {
+        var winnerDone = started && i === 0 && b.finished; // the leader has crossed the finish line
+        if(winnerDone){
+          html += '<span class="finishmsg">FINISH</span>'; // prominent winner banner (spans right cols)
+        } else if(started){
+          html += '<span class="laps">'+lapsCell(b)+'</span>'
+                + '<span class="catch"></span>';
+        } else if(msg && i === 0){                         // pre-race status in the first row
+          html += '<span class="startmsg' + (msg === "START" ? " go" : "") + '">'+msg+'</span>';
+        }
+        li.innerHTML = html;
+        if(started && !winnerDone) catchSpans[b.no] = li.querySelector(".catch");
+        ol.appendChild(li);
+        return;
       }
       li.innerHTML = html;
-      if(started && !winnerDone) catchSpans[b.no] = li.querySelector(".catch");
       ol.appendChild(li);
     });
     tickCatch();                                           // fill the live catch-up column now
@@ -240,21 +291,31 @@
         + 'letter-spacing:.22em;font-size:22px;padding-top:10px">COZER</li>';
       return; }
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
+    isTT = feed.phase === "timetrial";                     // rank by best lap so far, not by position
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
     course = feed.course || [];                             // per-lap lengths for the distance model
     raceAnchor = (feed.elapsed != null) ? {elapsed: feed.elapsed, at: perfNow()} : null;   // live clock
     var N = course.length;                                  // total laps -> freeze a boat at the finish
     boats = (feed.order||[]).map(function(r){
       var laps = r.laps, lt = r.laptimes, time = r.time;
-      if(N && laps > N){                                    // completed all laps: ignore any extra clicks
-        laps = N;                                           // cozer keeps counting; the feed view stops
-        if(lt && lt.length > N) lt = lt.slice(0, N);        //   its lap count + finish time freeze at the
-        if(lt && lt.length) time = lt[N - 1];               //   finish crossing (lap N)
-      }
-      return {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:laps,
-              time:time, finished:r.finished, laptimes:lt};
+      if(!isTT && N && laps > N){                           // circuit: completed all laps -> ignore extra
+        laps = N;                                           // clicks (cozer keeps counting; the feed view
+        if(lt && lt.length > N) lt = lt.slice(0, N);        //   stops its lap count + finish time at the
+        if(lt && lt.length) time = lt[N - 1];               //   finish crossing, lap N). NOT for a time
+      }                                                     //   trial -- N there is only an estimate.
+      var b = {no:String(r.boat), name:r.surname||"", first:"", nat:r.nat||"", laps:laps,
+               time:time, finished:r.finished, laptimes:lt};
+      if(isTT) b.best = bestLapInfo(b);                     // {dur, spd} of the fastest full lap, or null
+      return b;
     });
-    if(started){                                          // issue #26: after the finish-freeze above,
+    if(isTT){
+      // Time trial: rank by fastest best-lap first; a boat with no full lap yet sorts last (by number).
+      boats.sort(function(a,b){
+        if(!!a.best !== !!b.best) return a.best ? -1 : 1;
+        if(a.best && b.best && a.best.dur !== b.best.dur) return a.best.dur - b.best.dur;
+        return (parseInt(a.no,10)||1e9) - (parseInt(b.no,10)||1e9);
+      });
+    } else if(started){                                   // issue #26: after the finish-freeze above,
       // re-rank so a boat clicked past the line (its laps/time capped to N) can't stay ahead of the
       // real winner. Mirrors cozer's standings order: finished first, then more laps, then less time.
       boats.sort(function(a,b){

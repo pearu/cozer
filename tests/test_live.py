@@ -83,6 +83,34 @@ def test_snapshot_carries_course_and_elapsed():
     assert snap2["course"] == [] and snap2["elapsed"] is None
 
 
+# a class with a time-trial phase -> the feed's `phase` is "timetrial" (cl "F 500/T"), which the live
+# viewer switches on to rank by best lap so far (leader shows the best-lap time+speed, others the gap).
+_TT_ED = {
+    "schema": 2,
+    "classes": [{"name": "F 500", "phases": [
+        {"kind": "timetrial", "pattern": "1*(8*1500):1"},
+        {"kind": "circuit", "pattern": "4*(8*1500):4"}]}],
+    "participants": [["", "Ann", "Tamm", "Club A", "F 500", "7", "EST"],
+                     ["", "Bo", "Ozols", "Club B", "F 500", "14", "LAT"]],
+    "record": {}, "races": [],
+}
+
+
+def test_timetrial_feed_carries_phase_laptimes_and_course_for_the_tt_view():
+    # The TT broadcast view is viewer-only (docs/live-viewer.html): it derives each boat's best FULL lap
+    # from `laptimes` (excluding the run-up, #29), needs `course` for the leader's speed, and switches on
+    # `phase == "timetrial"`. Guard that the feed still delivers all three (the data contract the view
+    # depends on) -- the JS rendering itself is verified visually on the live server.
+    order = [{"id": "7", "laps": 4, "time": 148.0, "laptimes": [40.0, 76.0, 112.0, 148.0]},
+             {"id": "14", "laps": 1, "time": 41.0, "laptimes": [41.0]}]   # only the run-up so far
+    snap = live.snapshot(_TT_ED, "F 500/T", "1t", order, "T", course=[1500] * 8)
+    assert snap["phase"] == "timetrial"                  # the viewer's TT switch
+    assert snap["heat"] == "1"                           # bare number, no 't' leak (issue #34)
+    assert snap["course"] == [1500] * 8                  # per-lap lengths -> leader's best-lap speed
+    assert snap["order"][0]["laptimes"] == [40.0, 76.0, 112.0, 148.0]   # -> best full lap = 36 s
+    assert snap["order"][1]["laptimes"] == [41.0]        # one crossing (run-up) -> viewer shows "…"
+
+
 def test_snapshot_not_started_when_no_laps():
     order = [{"id": "7", "laps": 0, "time": 0.0}, {"id": "14", "laps": 0, "time": 0.0}]
     snap = live.snapshot(ED, "F 500", "1", order, "T")
