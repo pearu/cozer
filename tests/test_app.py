@@ -1399,16 +1399,28 @@ def test_export_import_heat_records_end_to_end(tmp_path, monkeypatch):
     src = MainWindow(tt_event(record=True))
     _save_as(src, str(tmp_path / "src.cozj"), monkeypatch)
     src._reload_classes()
-    for tree in src._report_trees():                       # check every heat leaf
+    for tree in src._report_trees():                       # check ONLY the one recorded heat leaf
         for j in range(tree.topLevelItemCount()):
             c = tree.topLevelItem(j)
-            for k in range(c.childCount()):
-                c.child(k).setCheckState(0, Qt.Checked)
-    assert ("F 500/T", "1t") in src._checked_heats()
+            if c.data(0, Qt.UserRole) == "F 500/T":
+                for k in range(c.childCount()):
+                    ch = c.child(k)
+                    if ch.data(0, Qt.UserRole) == "1t":
+                        ch.setCheckState(0, Qt.Checked)
+    assert src._checked_heats() == [("F 500/T", "1t")]
+    # the Save name is suggested as <base>-<class>-<heat>-<phase>.cozj
+    assert os.path.basename(src._heat_export_suggested_path("F 500/T", "1t")) == "src-F 500-1-timetrial.cozj"
     hf = str(tmp_path / "heats.cozj")
-    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (hf, "")))
+    seen = {}
+
+    def fake_save(parent, caption, directory, *a, **k):
+        seen["dir"] = directory
+        return (hf, "")
+
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName", staticmethod(fake_save))
     src.on_export_heat_records()
     assert os.path.exists(hf)
+    assert seen["dir"].endswith("src-F 500-1-timetrial.cozj")   # the dialog was pre-filled
 
     tgt = MainWindow(tt_event(record=False))               # same classes, no record, empty schedule
     _save_as(tgt, str(tmp_path / "tgt.cozj"), monkeypatch)
@@ -1422,6 +1434,40 @@ def test_export_import_heat_records_end_to_end(tmp_path, monkeypatch):
     assert r is not None and r[1]["7"] == [[1, 20.0], [1, 21.0]]        # records landed
     assert any(e["name"] == "F 500" and e["kind"] == "timetrial" and e["number"] == 1
                for race in tgt.eventdata["races"] for e in race)        # missing Races entry added
+
+
+def test_export_heat_records_requires_exactly_one(tmp_path, monkeypatch):
+    # Single-heat export only (the Timer imports a single heat): 0 or >1 checked -> refuse, no dialog.
+    _app()
+    from cozer.native import to_native, ensure_heat
+    ed = to_native({"title": "E", "scoringsystem": [10, 5, 3],
+                    "classes": [["", "F 500", "3*(1000):1"], ["", "F 500/T", "2*(1000):1"]],
+                    "participants": [["", "A", "One", "EST", "F 500", "7"]],
+                    "record": {}, "races": [[["", "F 500/T", "1t"]], [["", "F 500", "1"]]],
+                    "configure": {"language": "English"}})
+    ensure_heat(ed, "F 500/T", "1t", [{"course": [1000, 1000], "sheats": 1, "duration": None},
+                                      {"7": [[1, 20.0], [1, 21.0]]}])
+    ensure_heat(ed, "F 500", "1", [{"course": [1000, 1000, 1000], "sheats": 1, "duration": None},
+                                   {"7": [[1, 20.0]]}])
+    w = MainWindow(ed)
+    w._reload_classes()
+    infos, saved = [], []
+    monkeypatch.setattr(appmain.dialogs, "info",
+                        staticmethod(lambda parent, title, text, *a, **k: infos.append(text)))
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: saved.append(1) or ("", "")))
+
+    w.on_export_heat_records()                              # nothing checked
+    assert infos and "Check the heat" in infos[-1] and not saved
+
+    for tree in w._report_trees():                          # check TWO heats
+        for j in range(tree.topLevelItemCount()):
+            c = tree.topLevelItem(j)
+            for k in range(c.childCount()):
+                c.child(k).setCheckState(0, Qt.Checked)
+    assert len(w._checked_heats()) >= 2
+    w.on_export_heat_records()
+    assert "exactly one" in infos[-1] and not saved         # refused, no Save dialog
 
 
 def test_timer_elapsed_since_start_time_trial_only(tmp_path, monkeypatch):

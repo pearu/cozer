@@ -1205,28 +1205,51 @@ class MainWindow(QMainWindow):
                         out.append((cl, ch.data(0, Qt.UserRole)))
         return out
 
+    def _heat_export_suggested_path(self, cl, h):
+        """The suggested Save name for a single heat: ``<base cozj filename>-<class>-<heat>-<phase>.cozj``
+        in the event file's directory (falls back to the event title / 'heat-records' when unsaved)."""
+        from cozer.classes import getclass
+        if self.store is not None:
+            base_dir = os.path.dirname(self.store.path)
+            base_file = os.path.splitext(os.path.basename(self.store.path))[0]
+        else:
+            base_dir = ""
+            base_file = (self.eventdata.get("title") or "").strip() or "heat-records"
+        try:
+            hl = heat_label(h)
+        except (ValueError, TypeError):
+            hl = str(h)
+        name = "-".join(p for p in (base_file, getclass(cl), hl, race_kind(self.eventdata, cl)) if p)
+        name = name.replace("/", "-").replace("\\", "-") + ".cozj"   # never a path separator in the name
+        return os.path.join(base_dir, name) if base_dir else name
+
     def on_export_heat_records(self):
-        """Export the CHECKED heats' measured records to a file for another cozer instance of the same
-        event (Timer ▸ Import heat records…). Only heats that actually have recordings are written."""
+        """Export ONE checked heat's measured records to a file for another cozer instance of the same
+        event (Timer ▸ Import heat records…). Exactly one heat must be checked — the Timer imports a
+        single heat — and the Save name is suggested as ``<event>-<class>-<heat>-<phase>.cozj``."""
         from cozer.app import heatxfer
         selection = self._checked_heats()
-        if not selection:
+        if len(selection) != 1:
             dialogs.info(self, "Export heat records",
-                         "Check the classes/heats to export (the same boxes the reports use), then try again.")
+                         "Check exactly one heat to export — the Timer imports a single heat. "
+                         "Uncheck the others." if selection else
+                         "Check the heat to export (the same boxes the reports use), then try again.")
             return
         payload = heatxfer.export_heats(self.eventdata, selection)
         if not payload["heats"]:
-            dialogs.info(self, "Export heat records",
-                         "None of the checked heats have recorded data yet.")
+            dialogs.info(self, "Export heat records", "That heat has no recorded data yet.")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Export heat records", "", "Cozer heat records (*.cozj)")
+        path, _ = QFileDialog.getSaveFileName(self, "Export heat records",
+                                              self._heat_export_suggested_path(*selection[0]),
+                                              "Cozer heat records (*.cozj)")
         if not path:
             return
         if not path.endswith(".cozj"):
             path += ".cozj"
         with open(path, "w", encoding="utf-8") as f:
             f.write(dumps(payload))
-        self.log("Exported %d heat record(s) to %s" % (len(payload["heats"]), path))
+        self.log("Exported heat record %s / %s to %s"
+                 % (payload["heats"][0]["class"], payload["heats"][0]["heat"], path))
 
     def _reload_classes(self):
         """Populate the Reports tab's phase tabs (Time-trials / Qualifications / Circuit / ...), one tab
