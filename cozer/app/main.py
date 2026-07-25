@@ -1090,6 +1090,11 @@ class MainWindow(QMainWindow):
         export = QPushButton("Export…")
         export.clicked.connect(self.on_export)
         btnrow.addWidget(export)
+        # Export the CHECKED heats' measured records to a file that another cozer instance of the same
+        # event can import (Timer ▸ Import heat records…). Uses the same class/heat checkboxes as reports.
+        export_recs = QPushButton("Export heat records…")
+        export_recs.clicked.connect(self.on_export_heat_records)
+        btnrow.addWidget(export_recs)
         v.addLayout(btnrow)
         return w
 
@@ -1185,6 +1190,43 @@ class MainWindow(QMainWindow):
     def _report_trees(self):
         """The per-phase class/heat trees, one per tab, in tab order."""
         return [self.report_tabs.widget(i) for i in range(self.report_tabs.count())]
+
+    def _checked_heats(self):
+        """Concrete ``[(real_class, real_heat_id), ...]`` for every CHECKED heat leaf across the phase
+        trees (a fully-checked class has all its heat children checked). Drives Export heat records…."""
+        out = []
+        for tree in self._report_trees():
+            for j in range(tree.topLevelItemCount()):
+                c = tree.topLevelItem(j)
+                cl = c.data(0, Qt.UserRole)
+                for k in range(c.childCount()):
+                    ch = c.child(k)
+                    if ch.checkState(0) == Qt.Checked:
+                        out.append((cl, ch.data(0, Qt.UserRole)))
+        return out
+
+    def on_export_heat_records(self):
+        """Export the CHECKED heats' measured records to a file for another cozer instance of the same
+        event (Timer ▸ Import heat records…). Only heats that actually have recordings are written."""
+        from cozer.app import heatxfer
+        selection = self._checked_heats()
+        if not selection:
+            dialogs.info(self, "Export heat records",
+                         "Check the classes/heats to export (the same boxes the reports use), then try again.")
+            return
+        payload = heatxfer.export_heats(self.eventdata, selection)
+        if not payload["heats"]:
+            dialogs.info(self, "Export heat records",
+                         "None of the checked heats have recorded data yet.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export heat records", "", "Cozer heat records (*.cozj)")
+        if not path:
+            return
+        if not path.endswith(".cozj"):
+            path += ".cozj"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(dumps(payload))
+        self.log("Exported %d heat record(s) to %s" % (len(payload["heats"]), path))
 
     def _reload_classes(self):
         """Populate the Reports tab's phase tabs (Time-trials / Qualifications / Circuit / ...), one tab

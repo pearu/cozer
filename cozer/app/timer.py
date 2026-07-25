@@ -22,7 +22,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QHBoxLayout, QLabel,
+    QApplication, QComboBox, QFileDialog, QHBoxLayout, QLabel,
     QMdiArea, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -355,6 +355,11 @@ class TimerPanel(QWidget):
         self.copy_url_btn.clicked.connect(self._copy_viewer_url)
         self.copy_url_btn.hide()
         top.addWidget(self.copy_url_btn)
+        # Import measured records exported from another cozer instance of the same event (Reports ▸ Export
+        # heat records…). Lives on the Timer because it is recorded data, not schedule metadata.
+        self.import_btn = QPushButton("Import heat records…")
+        self.import_btn.clicked.connect(self._import_heat_records)
+        top.addWidget(self.import_btn)
         v.addLayout(top)
         self._update_viewer_url()          # reveal the copy button now if a broadcast is already configured
 
@@ -638,6 +643,51 @@ class TimerPanel(QWidget):
         if self.window.store is None:
             self.window.on_save_as()
         return self.window.store is not None
+
+    def _import_heat_records(self):     # pragma: no cover - file dialog + modal summary
+        """Import measured records exported from another cozer instance of the same event (Reports ▸
+        Export heat records…): validate each heat (same class/phase + equivalent pattern, marked boats
+        present), confirm any overwrite of existing measured data, add a missing Races entry, then
+        persist + refresh so the imported heats appear in the Timer."""
+        from cozer.app import heatxfer
+        from cozer.store import loads
+        if self._started:
+            dialogs.warn(self, "Stop first", "Stop recording before importing heat records.")
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Import heat records", "",
+                                              "Cozer heat records (*.cozj)")
+        if not path:
+            return
+        try:
+            payload = loads(open(path, encoding="utf-8").read())
+        except Exception as exc:
+            dialogs.error(self, "Import heat records", "Could not read the file: %s" % exc)
+            return
+        if not self._ensure_store():        # records journal to the store; the event needs a file
+            return
+        ev = self.eventdata
+        src = payload.get("event") if isinstance(payload, dict) else None
+        if src and src != heatxfer._event_name(ev) and dialogs.question(
+                self, "Different event?",
+                "This file was exported from event '%s', but the open event is '%s'.\n\nImport anyway?"
+                % (src, heatxfer._event_name(ev)), default=QMessageBox.No) != QMessageBox.Yes:
+            return
+
+        def confirm(cl, h):
+            return dialogs.question(
+                self, "Overwrite records?",
+                "%s already has measured data. Overwrite it with the imported records?"
+                % heat_identity(ev, cl, h), default=QMessageBox.No) == QMessageBox.Yes
+
+        imported, rejected = heatxfer.import_heats(ev, payload, self.window.store.record, confirm)
+        self.window.on_save()               # persist the new records + any added Races entry
+        self.refresh_races()                # the imported heat(s) now appear in the Timer's race list
+        msg = "Imported %d heat record(s)." % len(imported)
+        if rejected:
+            msg += "\n\nSkipped %d:\n  • %s" % (len(rejected), "\n  • ".join(rejected))
+        dialogs.info(self, "Import heat records", msg)
+        self.window.log("Imported %d heat record(s)%s from %s"
+                        % (len(imported), " (skipped %d)" % len(rejected) if rejected else "", path))
 
     def _recorded_heats(self):
         """(cl, h) pairs in the selected race that already hold crossings."""

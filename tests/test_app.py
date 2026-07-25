@@ -1375,6 +1375,55 @@ def test_timer_stop_auto_saves(tmp_path, monkeypatch):
     assert "saved" in tp.status.text().lower()
 
 
+def test_export_import_heat_records_end_to_end(tmp_path, monkeypatch):
+    # Reports ▸ Export heat records… writes the checked heats' measured records; Timer ▸ Import heat
+    # records… lands them in another instance of the same event, adding the missing Races entry (owner).
+    _app()
+    from PySide6.QtWidgets import QMessageBox
+    from cozer.native import to_native, ensure_heat
+    from cozer.app import timer as timermod
+
+    def tt_event(record):
+        ed = to_native({"title": "TL", "scoringsystem": [10, 5, 3],
+                        "classes": [["", "F 500", "3*(1000):1"], ["", "F 500/T", "2*(1000):1"]],
+                        "participants": [["", "A", "One", "EST", "F 500", "7"],
+                                         ["", "B", "Two", "FIN", "F 500", "51"]],
+                        "record": {}, "races": [[["", "F 500/T", "1t"]]] if record else [],
+                        "configure": {"language": "English"}})
+        if record:
+            ensure_heat(ed, "F 500/T", "1t",
+                        [{"course": [1000, 1000], "sheats": 1, "duration": None, "racetime": 1000.0},
+                         {"7": [[1, 20.0], [1, 21.0]], "51": [[1, 22.0], [1, 23.0]]}])
+        return ed
+
+    src = MainWindow(tt_event(record=True))
+    _save_as(src, str(tmp_path / "src.cozj"), monkeypatch)
+    src._reload_classes()
+    for tree in src._report_trees():                       # check every heat leaf
+        for j in range(tree.topLevelItemCount()):
+            c = tree.topLevelItem(j)
+            for k in range(c.childCount()):
+                c.child(k).setCheckState(0, Qt.Checked)
+    assert ("F 500/T", "1t") in src._checked_heats()
+    hf = str(tmp_path / "heats.cozj")
+    monkeypatch.setattr(appmain.QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (hf, "")))
+    src.on_export_heat_records()
+    assert os.path.exists(hf)
+
+    tgt = MainWindow(tt_event(record=False))               # same classes, no record, empty schedule
+    _save_as(tgt, str(tmp_path / "tgt.cozj"), monkeypatch)
+    assert record_heat(tgt.eventdata, "F 500/T", "1t") is None
+    monkeypatch.setattr(timermod.QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (hf, "")))
+    monkeypatch.setattr(timermod.dialogs, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    monkeypatch.setattr(timermod.dialogs, "info", staticmethod(lambda *a, **k: None))
+    tgt.timer_panel._import_heat_records()
+
+    r = record_heat(tgt.eventdata, "F 500/T", "1t")
+    assert r is not None and r[1]["7"] == [[1, 20.0], [1, 21.0]]        # records landed
+    assert any(e["name"] == "F 500" and e["kind"] == "timetrial" and e["number"] == 1
+               for race in tgt.eventdata["races"] for e in race)        # missing Races entry added
+
+
 def test_timer_elapsed_since_start_time_trial_only(tmp_path, monkeypatch):
     # Time-trial only (owner): after Start show the time since the Start press. A circuit race shows
     # nothing (it finishes on laps, not the clock); a time trial shows M:SS and clears at Stop.
