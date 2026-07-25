@@ -25,7 +25,7 @@
   }
   ol.pre li{ grid-template-columns:34px 44px 1fr }
   ol.run li{ grid-template-columns:30px 38px 1fr 34px 88px; gap:8px }
-  ol.tt  li{ grid-template-columns:30px 44px 1fr 132px; gap:8px }   /* time-trial: best lap / gap column */
+  ol.tt  li{ grid-template-columns:30px 44px 1fr 72px 96px; gap:8px }   /* TT: best-lap time/gap | speed */
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -41,10 +41,11 @@
   .laps{ font-size:16px; font-weight:700; text-align:center }
   .catch{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap }   /* live catch-up */
   .catch.overtake{ color:#ffd24a }   /* projected ahead of a boat ranked above -> overtake brewing */
-  /* time-trial: the leader shows its best lap TIME + that lap's speed; the rest show +gap to it. */
+  /* time-trial: a time/gap column (leader's best-lap time, others' +gap stacked under it) + a separate
+     speed column (leader only), so the gaps align cleanly under the leader's time. */
   .best{ font-size:16px; font-weight:800; text-align:right; white-space:nowrap }
-  .best .spd{ font-size:13px; font-weight:700; color:var(--dim); margin-left:7px }
-  .best .spd::after{ content:" km/h"; font-size:10px; opacity:.7 }
+  .spd-col{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap; color:var(--dim) }
+  .spd-col .u{ font-size:10px; opacity:.7 }
   .startmsg{ grid-column:4 / -1; text-align:right; font-weight:800; font-size:13px;
              letter-spacing:.04em; white-space:nowrap }   /* pre-race WAITING TO START */
   /* START: a big, bright-green, pulsing banner across the whole first row — text-only (no background
@@ -78,13 +79,13 @@
     li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,.10) }
     ol.pre li{ grid-template-columns:30px 50px 1fr; gap:12px }
     ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
-    ol.tt  li{ grid-template-columns:28px 50px 1fr 150px; gap:10px }
+    ol.tt  li{ grid-template-columns:28px 50px 1fr 80px 116px; gap:10px }
     .nat,.flag{ height:24px }
     .code{ font-size:14px }
     .boat{ font-size:23px } .boat::before{ font-size:14px }
     .name{ font-size:23px }
     .laps{ font-size:21px } .catch{ font-size:19px } .best{ font-size:20px }
-    .best .spd{ font-size:16px }
+    .spd-col{ font-size:18px }
     .p1 .name,.p2 .name,.p3 .name{ font-size:25px }
     .p1 .boat,.p2 .boat,.p3 .boat{ font-size:23px }
   }
@@ -145,17 +146,21 @@
     return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
   }
   function ttCell(b, i){
-    // Leader (i===0): its best lap TIME + that lap's SPEED. Others: "+gap" to the leader's best time.
-    // "…" until a boat has a full lap. Ranking (applyFeed) already put the fastest best lap first.
+    // best/gap column: leader (i===0) shows its best lap TIME; every other row shows "+gap" to the
+    // leader's best (so the gap sits directly under the leader's time). "…" until a boat has a full lap.
+    // Ranking (applyFeed) already put the fastest best lap first.
     var info = b.best;
-    if(i === 0){
-      if(!info) return "…";
-      var spd = info.spd != null ? ' <span class="spd">' + info.spd.toFixed(1) + '</span>' : "";
-      return fmtLapTime(info.dur) + spd;
-    }
+    if(i === 0) return info ? fmtLapTime(info.dur) : "…";
     var lead = (boats[0] || {}).best;
     if(!info || !lead) return "…";
     return "+" + (info.dur - lead.dur).toFixed(1);
+  }
+  function ttSpeedCell(b, i){
+    // speed column (kept separate so the time column stays a clean time/gap stack): only the leader
+    // shows a value — the speed of its best lap (km/h). Blank for the rest.
+    var info = b.best;
+    if(i !== 0 || !info || info.spd == null) return "";
+    return info.spd.toFixed(1) + ' <span class="u">km/h</span>';
   }
   function startMsg(){
     // Pre-race status shown in the first row's right-hand cell (before any lap crossing): the operator
@@ -251,8 +256,9 @@
       var name = '<span class="name">'+(b.name||"")
         + (b.first ? ' <span class="first">'+b.first+'</span>' : '') + '</span>';
       var html = natCell(b.nat) + '<span class="boat">'+b.no+'</span>' + name;
-      if(mode === "tt"){                                   // time trial: best-lap time+speed / +gap column
-        html += '<span class="best">' + ttCell(b, i) + '</span>';
+      if(mode === "tt"){                                   // time trial: best-lap time/gap + speed columns
+        html += '<span class="best">' + ttCell(b, i) + '</span>'
+              + '<span class="spd-col">' + ttSpeedCell(b, i) + '</span>';
       } else {
         var winnerDone = started && i === 0 && b.finished; // the leader has crossed the finish line
         if(winnerDone){
