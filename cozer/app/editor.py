@@ -717,6 +717,7 @@ class EditRecordsPanel(QWidget):
                     {"op": "replace", "cl": cl, "h": h, "id": pid, "marks": marks})
         self.window.store.snapshot()
         self._dirty = False
+        self.window._mark_saved()            # the file now matches -> no spurious unsaved-changes prompt on quit
         self._update_save()
         self.window._refresh_warnings()      # disabling a suspect mark updates the status-bar count now
         self.window.log("Saved changes to %s / %s" % (cl, h))

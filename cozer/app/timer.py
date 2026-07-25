@@ -956,5 +956,8 @@ class TimerPanel(QWidget):
         self.resume_btn.setEnabled(True)    # stopped -> Resume can continue this race
         self.race_combo.setEnabled(True)
         self.status.setText("Stopped")
+        if self.window.store is not None:   # auto-save the recorded data on Stop (owner)
+            self.window.on_save()
+            self.status.setText("Stopped — saved")
         self._broadcast_refresh()
 

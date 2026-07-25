@@ -35,7 +35,7 @@ from cozer.app.timer import TimerPanel
 from cozer.phases import class_phase_map, heat_label, phase_heat_ids
 from cozer.racepattern import get_classes, race_kind
 from cozer.native import to_native
-from cozer.store import EventStore, load_event, read_legacy_coz
+from cozer.store import EventStore, load_event, read_legacy_coz, dumps
 from cozer import validate
 
 # App-wide light color scheme; editable inputs get the legacy tan tint (edit_bg).
@@ -328,6 +328,7 @@ class MainWindow(QMainWindow):
         self._prev_tab = self.tabs.currentIndex()
         self.tabs.currentChanged.connect(self._on_tab_changed)
         self._reload_forms()
+        self._mark_saved()          # the initial event is the baseline for the unsaved-changes check
         self._refresh_title()
         self.log("Ready")
         self._update_ready.connect(self._on_update_check_result)
@@ -380,11 +381,37 @@ class MainWindow(QMainWindow):
             self._reload_classes()          # pick up classes/heats recorded on other tabs
             self._reload_broadcast_settings()   # reflect the current config + event (fresh on entry)
 
+    def _mark_saved(self):
+        """Remember the current event as the on-disk baseline (canonical serialization). closeEvent
+        compares against it to know whether there are unsaved changes. Called after every write to the
+        event file (Save / Save As / autosave / the Edit-Records draft flush) and after loading a file
+        or starting a new event."""
+        self._saved_blob = dumps(self.eventdata)
+
+    def _has_unsaved_changes(self):
+        """True when the in-memory event differs from what was last written to the file."""
+        return dumps(self.eventdata) != getattr(self, "_saved_blob", None)
+
     def closeEvent(self, event):
-        # Don't let unsaved race edits vanish on quit.
+        # Don't let unsaved race edits vanish on quit. First flush the Edit-Records draft (its own
+        # Save/Discard), then offer to save the event itself if it differs from the file (owner).
         if not self.editor_panel.maybe_flush():
             event.ignore()
             return
+        if self._has_unsaved_changes():
+            ans = dialogs.question(
+                self, "Unsaved changes",
+                "This event has unsaved changes.\n\nSave them before quitting?",
+                buttons=QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                default=QMessageBox.Save)
+            if ans == QMessageBox.Cancel:
+                event.ignore()
+                return
+            if ans == QMessageBox.Save:
+                self.on_save()
+                if self._has_unsaved_changes():     # Save As was cancelled -> don't quit and lose data
+                    event.ignore()
+                    return
         if self.store is not None:
             self.store.close()   # flush pending journal fsyncs + stop the background syncer
         event.accept()
@@ -491,6 +518,7 @@ class MainWindow(QMainWindow):
         self.eventdata = copy.deepcopy(DEFAULT_EVENT)
         self.store = None
         self._reload_forms()
+        self._mark_saved()          # a fresh empty event is the baseline -> no spurious quit prompt
         self._refresh_title()
         self.log("New event")
 
@@ -500,6 +528,7 @@ class MainWindow(QMainWindow):
         self.eventdata = rulesetmod.new_ruleset()
         self.store = None
         self._reload_forms()
+        self._mark_saved()
         self._refresh_title()
         self.log("New ruleset — define scoring, class names and rules, then Save As")
 
@@ -555,6 +584,7 @@ class MainWindow(QMainWindow):
             self.eventdata = self.store.eventdata
             msg = "Opened %s" % path
         self._reload_forms()
+        self._mark_saved()          # freshly opened -> matches the file
         self._refresh_title()
         self.log(msg)
 
@@ -641,6 +671,7 @@ class MainWindow(QMainWindow):
             return self.on_save_as()
         self.store.eventdata = self.eventdata
         self.store.snapshot()
+        self._mark_saved()
         self.log("Saved %s" % self.store.path)
 
     def on_save_as(self):
@@ -651,6 +682,7 @@ class MainWindow(QMainWindow):
             path += ".cozj"
         self.store = EventStore(path, self.eventdata)
         self.store.snapshot()
+        self._mark_saved()
         self._refresh_title()
         self.log("Saved %s" % path)
 

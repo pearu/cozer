@@ -857,7 +857,7 @@ def test_delete_confirmation_guards_real_data(monkeypatch):
     calls = []
     ans = [QMessageBox.No]
     from cozer.app import dialogs
-    monkeypatch.setattr(dialogs, "question",
+    monkeypatch.setattr(appmain.dialogs, "question",
                         lambda *a, **k: (calls.append(1), ans[0])[1])
 
     class FakeWin:
@@ -1307,6 +1307,72 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     # the Start-overwrite confirm counts recorded crossings (real timing vs stray test clicks — owner)
     assert tp._has_data()
     assert "3 recorded crossings" in tp._overwrite_detail()
+
+
+class _CloseEv:
+    def __init__(self):
+        self.result = None
+
+    def ignore(self):
+        self.result = "ignore"
+
+    def accept(self):
+        self.result = "accept"
+
+
+def test_close_event_prompts_to_save_unsaved_changes(tmp_path, monkeypatch):
+    # On Quit, if the event differs from the file, offer Save / Discard / Cancel (owner).
+    _app()
+    from PySide6.QtWidgets import QMessageBox
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    assert not w._has_unsaved_changes()                     # freshly saved -> baseline matches
+
+    calls = []
+    monkeypatch.setattr(appmain.dialogs, "question", lambda *a, **k: calls.append(1) or QMessageBox.Save)
+    ev = _CloseEv()
+    w.closeEvent(ev)
+    assert ev.result == "accept" and calls == []            # clean -> closes, no prompt
+
+    w.eventdata["title"] = "CHANGED"                         # now unsaved
+    assert w._has_unsaved_changes()
+    monkeypatch.setattr(appmain.dialogs, "question", lambda *a, **k: QMessageBox.Cancel)
+    ev = _CloseEv()
+    w.closeEvent(ev)
+    assert ev.result == "ignore" and w._has_unsaved_changes()   # Cancel -> stays open, unsaved
+
+    monkeypatch.setattr(appmain.dialogs, "question", lambda *a, **k: QMessageBox.Save)
+    ev = _CloseEv()
+    w.closeEvent(ev)
+    assert ev.result == "accept" and not w._has_unsaved_changes()   # Save -> written, then closes
+
+    # Discard drops the change and closes (a fresh window so the prior store isn't reused)
+    w2 = MainWindow(_timer_event())
+    _save_as(w2, str(tmp_path / "e2.cozj"), monkeypatch)
+    w2.eventdata["title"] = "DROP ME"
+    monkeypatch.setattr(appmain.dialogs, "question", lambda *a, **k: QMessageBox.Discard)
+    ev = _CloseEv()
+    w2.closeEvent(ev)
+    assert ev.result == "accept" and w2._has_unsaved_changes()      # closed without saving
+
+
+def test_timer_stop_auto_saves(tmp_path, monkeypatch):
+    # Timer Stop auto-saves the recorded data (owner): after Stop the file matches the event again.
+    _app()
+    w = MainWindow(_timer_event())
+    _save_as(w, str(tmp_path / "e.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clk = [1000.0]
+    tp._wall = lambda: clk[0]
+    tp._clock = RaceClock(lambda: int(round(clk[0] * 1e9)))
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    clk[0] = 1020.0
+    tp.record_lap("GT", "1", "1")
+    assert w._has_unsaved_changes()                         # recorded crossing not yet written to the file
+    tp.on_stop()
+    assert not w._has_unsaved_changes()                     # Stop wrote it
+    assert "saved" in tp.status.text().lower()
 
 
 def test_timer_elapsed_since_start_time_trial_only(tmp_path, monkeypatch):
