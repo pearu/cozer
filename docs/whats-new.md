@@ -17,6 +17,19 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Current-only outcome codes for 2026 events, and a time-trial broadcast view (July 2026)
+
+<!-- release-notes:3.0.0rc15 -->
+
+- **A 2026 event only offers the current outcome codes.** For an event run under the 2026 U.I.M. rules
+  (§209), the right-click **insert-mark** menu no longer offers the old codes **DQ / DS / NQ / IR** — only
+  their current equivalents: **DSQ** (disqualified), **DNS** (did not start), **DNQ** (did not qualify) and
+  **DNF** (did not finish). Older events are unchanged and keep their own codes.
+- **Live broadcast — a proper time-trial view.** During a time trial the live viewer now ranks boats by
+  their **fastest lap so far**: the leader's row shows its best-lap **time and speed**, and every other row
+  shows how far **behind the leader** that boat's best lap is (`+seconds`). The driver-name column is also
+  wider so long names fit.
+
 ## Time-trial best lap now counts every lap, and visible tick-marks (July 2026)
 
 <!-- release-notes:3.0.0rc14 -->

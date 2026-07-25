@@ -19,6 +19,19 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## 2026 võistlustele ainult kehtivad tulemuskoodid, ja ajasõidu ülekandevaade (juuli 2026)
+
+<!-- release-notes:3.0.0rc15 -->
+
+- **2026 võistlus pakub ainult kehtivaid tulemuskoode.** 2026. aasta U.I.M. reeglite (§209) järgi peetaval
+  võistlusel ei paku paremklõpsu **märke lisamise** menüü enam vanu koode **DQ / DS / NQ / IR** — ainult
+  nende praeguseid vasteid: **DSQ** (diskvalifitseeritud), **DNS** (ei startinud), **DNQ** (ei
+  kvalifitseerunud) ja **DNF** (ei lõpetanud). Vanemad võistlused jäävad muutmata ja säilitavad oma koodid.
+- **Otseülekanne — korralik ajasõiduvaade.** Ajasõidu ajal järjestab otsevaatur nüüd paadid nende **seni
+  kiireima ringi** järgi: liidri real on tema parima ringi **aeg ja kiirus**, ja igal teisel real on, kui
+  palju **liidrist maas** selle paadi parim ring on (`+sekundid`). Ka sõitja nime veerg on laiem, et pikad
+  nimed ära mahuksid.
+
 ## Ajasõidu parim ring arvestab kõiki ringe, ja nähtavad linnukesed (juuli 2026)
 
 <!-- release-notes:3.0.0rc14 -->
