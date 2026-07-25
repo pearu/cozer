@@ -25,7 +25,7 @@
   }
   ol.pre li{ grid-template-columns:34px 44px 1fr }
   ol.run li{ grid-template-columns:30px 38px 1fr 34px 88px; gap:8px }
-  ol.tt  li{ grid-template-columns:30px 44px 1fr 72px 96px; gap:8px }   /* TT: best-lap time/gap | speed */
+  ol.tt  li{ grid-template-columns:30px 40px 1fr 58px 48px; gap:8px }   /* TT: name gets the room; slim speed */
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -45,7 +45,7 @@
      speed column (leader only), so the gaps align cleanly under the leader's time. */
   .best{ font-size:16px; font-weight:800; text-align:right; white-space:nowrap }
   .spd-col{ font-size:15px; font-weight:700; text-align:right; white-space:nowrap; color:var(--dim) }
-  .spd-col .u{ font-size:10px; opacity:.7 }
+  .spd-col .u{ font-size:10px; opacity:.7; display:none }   /* "km/h" hidden on the tight overlay; shown on phones */
   .startmsg{ grid-column:4 / -1; text-align:right; font-weight:800; font-size:13px;
              letter-spacing:.04em; white-space:nowrap }   /* pre-race WAITING TO START */
   /* START: a big, bright-green, pulsing banner across the whole first row — text-only (no background
@@ -79,13 +79,13 @@
     li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,.10) }
     ol.pre li{ grid-template-columns:30px 50px 1fr; gap:12px }
     ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
-    ol.tt  li{ grid-template-columns:28px 50px 1fr 80px 116px; gap:10px }
+    ol.tt  li{ grid-template-columns:28px 50px 1fr 74px 96px; gap:10px }
     .nat,.flag{ height:24px }
     .code{ font-size:14px }
     .boat{ font-size:23px } .boat::before{ font-size:14px }
     .name{ font-size:23px }
     .laps{ font-size:21px } .catch{ font-size:19px } .best{ font-size:20px }
-    .spd-col{ font-size:18px }
+    .spd-col{ font-size:18px } .spd-col .u{ display:inline; font-size:13px }   /* phone has room for km/h */
     .p1 .name,.p2 .name,.p3 .name{ font-size:25px }
     .p1 .boat,.p2 .boat,.p3 .boat{ font-size:23px }
   }
