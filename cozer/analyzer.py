@@ -456,6 +456,30 @@ def analyze(heat, record, scoringsystem=[], rulecodes=()):
                             esttime = round2(3.6 * course[min(len(course) - 1, li + 1)] / float(maxlapspeed), roundopt)
                         lapstime.append(t)
                     dt = 0
+                elif (not ignorelaps) and t + m[1] <= racetime and istimetrial:
+                    # A time trial's pattern lap count N is only an ESTIMATE of how many laps fit the
+                    # session; it must NOT bound the result. So once the counted laps reach N (the branch
+                    # above stops counting), keep scanning the boat's further laps -- up to the stop line
+                    # (the racetime guard, same as above) -- and update the best lap ONLY. The counted-lap
+                    # tallies (laps / distcovered / lapstime / lapsleft / place) stay capped at N, so this
+                    # changes nothing but the best-lap ranking, and only for a TT boat that ran past N.
+                    # Laps beyond the stop line are still excluded (they fail the guard -> the else below).
+                    t = t + m[1]
+                    if m[0] < 0:
+                        dt = dt + m[1]
+                        continue
+                    elif dt:
+                        dt = dt + m[1]
+                    else:
+                        dt = m[1]
+                    if lapslost:
+                        lapslost = lapslost - 1
+                    else:
+                        lapspeed = round2(3.6 * course[-1] / float(dt), roundopt)   # laps past N: last-lap dist
+                        if lapspeed > maxlapspeed:      # never lap 1 here (N>=1 already counted above)
+                            maxlapspeed = lapspeed
+                            bestlaptime = dt
+                    dt = 0
                 else:
                     pastafterstoppage = 1
                     ignorelaps = 1

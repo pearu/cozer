@@ -36,6 +36,26 @@ def test_timetrial_best_lap_excludes_start_leg():
     assert ci["1"]["maxlapspeed"] == 720.0       # 3.6 * 1000 / 5 -> lap 1 kept for circuit
 
 
+def test_timetrial_best_lap_uses_all_laps_not_just_pattern_count():
+    # The pattern lap count N is only an ESTIMATE of how many laps fit a time-trial session; it must not
+    # bound the result (owner). Boat records MORE than N laps -- its fastest lap is beyond N -> it must
+    # still win. N=3 (course len 3); laps: 20s run-up, 25s, 25s (the first N), then a fast 18s lap (#4).
+    info = {"course": [1000, 1000, 1000], "racetime": 100000.0}
+    rec = {"1": [(1, 20.0), (1, 25.0), (1, 25.0), (1, 18.0)]}
+    tt = analyzer.analyze("1t", (dict(info), copy.deepcopy(rec)), [400])
+    assert tt["1"]["laptime"] == 18.0            # the fastest lap, though it is lap 4 (> N=3)
+    assert tt["1"]["maxlapspeed"] == 200.0       # 3.6 * 1000 / 18
+    # ...but laps past the STOP LINE are still excluded: with the stop at 71s the fast lap (crossing at
+    # t=88s) is dropped and the best stays the 25s in-session lap.
+    stopped = {"course": [1000, 1000, 1000], "racetime": 71.0}
+    ts = analyzer.analyze("1t", (dict(stopped), copy.deepcopy(rec)), [400])
+    assert ts["1"]["laptime"] == 25.0 and ts["1"]["maxlapspeed"] == 144.0
+    # A CIRCUIT heat is untouched -- it still stops counting at N, so lap 4 (the fast 18s -> 200) is
+    # never considered; its best stays lap 1's 20s (3.6*1000/20 = 180), proving the cap is TT-only.
+    ci = analyzer.analyze("1", (dict(info), copy.deepcopy(rec)), [400])
+    assert ci["1"]["maxlapspeed"] == 180.0
+
+
 def test_bc_is_note_only():
     base = {"A": [(1, 20.0)] * 5, "B": [(1, 22.0)] * 5}
     ss = [400, 300]
