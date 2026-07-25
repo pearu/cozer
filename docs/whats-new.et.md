@@ -19,6 +19,20 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Ajasõidu taimeri kell, selgem kirjete pealkiri ja liitklassi ülekanne (juuli 2026)
+
+<!-- release-notes:3.0.0rc16 -->
+
+- **Ajasõit: taimer näitab starti järgnenud aega.** Ajasõidu ajal, pärast **Start** nuppu, näitab taimer
+  **"Time since Start: M:SS"**, et näeksid, kui kaua seanss on kestnud (ajasõit lõpeb kella, mitte ringide
+  järgi). Seda näidatakse ainult ajasõidul ja see kustub Stop nupu vajutamisel.
+- **Kirjete rida algab sõidu numbriga.** Taimeri kirjete pealkiri näitab nüüd **sõidu numbrit enne faasi**
+  — *"F 500 · heat 1 · time trial"*, mitte *"… time trial · heat 1"*, mida mõni pidas segadust tekitavaks.
+  Tavaline võistlussõit jääb muutmata.
+- **Otseülekanne: liitklassi sõidud näitavad kõiki klasse.** Kui ühes sõidus osaleb koos **kaks või enam
+  klassi** (väikesed klassid jagavad rada), näitab ülekanne nüüd **iga klassi tabelit üksteise all**, mitte
+  ainult esimest.
+
 ## 2026 võistlustele ainult kehtivad tulemuskoodid, ja ajasõidu ülekandevaade (juuli 2026)
 
 <!-- release-notes:3.0.0rc15 -->

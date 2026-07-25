@@ -17,6 +17,20 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Time-trial timer clock, clearer records title, and combined-class broadcast (July 2026)
+
+<!-- release-notes:3.0.0rc16 -->
+
+- **Time trial: the Timer shows the time since Start.** During a time trial, after you press **Start** the
+  Timer displays **"Time since Start: M:SS"** so you can see how long the session has run (a time trial
+  ends on the clock, not on laps). It shows for time trials only and clears when you press Stop.
+- **The records line reads heat-first.** The Timer's records title now shows the **heat number before the
+  phase** — *"F 500 · heat 1 · time trial"* instead of *"… time trial · heat 1"*, which some found
+  confusing. A plain race heat is unchanged.
+- **Live broadcast: combined-class heats show every class.** When one heat runs **two or more classes**
+  together (small classes sharing the water), the broadcast now **stacks each class's table** instead of
+  showing only the first.
+
 ## Current-only outcome codes for 2026 events, and a time-trial broadcast view (July 2026)
 
 <!-- release-notes:3.0.0rc15 -->
