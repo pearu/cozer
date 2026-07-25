@@ -29,6 +29,12 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
   their **fastest lap so far**: the leader's row shows its best-lap **time and speed**, and every other row
   shows how far **behind the leader** that boat's best lap is (`+seconds`). The driver-name column is also
   wider so long names fit.
+- **Tip — a practice *and* a time-trial before the race.** If your programme runs both, give the class a
+  **Time-trial with two heats**: run the practice as the first heat and the timed session as the second. To
+  keep a heat out of the starting order (e.g. the practice), open it in **Edit Records** and drag its **red
+  "race stopped" line** back to just after the start — before any boat finishes a full lap. That heat then
+  counts for nothing: it is ignored for the starting order of the race *and* for the Practice / Time-trial
+  results, so the order comes from the timed session. Trim every heat except the one that should count.
 
 ## Time-trial best lap now counts every lap, and visible tick-marks (July 2026)
 

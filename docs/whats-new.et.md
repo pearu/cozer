@@ -31,6 +31,12 @@ COZERilt üleminek"** ülevaate suurest pildist.
   kiireima ringi** järgi: liidri real on tema parima ringi **aeg ja kiirus**, ja igal teisel real on, kui
   palju **liidrist maas** selle paadi parim ring on (`+sekundid`). Ka sõitja nime veerg on laiem, et pikad
   nimed ära mahuksid.
+- **Nipp — treening *ja* ajasõit enne võistlussõitu.** Kui kavas on mõlemad, anna klassile **kahe sõiduga
+  ajasõit**: sõida treening esimese sõiduna ja ajavõtuga sõit teisena. Et hoida mõni sõit stardijärjekorrast
+  välja (nt treening), ava see **Edit Records** aknas ja lohista selle **punane "race stopped" joon** tagasi
+  vahetult stardi järele — enne kui ükski paat ühe täisringi lõpetab. See sõit ei loe siis midagi: seda ei
+  arvestata võistlussõidu stardijärjekorras ega treeningu/ajasõidu tulemustes, nii et järjekord tuleb
+  ajavõtuga sõidust. Kärbi kõik sõidud peale selle ühe, mis peab arvesse minema.
 
 ## Ajasõidu parim ring arvestab kõiki ringe, ja nähtavad linnukesed (juuli 2026)
 
