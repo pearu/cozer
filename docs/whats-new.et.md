@@ -19,6 +19,19 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Ajasõidu parim ring arvestab kõiki ringe, ja nähtavad linnukesed (juuli 2026)
+
+<!-- release-notes:3.0.0rc14 -->
+
+- **Ajasõidu parim ring arvestab nüüd kõiki paadi läbitud ringe.** Klassi mustris olev ringide arv on
+  vaid hinnang, mitu ringi seanssi mahub — see ei piira enam tulemust. Kui sõitja kiireim ring tuleb
+  hinnangust kaugemal, läheb see nüüd arvesse (varem võis see kaotsi minna, mis võis järjestust muuta).
+  Ringe pärast sõidu peatamist ikka ei arvestata ja esimest ringi (stardist stardijoonele jõudmine)
+  ikka ei loeta, nagu varem.
+- **Linnukesed on jälle nähtavad, kui kastike on märgitud.** Windowsis jäi kastikese märkimine
+  (näiteks raporti jaoks klasside ja sõitude valimisel) kastikese tühjaks. Märgitud kastikesed näitavad
+  nüüd selget täidetud märki.
+
 ## Restardisõidud, stardijärjekord ja stardinimekiri (juuli 2026)
 
 <!-- release-notes:3.0.0rc13 -->

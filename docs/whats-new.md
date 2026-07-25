@@ -17,6 +17,19 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Time-trial best lap now counts every lap, and visible tick-marks (July 2026)
+
+<!-- release-notes:3.0.0rc14 -->
+
+- **A time trial's best lap now considers every lap the boat completes.** The lap count in a class's
+  pattern is only an estimate of how many laps fit the session — it no longer limits the result. If a
+  competitor's fastest lap comes on a lap beyond that estimate, it now counts (previously it could be
+  missed, which could change the order). Laps after the race is stopped are still not counted, and the
+  first lap (the run-up from the start to the lap line) is still excluded, as before.
+- **Tick-marks are visible again when a box is checked.** On Windows, ticking a checkbox (for example when
+  choosing classes and heats for a report) left the box looking empty. Checked boxes now show a clear
+  filled mark.
+
 ## Restart races, start order, and a printed start list (July 2026)
 
 <!-- release-notes:3.0.0rc13 -->
