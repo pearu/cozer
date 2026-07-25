@@ -333,6 +333,12 @@ class TimerPanel(QWidget):
         self.resume_btn.clicked.connect(self.on_resume)
         for w in (self.start_btn, self.stop_btn, self.resume_btn):
             top.addWidget(w)
+        # Time-trial only (owner): after Start, show the time elapsed since the Start press, ON THE SAME
+        # ROW as the Start button, so the operator can gauge a timed session (a time trial finishes on the
+        # clock, not on laps). A light tick refreshes it; blank for other kinds / when not recording.
+        self.elapsed_label = QLabel("")
+        self.elapsed_label.setStyleSheet("color:#00337a; font-weight:bold; font-size:16px; padding:0 8px;")
+        top.addWidget(self.elapsed_label)
         top.addStretch()
         # One toggle for the live feed (docs/broadcast-urls.md §4). WHERE to publish (server URL +
         # publish secret) and the event name/channel are set in the Reports tab; this button is inert
@@ -360,12 +366,8 @@ class TimerPanel(QWidget):
         self.identity_label.setStyleSheet("color:#00337a; font-weight:bold; padding:2px 0;")
         v.addWidget(self.identity_label)
 
-        # Time-trial only (owner): after Start, show the time elapsed since the Start press so the
-        # operator can gauge a timed session (a time trial finishes on the clock, not on laps). A light
-        # tick refreshes it; it stays blank for other kinds and whenever not recording.
-        self.elapsed_label = QLabel("")
-        self.elapsed_label.setStyleSheet("color:#00337a; font-weight:bold; font-size:18px; padding:1px 0;")
-        v.addWidget(self.elapsed_label)
+        # The elapsed-since-Start clock (time-trial only) lives on the button row above; here is just its
+        # refresh tick.
         self._elapsed_timer = QTimer(self)
         self._elapsed_timer.setInterval(250)
         self._elapsed_timer.timeout.connect(self._update_elapsed)
