@@ -19,6 +19,33 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Restardisõidud, stardijärjekord ja stardinimekiri (juuli 2026)
+
+<!-- release-notes:3.0.0rc13 -->
+
+- **Restardi saab nüüd lisada eraldi sõiduna.** Kui sõit peatatakse ja sõidetakse uuesti, lisa restart
+  **Races** (sõidud) -sakil: **Heat** (sõit) -kastis on nüüd valik *"1 - restart"* (ja ainult mõistlikud
+  järgmised valikud — mitte kunagi sõitu 3 enne, kui sõit 2 on sõidetud; viimast sõitu saab restartida
+  kaks korda). Restart hoitakse ja raporteeritakse **eraldi sõiduna**, nii et peatatud sõidu ajavõtt ei
+  lähe kaotsi. Ajasõitu (time trial), mis on üksikud mõõdetud sõidud, mitte võistlussõit, ei restardita
+  kunagi.
+- **Juba ajavõttu sisaldava sõidu käivitamine ei ohusta enam selle kaotsiminekut.** **Start** -nupu
+  vajutamine sõidul, milles on juba salvestatud ületusi, hoiatab nüüd selgelt — see näitab, **mitu ületust
+  kustutataks** — ja suunab sind hoopis lisama restardi, või kasutama **Resume** (jätka), et sama sõidu
+  ajavõttu jätkata. Mõõdetud andmeid ei kirjutata kunagi vaikimisi üle.
+- **Restart reastab paadid järjekorda, milles nad olid sõidu peatamise hetkel.** (U.I.M. §311.01.7) Algse
+  stardijärjekorra kordamise asemel näitab restardi stardivõrk — ja taimeri jooksev järjekord — nüüd paate
+  nende asukohtades peatamise hetkel.
+- **Taimer algab stardivõrgu järjekorras, mitte paadinumbri järjekorras.** Enne starti loetleb taimeri
+  redel paadid nüüd nende **stardivõrgu** järjekorras (sõit 2 sõidu 1 lõpetamise järjekorras, finaal
+  kvalifikatsiooni järjekorras jne); kui paadid hakkavad ringe tegema, tõuseb liider nagu varemgi üles.
+- **Uus "Start List" (stardinimekiri) raport.** Väljatrükitav **muuli-/stardipositsioonide** nimekiri
+  klassi ja sõidu kaupa, võetud samast stardivõrgu järjekorrast — paberil stardivõrk, mille saab enne
+  sõitu välja panna.
+- **Säilita ring, mille COZER märkis kahtlaseks, kuid mis on tegelikult õige.** **Edit Records** (kirjete
+  muutmine) -aknas tee kahtlaseks märgitud ringil paremklõps ja vali **Acknowledge** (kinnita), et see
+  säilitada ja hoiatus vaigistada.
+
 ## Parandus osalejate sisestamisel (juuli 2026)
 
 <!-- release-notes:3.0.0rc12 -->

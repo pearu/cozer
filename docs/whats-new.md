@@ -17,6 +17,30 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Restart races, start order, and a printed start list (July 2026)
+
+<!-- release-notes:3.0.0rc13 -->
+
+- **You can now add a restart as its own race.** When a race is stopped and re-run, schedule the restart
+  on the **Races** tab: the **Heat** box now offers *"1 - restart"* (and only the sensible next choices —
+  never heat 3 before heat 2 has been run; the final heat may be restarted twice). The restart is kept
+  and reported as a **separate heat**, so the stopped run's timing is never lost. A time trial, being
+  individual timed runs rather than a race, is never restarted.
+- **Starting a race that already has timing no longer risks losing it.** Pressing **Start** on a heat that
+  already holds recorded crossings now warns you clearly — it says **how many crossings would be erased** —
+  and points you to add a restart instead, or to use **Resume** to keep timing the same run. Measured data
+  is never overwritten silently.
+- **A restart lines up in the order the boats held when the race was stopped.** (U.I.M. §311.01.7) Instead
+  of repeating the original start order, the restart's grid — and the timer's running order — now shows the
+  boats in their positions at the moment of the stoppage.
+- **The timer starts in grid order, not boat-number order.** Before the start, the timer's ladder now lists
+  boats in their **starting-grid** order (heat 2 in heat 1's finishing order, a final in the qualifying
+  order, and so on); once boats begin lapping, the leader moves to the top as before.
+- **New "Start List" report.** A printable list of **jetty / start positions** per class and heat, taken
+  from that same grid order — the paper grid to post before a race.
+- **Keep a lap COZER flagged but that is actually correct.** In **Edit Records**, right-click a lap that was
+  marked as suspicious and choose **Acknowledge** to keep it and silence the warning.
+
 ## A fix for entering participants (July 2026)
 
 <!-- release-notes:3.0.0rc12 -->
