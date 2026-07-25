@@ -1309,6 +1309,46 @@ def test_timer_records_laps_and_journals(tmp_path, monkeypatch):
     assert "3 recorded crossings" in tp._overwrite_detail()
 
 
+def test_timer_elapsed_since_start_time_trial_only(tmp_path, monkeypatch):
+    # Time-trial only (owner): after Start show the time since the Start press. A circuit race shows
+    # nothing (it finishes on laps, not the clock); a time trial shows M:SS and clears at Stop.
+    _app()
+    w = MainWindow(_timer_event())                         # race 0 = circuit (GT 1)
+    _save_as(w, str(tmp_path / "c.cozj"), monkeypatch)
+    tp = w.timer_panel
+    clk = [1000.0]
+    tp._wall = lambda: clk[0]
+    tp._clock = RaceClock(lambda: int(round(clk[0] * 1e9)))
+    tp.race_combo.setCurrentIndex(0)
+    tp.on_start()
+    assert not tp._is_timetrial() and tp.elapsed_label.text() == ""      # circuit -> no clock
+    clk[0] = 1099.0
+    tp._update_elapsed()
+    assert tp.elapsed_label.text() == ""                                # stays blank even as time passes
+    tp.on_stop()
+
+    ed = dict(_timer_event())                              # a time-trial event
+    ed["classes"] = [["x", "GT/T", "2*(1000):1"]]
+    ed["participants"] = [["x", "A", "One", "EST", "GT", "1"]]
+    ed["races"] = [[["x", "GT/T", "1t"]]]
+    ed["record"] = {}
+    w2 = MainWindow(ed)
+    _save_as(w2, str(tmp_path / "t.cozj"), monkeypatch)
+    tp2 = w2.timer_panel
+    c2 = [2000.0]
+    tp2._wall = lambda: c2[0]
+    tp2._clock = RaceClock(lambda: int(round(c2[0] * 1e9)))
+    tp2.race_combo.setCurrentIndex(0)
+    tp2.on_start()
+    assert tp2._is_timetrial()
+    assert tp2.elapsed_label.text() == "Time since Start:  0:00"         # shown at once on Start
+    c2[0] = 2000.0 + 125.0
+    tp2._update_elapsed()
+    assert tp2.elapsed_label.text() == "Time since Start:  2:05"         # 125 s -> 2:05
+    tp2.on_stop()
+    assert tp2.elapsed_label.text() == ""                               # cleared at Stop
+
+
 def test_standings_orders_by_progress():
     from cozer.app.timer import standings
     rec = [{"course": [1000, 1000, 1000]},

@@ -360,6 +360,16 @@ class TimerPanel(QWidget):
         self.identity_label.setStyleSheet("color:#00337a; font-weight:bold; padding:2px 0;")
         v.addWidget(self.identity_label)
 
+        # Time-trial only (owner): after Start, show the time elapsed since the Start press so the
+        # operator can gauge a timed session (a time trial finishes on the clock, not on laps). A light
+        # tick refreshes it; it stays blank for other kinds and whenever not recording.
+        self.elapsed_label = QLabel("")
+        self.elapsed_label.setStyleSheet("color:#00337a; font-weight:bold; font-size:18px; padding:1px 0;")
+        v.addWidget(self.elapsed_label)
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(250)
+        self._elapsed_timer.timeout.connect(self._update_elapsed)
+
         # Each heat is a resizable internal sub-window: the grid auto-fits it, so
         # maximizing the app doesn't blow up the buttons — the operator drags a
         # sub-window's borders to set a comfortable grid size.
@@ -426,6 +436,31 @@ class TimerPanel(QWidget):
             return ""
         return "Records:   " + "       |       ".join(
             heat_identity(self.eventdata, cl, h) for cl, h in self._heats)
+
+    def _is_timetrial(self):
+        """True when the selected race is a time trial (every heat is the timetrial kind) — the only kind
+        that shows the elapsed-since-Start clock (a time trial finishes on time, not on laps)."""
+        return bool(self._heats) and all(race_kind(self.eventdata, cl) == "timetrial"
+                                         for cl, h in self._heats)
+
+    def _update_elapsed(self):
+        """(tick) Show ``M:SS`` since the Start press while recording a time trial; blank otherwise."""
+        if self._started and self._is_timetrial():
+            s = int(self._clock.read_ns() / 1e9)
+            self.elapsed_label.setText("Time since Start:  %d:%02d" % (s // 60, s % 60))
+        else:
+            self.elapsed_label.setText("")
+
+    def _start_elapsed(self):
+        """Begin the elapsed-since-Start display — only for a time trial (blank + no tick otherwise)."""
+        self.elapsed_label.setText("")
+        if self._is_timetrial():
+            self._update_elapsed()          # show 0:00 immediately, then tick
+            self._elapsed_timer.start()
+
+    def _stop_elapsed(self):
+        self._elapsed_timer.stop()
+        self.elapsed_label.setText("")
 
     def _rec(self, cl, h):
         return record_heat(self.eventdata, cl, h)      # dual-shape (native or legacy record)
@@ -633,6 +668,7 @@ class TimerPanel(QWidget):
         self._build()
         self._arm_all_predictions()        # first-lap closing hints from the class @speed
         self.status.setText("Recording…")
+        self._start_elapsed()              # time-trial only: show the clock since Start (owner)
         self._broadcast_refresh()          # publish the fresh field if broadcasting is on
 
     def _overwrite_detail(self):
@@ -687,6 +723,7 @@ class TimerPanel(QWidget):
         self.resume_btn.setEnabled(False)   # recording -> Resume is disabled until Stop
         self.race_combo.setEnabled(False)
         self.status.setText("Recording (resumed)…")
+        self._start_elapsed()              # time-trial only: resume the clock display too
         self._arm_all_predictions()
         self._broadcast_refresh()          # publish the resumed field if broadcasting is on
 
@@ -911,6 +948,7 @@ class TimerPanel(QWidget):
     def on_stop(self):
         self._started = False
         self._cancel_all_predictions()
+        self._stop_elapsed()                # clear the elapsed display at Stop
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.resume_btn.setEnabled(True)    # stopped -> Resume can continue this race
