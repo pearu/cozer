@@ -31,7 +31,9 @@ def _fits_portrait(pdf):
         maxx = max((ln["bbox"][2] for b in pg.get_text("dict")["blocks"]
                     for ln in b.get("lines", [])), default=0.0)
         assert maxx <= pg.rect.width - 5
-    return "".join(pg.get_text() for pg in doc)
+    # Normalize non-breaking spaces to plain spaces: on Windows PyMuPDF extracts some rendered spaces
+    # as U+00A0, so a multi-word phrase (e.g. an empty-report note) wouldn't substring-match otherwise.
+    return "".join(pg.get_text() for pg in doc).replace("\xa0", " ")
 
 EVENT = os.path.join(REPO, "legacy", "events", "wc2000.coz")
 
