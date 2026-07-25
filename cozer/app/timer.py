@@ -211,11 +211,13 @@ _KIND_WORD = {"timetrial": "time trial", "qualification": "qualification",
 
 def heat_identity(eventdata, cl, h):
     """A human-readable identity of the (cl, h) heat for the mis-pick guard: the base class,
-    the phase kind (time trial / qualification / endurance — a plain circuit heat is left
-    unannotated), the heat number, and a ``(restart)`` marker. Lets the operator eyeball
-    exactly what a race will record so a wrong pick (wrong class / phase / restart) stands out."""
+    the **heat number then the phase kind** (time trial / qualification / endurance — a plain
+    circuit heat is left unannotated), and a ``(restart)`` marker. Heat-before-phase reads more
+    naturally ("F 500 · heat 1 · time trial", not "… time trial · heat 1" — users found the
+    phase-first order confusing). Lets the operator eyeball what a race will record so a wrong
+    pick (wrong class / phase / restart) stands out."""
     word = _KIND_WORD.get(race_kind(eventdata, cl))
-    txt = "%s · %s · heat %d" % (getclass(cl), word, heat_number(h)) if word else \
+    txt = "%s · heat %d · %s" % (getclass(cl), heat_number(h), word) if word else \
           "%s · heat %d" % (getclass(cl), heat_number(h))
     if h and h[-1] in ("r", "R"):
         txt += " (restart)"

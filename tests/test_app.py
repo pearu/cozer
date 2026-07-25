@@ -1583,8 +1583,8 @@ def test_heat_identity_decodes_class_phase_heat_and_restart():
                       ["", "F 500/T", "1*(1000):1"]]}
     assert heat_identity(ed, "F 500", "1") == "F 500 · heat 1"              # circuit -> no kind word
     assert heat_identity(ed, "F 500", "2r") == "F 500 · heat 2 (restart)"   # restart marked
-    assert heat_identity(ed, "F 500/Q", "1q") == "F 500 · qualification · heat 1"
-    assert heat_identity(ed, "F 500/T", "1t") == "F 500 · time trial · heat 1"
+    assert heat_identity(ed, "F 500/Q", "1q") == "F 500 · heat 1 · qualification"   # heat before phase
+    assert heat_identity(ed, "F 500/T", "1t") == "F 500 · heat 1 · time trial"
 
 
 def test_timer_identity_label_shows_selected_race():
@@ -1604,7 +1604,7 @@ def test_timer_identity_label_flags_qualification_phase():
     tp = MainWindow(ed).timer_panel
     tp.reload()
     txt = tp.identity_label.text()
-    assert "F 500 · qualification · heat 1" in txt       # the qheat flagged as qualification
+    assert "F 500 · heat 1 · qualification" in txt       # the qheat flagged as qualification (heat first)
     assert "F 500 · heat 1" in txt                        # the final entry, unannotated
 
 
