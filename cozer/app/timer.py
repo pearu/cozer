@@ -338,6 +338,9 @@ class TimerPanel(QWidget):
         # clock, not on laps). A light tick refreshes it; blank for other kinds / when not recording.
         self.elapsed_label = QLabel("")
         self.elapsed_label.setStyleSheet("color:#00337a; font-weight:bold; font-size:16px; padding:0 8px;")
+        # Reserve width so pressing Start (which fills this from empty to "Time since Start: M:SS" for a
+        # time trial) doesn't reflow the row and nudge the buttons to its right.
+        self.elapsed_label.setMinimumWidth(190)
         top.addWidget(self.elapsed_label)
         top.addStretch()
         # One toggle for the live feed (docs/broadcast-urls.md §4). WHERE to publish (server URL +
