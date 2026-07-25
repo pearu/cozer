@@ -2055,6 +2055,22 @@ def test_timeline_paints_all_mark_kinds():
     assert not pm.isNull()
 
 
+def test_app_qss_styles_the_check_indicator():
+    # Issue #54: on Windows the broad `QWidget { background }` makes Qt drop native check-indicator
+    # drawing, so a CHECKED box rendered blank ("linnukesed pole naha"). The fix styles the indicator
+    # explicitly (a filled app-blue box when checked). This bug is WINDOWS-ONLY -- Linux/offscreen (CI)
+    # renders the native tick fine, so a pixel render here can't reproduce it (it passes with OR without
+    # the fix, which is why an image test would be a false guard). Instead assert the styling rule is
+    # present, so the fix can't be silently dropped; the actual Windows appearance is owner-verified.
+    from cozer.app.main import APP_QSS
+    assert "::indicator" in APP_QSS                            # the indicator is styled at all
+    assert "::indicator:checked" in APP_QSS and "#2b3a67" in APP_QSS   # ... with a visible checked fill
+    # the checked rule must cover the checkboxes AND the checkable views (Reports tree, qheat table)
+    for sub in ("QCheckBox::indicator:checked", "QTreeView::indicator:checked",
+                "QTableView::indicator:checked"):
+        assert sub in APP_QSS, "missing checked-indicator styling for %s (#54)" % sub
+
+
 def test_result_str_unit():
     from cozer.app.editor import result_str
     dq = {"place": 0, "points": 0, "avgspeed": 0.0, "maxlapspeed": 0.0,

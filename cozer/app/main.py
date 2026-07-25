@@ -58,6 +58,16 @@ APP_QSS = (
     # the current item was invisible (same fix the menus use). Covers EVERY QComboBox drop-down (Timer
     # race, class/phase/heat, report, nationality) since they all share this app stylesheet.
     " QComboBox QAbstractItemView::item:selected { background: #2b3a67; color: #ffffff; }"
+    # check indicators (issue #54): once the broad `QWidget { background }` above is set, Qt stops
+    # native-drawing checkbox/tree/table check indicators -- on Windows the checked tick then renders
+    # blank ("linnukesed pole naha"). Style the indicator explicitly so a check is unmistakably visible
+    # on every platform: an empty box unchecked, a filled app-blue box (with a border) when checked.
+    " QCheckBox::indicator, QTreeView::indicator, QTableView::indicator, QListView::indicator {"
+    " width: 14px; height: 14px; border: 1px solid #7a7a7a; border-radius: 2px; background: #ffffff; }"
+    " QCheckBox::indicator:checked, QTreeView::indicator:checked, QTableView::indicator:checked,"
+    " QListView::indicator:checked { background: #2b3a67; border-color: #2b3a67; }"
+    " QCheckBox::indicator:indeterminate, QTreeView::indicator:indeterminate,"
+    " QTableView::indicator:indeterminate { background: #9aa6c4; border-color: #2b3a67; }"
 )
 
 DEFAULT_EVENT = {
