@@ -17,6 +17,25 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## A reprimand notice, and tidier multi-page results (July 2026)
+
+<!-- release-notes:3.0.0rc19 -->
+
+- **A new Reprimand notice.** The Reports tab has a new **Reprimand** printout — the formal notice an
+  Officer of the Day issues to a driver for an unacceptable action (U.I.M. §406.04). It prints as a
+  ready-to-fill form: the event heading and the OOD / Secretary lines are filled in, and you write in
+  the driver, the offence (with a checklist of grounds), and sign it. It carries the rule's wording —
+  that a repeat draws a heavier penalty, and that the reprimand stays on record for 12 months.
+- **The results sheet keeps the signatures on the first page.** On the **Full Final**, a long list of
+  notes used to push the Officer / Commissioner signature lines onto a second page. The signatures now
+  sit in the **top-right corner**, so they always stay on the first page — and the results table itself
+  does not move.
+- **Clearer page numbering on long reports.** Every report footer now shows **"Page 1 / 3"** (with the
+  total page count), and every page except the last is marked **"continued…"** at the bottom-right, so
+  it is obvious when a printout runs onto further pages.
+- **Live broadcast touches** (already live on live.cozer.ee — no update needed): the event header is
+  flagged as **unofficial**, and the idle-page tagline lays out more tidily.
+
 ## Steady Timer buttons, broadcast starting grid, and a public event page (July 2026)
 
 <!-- release-notes:3.0.0rc18 -->

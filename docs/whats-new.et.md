@@ -19,6 +19,24 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Noomitusteade ja korrastatud mitmeleheküljelised tulemused (juuli 2026)
+
+<!-- release-notes:3.0.0rc19 -->
+
+- **Uus noomitusteade (Reprimand).** Reports-sakil on uus **Reprimand** väljatrükk — vormikohane teade,
+  mille peakohtunik väljastab sõitjale lubamatu teo eest (U.I.M. §406.04). See prinditakse täidetava
+  vormina: võistluse päis ning peakohtuniku / sekretäri read on ette täidetud, sina kirjutad juurde
+  sõitja, rikkumise (koos aluste kontroll-loeteluga) ja allkirjastad. Vorm kannab reegli sõnastust — et
+  kordumisel järgneb rangem karistus ja et noomitus püsib arvestuses 12 kuud.
+- **Tulemusteleht hoiab allkirjad esimesel leheküljel.** **Full Final** -lehel lükkas pikk märkuste loend
+  varem peakohtuniku / komissari allkirjaread teisele leheküljele. Nüüd asuvad allkirjad **üleval paremas
+  nurgas**, nii et need jäävad alati esimesele leheküljele — ja tulemuste tabel ise ei liigu.
+- **Selgem leheküljenumbrite näitamine pikkadel raportitel.** Iga raporti jalus näitab nüüd **„Leht 1 / 3“**
+  (koos lehekülgede koguarvuga) ja iga lehekülg peale viimase on all paremas nurgas märgitud **„jätkub…“**,
+  nii et on selge, kui väljatrükk jätkub järgmistel lehtedel.
+- **Otseülekande täiendused** (juba live.cozer.ee-s — uuendust pole vaja): võistluse päis on märgitud
+  **mitteametlikuks** ja jõudeoleku lehe loosung paigutub korrastatumalt.
+
 ## Stabiilsed taimeri nupud, ülekande stardivõrk ja avalik sündmuse leht (juuli 2026)
 
 <!-- release-notes:3.0.0rc18 -->
