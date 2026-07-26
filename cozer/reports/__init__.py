@@ -43,6 +43,9 @@ from cozer.reports.startlist import (
 from cozer.reports.reprimand import (
     build_reprimand, reprimand_html, render_reprimand,
 )
+from cozer.reports.champpoints import (
+    build_championship_points, championship_points_csv, render_championship_points,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
@@ -62,4 +65,5 @@ __all__ = [
     "build_timetrial", "timetrial_html", "render_timetrial",
     "build_startlist", "startlist_html", "render_startlist",
     "build_reprimand", "reprimand_html", "render_reprimand",
+    "build_championship_points", "championship_points_csv", "render_championship_points",
 ]

@@ -93,6 +93,15 @@ per kind). All 209 common content applies per heat and in the summary.
   a §406.03 grounds checklist, the §406.04 warning/12-month statement, and issue/witness/record
   signature block (§406.04 requires it recorded by the Secretariat and witnessed). English-only static
   form (like the Inspection forms); event-level, so it takes no class/heat selection.
+- **Championship Points** (`champpoints.py`, issue #62): NOT a PDF — a **CSV spreadsheet** export
+  (Reports-tab *Export championship points…* button) for feeding a multi-event championship where this
+  event is one round. Columns = Event · Date · Class · **Place** · Boat · First/Last · Club · Nationality
+  · **Points**. One row per driver across the **checked classes** (none checked = all raced classes),
+  drawn from each class's final **race** standings (`build_full_final` → `sumanalyze`; the `/T`/`/Q` phase
+  variants are normalized to the base race class, so the time trial never leaks in). **Model A**: the
+  Place is the authoritative, series-independent input; Points is the event's *own* score, reference-only,
+  because the series may score differently and applies its own table. No core-scoring change. (Model B —
+  cozer computing championship points from an operator-entered series table — is deferred, see #62.)
 
 ## 5. Discrepancies (audit 2026-07)
 

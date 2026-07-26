@@ -1096,6 +1096,11 @@ class MainWindow(QMainWindow):
         export_recs = QPushButton("Export heat records…")
         export_recs.clicked.connect(self.on_export_heat_records)
         btnrow.addWidget(export_recs)
+        # Export the CHECKED classes' final race ranking + points to a CSV spreadsheet, for feeding a
+        # multi-event championship (this event = one round). Uses the same class checkboxes as reports.
+        export_pts = QPushButton("Export championship points…")
+        export_pts.clicked.connect(self.on_export_championship_points)
+        btnrow.addWidget(export_pts)
         v.addLayout(btnrow)
         return w
 
@@ -1251,6 +1256,40 @@ class MainWindow(QMainWindow):
             f.write(dumps(payload))
         self.log("Exported heat record %s / %s to %s"
                  % (payload["heats"][0]["class"], payload["heats"][0]["heat"], path))
+
+    def _championship_points_suggested_path(self):
+        """Suggested Save name for the championship-points CSV: ``<base>-championship-points.csv`` in the
+        event file's directory (falls back to the event title when unsaved)."""
+        if self.store is not None:
+            base_dir = os.path.dirname(self.store.path)
+            base_file = os.path.splitext(os.path.basename(self.store.path))[0]
+        else:
+            base_dir = ""
+            base_file = (self.eventdata.get("title") or "").strip() or "event"
+        name = (base_file + "-championship-points").replace("/", "-").replace("\\", "-") + ".csv"
+        return os.path.join(base_dir, name) if base_dir else name
+
+    def on_export_championship_points(self):
+        """Export the checked classes' final race ranking + points to a CSV spreadsheet, for feeding a
+        multi-event championship (this event = one round). No class checked -> all raced classes. The
+        Place is the authoritative input; the event's own points ride along as reference (the series
+        applies its own scoring)."""
+        from cozer.reports.champpoints import build_championship_points, render_championship_points
+        classes, _heat_map = self._report_selection()       # class-level selection; per-heat is not used
+        rows = build_championship_points(self.eventdata, classes=classes)
+        if not rows:
+            dialogs.info(self, "Export championship points",
+                         "No ranked classes to export yet — the selected classes have no race results.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export championship points",
+                                              self._championship_points_suggested_path(),
+                                              "CSV spreadsheet (*.csv)")
+        if not path:
+            return
+        if not path.endswith(".csv"):
+            path += ".csv"
+        render_championship_points(self.eventdata, path, classes=classes)
+        self.log("Exported championship points (%d drivers) to %s" % (len(rows), path))
 
     def _reload_classes(self):
         """Populate the Reports tab's phase tabs (Time-trials / Qualifications / Circuit / ...), one tab
