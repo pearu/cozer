@@ -799,7 +799,11 @@ class EditRecordsPanel(QWidget):
             sub = menu.addMenu("%s…" % code_name)
             for r in by_code[code_name]:
                 art, desc = (r[2] or "").strip(), (r[3] or "").strip()   # UIM article + rule text
-                act = sub.addAction("%s — %s" % (art, desc) if art and desc else (art or desc))
+                # Article as a SUFFIX (not the old "313.4 — …" prefix), so a description's scope tag reads
+                # right before it, e.g. "…illegal — all heats (§317.08)". Default scope is "this heat"
+                # (no tag); a rule whose penalty reaches beyond the heat says so in its description.
+                label = "%s  (§%s)" % (desc, art) if (art and desc) else (desc or (("§" + art) if art else ""))
+                act = sub.addAction(label)
                 act.triggered.connect(
                     lambda _=False, rr=r: self.insert_rule_mark(cl, h, pid, reccodemap[rr[1]], ct, rr[2]))
         if by_code:

@@ -19,6 +19,18 @@ def _ev(**kw):
     return ed
 
 
+def test_bundled_circuit_ruleset_marks_all_heats_scope():
+    # Rule descriptions carry a scope only when it is NOT the default "this heat": the §317.08 DSQ
+    # (illegal boat/motor at post-race inspection) applies to ALL heats, so its description says so —
+    # the operator sees the scope in the insert-rule menu (which shows the article as a suffix).
+    import json
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "cozer", "rulesets", "uim_circuit_2026.cozj")
+    rules = json.load(open(path, encoding="utf-8"))["rules"]
+    r317 = next(r for r in rules if len(r) > 2 and r[2] == "317.08")
+    assert "all heats" in r317[3]
+
+
 def test_import_fills_empty_scoring():
     ev = _ev()
     import_ruleset(ev, {"scoringsystem": [10, 5]})
