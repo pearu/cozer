@@ -32,7 +32,7 @@
   /* combined multi-class heat (issue #56): stacked class tables in one list -> per-ROW grids + a divider.
      No class header for now (owner); the divider is plain vertical space (keys out cleanly on the overlay). */
   ol.multi li.ttrow { grid-template-columns:30px 40px 1fr 58px 48px; gap:8px }
-  ol.multi li.runrow{ grid-template-columns:30px 38px 1fr 40px; gap:8px }
+  ol.multi li.runrow{ grid-template-columns:30px 38px 1fr 34px 88px; gap:8px }   /* nat boat name laps catch */
   ol.multi li.prerow{ grid-template-columns:34px 44px 1fr; gap:8px }
   ol.multi li.sep   { grid-template-columns:1fr; height:14px }
   /* pre-race status banner for a combined heat (the single-class view shows this in the first row; the
@@ -96,7 +96,7 @@
     ol.run li{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
     ol.tt  li{ grid-template-columns:28px 50px 1fr 74px 96px; gap:10px }
     ol.multi li.ttrow { grid-template-columns:28px 50px 1fr 74px 96px; gap:10px }
-    ol.multi li.runrow{ grid-template-columns:28px 44px 1fr 44px; gap:10px }
+    ol.multi li.runrow{ grid-template-columns:28px 44px 1fr 36px 82px; gap:10px }
     ol.multi li.prerow{ grid-template-columns:30px 50px 1fr; gap:12px }
     .nat,.flag{ height:24px }
     .code{ font-size:14px }
@@ -124,7 +124,7 @@
     body.eventpage ol.multi li.ttrow{ grid-template-columns:36px 52px 280px 92px 116px 1fr; gap:14px }
     /* the running-order (non-TT) rows pack left the same way: fixed columns + a trailing spacer */
     body.eventpage ol.run li{ grid-template-columns:36px 52px 280px 56px 110px 1fr; gap:14px }
-    body.eventpage ol.multi li.runrow{ grid-template-columns:36px 52px 280px 56px 1fr; gap:14px }
+    body.eventpage ol.multi li.runrow{ grid-template-columns:36px 52px 280px 56px 110px 1fr; gap:14px }
     body.eventpage ol.pre li,
     body.eventpage ol.multi li.prerow{ grid-template-columns:36px 52px 280px 1fr; gap:14px }
     body.eventpage .best, body.eventpage .spd-col,
@@ -156,6 +156,7 @@
   var course = [];                           // per-lap lengths (distance model for the live catch-up)
   var raceAnchor = null;                     // {elapsed, at} race-clock anchor -> live extrapolation
   var catchSpans = {};                       // boat no -> its live catch-up cell (ticked between renders)
+  var catchGroups = [];                       // per-field {boats, course, spans} the tick updates (1 single, N multi)
   var pollMs = 500, haveData = false;        // poll cadence (feed.view.poll_s overrides) + first-data flag
 
   var ol = document.getElementById("order");
@@ -247,61 +248,65 @@
     var mx = 0; boats.forEach(function(b){ var lt = b.laptimes; if(lt && lt.length) mx = Math.max(mx, lt[lt.length-1]); });
     return mx || null;
   }
-  function boatModel(b){
+  function boatModel(b, crs){
     // {tLast, distLast, v}: the last crossing time + cumulative distance there + the last lap's speed.
-    // null until the boat has a lap (no speed yet) or the speed is non-positive.
+    // null until the boat has a lap (no speed yet) or the speed is non-positive. `crs` = the (section's)
+    // per-lap lengths; defaults to the global course (single-class path).
+    crs = crs || course;
     var lt = b.laptimes;
-    if(!lt || !lt.length || !course.length) return null;
+    if(!lt || !lt.length || !crs.length) return null;
     var k = lt.length, dist = 0;
-    for(var j = 0; j < k; j++) dist += course[Math.min(j, course.length - 1)];   // dist at lap k
+    for(var j = 0; j < k; j++) dist += crs[Math.min(j, crs.length - 1)];         // dist at lap k
     var lapDur = k >= 2 ? (lt[k-1] - lt[k-2]) : lt[0];                            // last lap duration
-    var v = lapDur > 0 ? course[Math.min(k-1, course.length-1)] / lapDur : 0;     // last lap speed
+    var v = lapDur > 0 ? crs[Math.min(k-1, crs.length-1)] / lapDur : 0;          // last lap speed
     return v > 0 ? {tLast: lt[k-1], distLast: dist, v: v} : null;
   }
   function distAt(m, t){ return m.distLast + m.v * (t - m.tLast); }
-  function catchupCell(b, i, leaderModel, t){
+  function catchupCell(b, i, leaderModel, t, crs, lead){
     // First place has no gap to show, so instead show its laps remaining to the end (course length −
     // laps done): "<n> TO GO", "LAST LAP" on the final lap, "FINISH" once done. Followers show the
     // live catch-up-to-leader time ("+…"); the moment a boat finishes its clock stops and it shows the
     // exact finish margin behind the winner (its finish time − the winner's) with 🏁 at the very end;
-    // "…" before a boat's first crossing.
+    // "…" before a boat's first crossing. `crs` = this field's course, `lead` = its leader boat (the
+    // reference / winner) — both default to the global single-class field.
+    crs = crs || course; lead = lead || boats[0];
     if(i === 0){                                           // the leader / first place
-      var N = course.length, togo = N - (b.laps || 0);
+      var N = crs.length, togo = N - (b.laps || 0);
       if(!N) return "";
       if(b.finished || togo <= 0) return "FINISH";
       return togo === 1 ? "LAST LAP" : (togo + " TO GO");
     }
     if(b.finished){
-      var lt = b.laptimes || [], wt = (boats[0] || {}).laptimes || [];
+      var lt = b.laptimes || [], wt = (lead || {}).laptimes || [];
       if(lt.length && wt.length){
         var margin = lt[lt.length-1] - wt[wt.length-1];    // finish time behind the winner (frozen)
         return "+" + (margin > 0 ? margin : 0).toFixed(1) + " 🏁";
       }
       return "🏁";
     }
-    var m = boatModel(b);
+    var m = boatModel(b, crs);
     if(!m || !leaderModel || t == null)                    // no lap time yet:
-      return (boats[0] && boats[0].finished) ? "DNF" : "…";  //   DNF once the winner has finished, else "…"
+      return (lead && lead.finished) ? "DNF" : "…";          //   DNF once the winner has finished, else "…"
     var secs = (distAt(leaderModel, t) - distAt(m, t)) / m.v;   // time behind the leader at this pace;
     return (secs >= 0 ? "+" : "") + secs.toFixed(1);           // < 0 => projected AHEAD -> overtake brewing
   }
-  function tickCatch(){                                     // refresh the live column between renders
-    if(!started || isTT || isMulti) return;                 // TT best-lap is static; multi re-renders per feed
-    var t = raceTime(), leaderModel = boats.length ? boatModel(boats[0]) : null;
-    var maxAbove = 0;                                        // the leader is the 0 reference
-    boats.slice(0, maxRows).forEach(function(b, i){
-      var s = catchSpans[b.no]; if(!s) return;
-      s.textContent = catchupCell(b, i, leaderModel, t);
-      var v = null;                                          // this row's numeric time-behind-leader (racing)
-      if(i > 0 && !b.finished){
-        var m = boatModel(b);
-        if(m && leaderModel && t != null) v = (distAt(leaderModel, t) - distAt(m, t)) / m.v;
-      }
-      // Amber when this boat is projected AHEAD of a boat ranked above it (the leader counts as 0): a
-      // negative gap (overtaking the leader) OR a smaller time than a higher-ranked boat (overtaking
-      // it) -> an overtake is brewing.
-      s.classList.toggle("overtake", v != null && v < maxAbove);
-      if(v != null) maxAbove = Math.max(maxAbove, v);
+  function tickCatch(){                                     // refresh the live catch-up cells between renders
+    var t = raceTime();
+    catchGroups.forEach(function(g){                       // one field for a single-class race, one per
+      var leaderModel = g.boats.length ? boatModel(g.boats[0], g.course) : null;  // combined-race section
+      var maxAbove = 0;                                     // this field's leader is its 0 reference
+      g.boats.slice(0, maxRows).forEach(function(b, i){
+        var s = g.spans[b.no]; if(!s) return;
+        s.textContent = catchupCell(b, i, leaderModel, t, g.course, g.boats[0]);
+        var v = null;                                       // this row's numeric time-behind-leader (racing)
+        if(i > 0 && !b.finished){
+          var m = boatModel(b, g.course);
+          if(m && leaderModel && t != null) v = (distAt(leaderModel, t) - distAt(m, t)) / m.v;
+        }
+        // Amber when a boat is projected AHEAD of one ranked above it (leader = 0) -> an overtake brewing.
+        s.classList.toggle("overtake", v != null && v < maxAbove);
+        if(v != null) maxAbove = Math.max(maxAbove, v);
+      });
     });
   }
 
@@ -341,6 +346,9 @@
       li.innerHTML = html;
       ol.appendChild(li);
     });
+    // one catch-up field for a single-class race (the global boats/course + the spans just collected);
+    // none for pre-start or a time trial (best-lap is static).
+    catchGroups = (started && mode === "run") ? [{boats: boats, course: course, spans: catchSpans}] : [];
     tickCatch();                                           // fill the live catch-up column now
     if(!reduce){                                           // FLIP: slide rows to new slots
       [].forEach.call(ol.children, function(li){
@@ -406,6 +414,8 @@
   // ---- combined multi-class heat: STACK one table per class (issue #56) ----
   function applyMulti(feed){
     isMulti = true; isTT = false; started = false;
+    raceAnchor = (feed.elapsed != null) ? {elapsed: feed.elapsed, at: perfNow()} : null;   // shared race clock
+    catchGroups = [];                                      // renderSection pushes one per racing section
     maxRows = (feed.view && feed.view.max_rows > 0) ? feed.view.max_rows : 24;
     var prevTops = {};
     [].forEach.call(ol.children, function(li){ if(li.dataset.no) prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
@@ -425,6 +435,7 @@
       if(si){ var d = document.createElement("li"); d.className = "sep"; ol.appendChild(d); }   // divider (space)
       renderSection(sec, si);
     });
+    tickCatch();                                           // fill each racing section's catch column now
     if(!reduce){                                           // FLIP within each class (keys are section-scoped)
       [].forEach.call(ol.children, function(li){
         var o = prevTops[li.dataset.no]; if(o==null) return;
@@ -462,6 +473,8 @@
       });
     }
     var rowClass = secTT ? "ttrow" : (started ? "runrow" : "prerow");
+    var racing = started && !secTT;                        // a running race section -> live catch-up column
+    var spans = {};
     bs.slice(0, maxRows).forEach(function(b, i){
       var li = document.createElement("li");
       li.dataset.no = si + ":" + b.no;                   // section-qualified (boat numbers repeat across classes)
@@ -472,11 +485,13 @@
         html += '<span class="best">'+ttCell(b, i, bs)+'</span>'
               + '<span class="spd-col">'+ttSpeedCell(b, i)+'</span>';
       } else if(started){
-        html += '<span class="laps">'+lapsCell(b)+'</span>';   // combined-race live catch-up deferred (#56)
+        html += '<span class="laps">'+lapsCell(b)+'</span><span class="catch"></span>';   // laps + live gap
       }
       li.innerHTML = html;
       ol.appendChild(li);
+      if(racing){ var c = li.querySelector(".catch"); if(c) spans[b.no] = c; }
     });
+    if(racing) catchGroups.push({boats: bs, course: crs, spans: spans});   // ticked per section (issue #56)
   }
 
   setInterval(tickCatch, 250);                 // keep the live catch-up column ticking between snapshots
