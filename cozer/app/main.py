@@ -108,6 +108,7 @@ _REPORTS = [
     ("Registration Letter", "render_registration_letter", False, False, False),
     ("Inspection (Cockpit)", "render_inspection_cockpit", True, False, False),
     ("Inspection (Non-cockpit)", "render_inspection_open", True, False, False),
+    ("Reprimand", "render_reprimand", False, False, False),
 ]
 
 

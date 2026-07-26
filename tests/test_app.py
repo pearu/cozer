@@ -34,7 +34,7 @@ def test_window_builds_and_populates():
     n_classes = sum(w.report_tabs.widget(i).topLevelItemCount()
                     for i in range(w.report_tabs.count()))
     assert n_classes == len(get_classes(ed))               # every class appears under some phase tab
-    assert w.report_combo.count() == 16                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial + Start List)
+    assert w.report_combo.count() == 17                    # all reports (incl. 2 legacy Final + 2 Inspection + Time-trial + Start List + Reprimand)
     # issue #37: combos use a QStyledItemDelegate so the app stylesheet colours the highlighted popup
     # item (else it renders invisible light-on-light). Covers the app's dropdowns via grids.combo().
     from PySide6.QtWidgets import QStyledItemDelegate

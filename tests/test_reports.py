@@ -394,6 +394,19 @@ def test_startlist_report_empty_is_a_note_not_blank():
     assert "No start order available" in text
 
 
+def test_reprimand_report_static_form():
+    # a U.I.M. §406.04 reprimand notice as a blank fill-in form: event header + OOD/Secretary from the
+    # event, competitor + offence write-in. One page, portrait, page-fit; the §406.04 spine present.
+    from cozer.reports.reprimand import build_reprimand, reprimand_html
+    ed = read_legacy_coz(EVENT)
+    model = build_reprimand(ed)
+    assert model["heading"] == "Reprimand" and model["orientation"] == "portrait"
+    text = _fits_portrait(render_pdf_bytes(reprimand_html(model)))
+    for probe in ("Reprimand", "406.04", "Competitor", "unsportsmanlike", "Secretariat",
+                  "Officer of the Day", "protest"):
+        assert probe in text, probe
+
+
 def test_laps_protocol_report():
     from cozer.reports.laps import build_laps_protocol, laps_protocol_html
     ed = read_legacy_coz(EVENT)

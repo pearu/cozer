@@ -40,6 +40,9 @@ from cozer.reports.timetrial import (
 from cozer.reports.startlist import (
     build_startlist, startlist_html, render_startlist,
 )
+from cozer.reports.reprimand import (
+    build_reprimand, reprimand_html, render_reprimand,
+)
 
 __all__ = [
     "build_full_final", "full_final_html", "render_full_final",
@@ -58,4 +61,5 @@ __all__ = [
     "build_inspection_open", "inspection_open_html", "render_inspection_open",
     "build_timetrial", "timetrial_html", "render_timetrial",
     "build_startlist", "startlist_html", "render_startlist",
+    "build_reprimand", "reprimand_html", "render_reprimand",
 ]

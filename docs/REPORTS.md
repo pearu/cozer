@@ -88,6 +88,11 @@ per kind). All 209 common content applies per heat and in the summary.
   heat N = heat N-1's finishing order; a final = qualifying/time-trial order (307.01). The report
   consumer of the same start order the timer ladder shows; derived, so a grid can be posted before its
   heat is raced.
+- **Reprimand** (`reprimand.py`): a blank one-page **§406.04 reprimand notice** the O.O.D. completes by
+  hand — event header + O.O.D./Secretary signature lines from the event; competitor + offence write-in;
+  a §406.03 grounds checklist, the §406.04 warning/12-month statement, and issue/witness/record
+  signature block (§406.04 requires it recorded by the Secretariat and witnessed). English-only static
+  form (like the Inspection forms); event-level, so it takes no class/heat selection.
 
 ## 5. Discrepancies (audit 2026-07)
 
