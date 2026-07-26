@@ -31,6 +31,18 @@ def test_bundled_circuit_ruleset_marks_all_heats_scope():
     assert "all heats" in r317[3]
 
 
+def test_bundled_general_ruleset_marks_fuel_dsq_scope():
+    # §508.09: an illegal-fuel DSQ reaches beyond one heat — the first offence disqualifies every run up
+    # to the test, a further offence the whole event — so both descriptions carry a scope (not this-heat).
+    import json
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "cozer", "rulesets", "uim_general_2026.cozj")
+    fuel = [r[3] for r in json.load(open(path, encoding="utf-8"))["rules"]
+            if len(r) > 3 and r[2] == "508.09"]
+    assert any("all runs up to the test" in d for d in fuel)      # first illegal-fuel offence
+    assert any("whole event" in d for d in fuel)                  # a further infringement
+
+
 def test_import_fills_empty_scoring():
     ev = _ev()
     import_ruleset(ev, {"scoringsystem": [10, 5]})
