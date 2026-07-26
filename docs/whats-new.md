@@ -6,9 +6,8 @@ This page explains — in plain terms, no computer knowledge needed — what has
 improved in COZER. The most recent notes are near the top. If you are coming from the older
 COZER, the **"Coming from the old COZER"** overview at the end covers the big picture.
 
-> **Note.** COZER 3 is a **release candidate** right now — it is being tried out before the
-> final version. If you spot something wrong, please send a bug report (the **Report a bug…**
-> button in the top-right corner) — it helps a lot.
+> **Note.** COZER 3.0 is now a **stable release**. If you spot something wrong, please send a bug
+> report (the **Report a bug…** button in the top-right corner) — it helps a lot.
 
 ---
 
@@ -16,6 +15,25 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      newest first (above the "Coming from the old COZER" overview), summarising the important changes
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
+
+## COZER 3.0.0 — the first stable release (July 2026)
+
+<!-- release-notes:3.0.0 -->
+
+COZER 3 is now a **stable release**. After a long line of release candidates — proven live at real events —
+the Python 3 rewrite of COZER is complete and ready for everyday scoring. See **"Coming from the old
+COZER"** at the end for the full picture; the headlines:
+
+- **The full U.I.M. race day** — time trials, qualification (with repechage), circuit finals, endurance,
+  and restarts — scored with the 2026 outcome codes (DSQ / DNS / DNQ / DNF …) and rule-accurate results.
+- **U.I.M.-compliant reports** — Full / Short Final, Intermediate, Qualification, Start List, Laps
+  Protocol, Inspection forms, a Reprimand notice, and a Championship-points spreadsheet export.
+- **A live broadcast** — an OBS overlay and a public event page at **live.cozer.ee** with live timing, a
+  time-trial view, and combined-class heats.
+- **Safer, friendlier operation** — guards against losing unsaved work, a graphical Edit Records timeline,
+  and clear warnings for likely mistakes.
+
+Thank you to everyone who tried the release candidates and sent bug reports — it shaped this release.
 
 ## Championship points export, and clearer disqualification across heats (July 2026)
 

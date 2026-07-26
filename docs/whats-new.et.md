@@ -10,14 +10,33 @@ See lehekülg selgitab lihtsas keeles, arvutioskust vajamata, mis on COZERis muu
 läinud. Kõige uuemad märkmed on ülal. Kui tuled vanalt COZERilt, annab lõpus olev **"Vanalt
 COZERilt üleminek"** ülevaate suurest pildist.
 
-> **Märkus.** COZER 3 on praegu **väljalaskekandidaat** (release candidate) — seda katsetatakse
-> enne lõplikku versiooni. Kui märkad midagi valesti, saada palun veateade (nupp **Report a bug…**
-> paremas ülanurgas) — see aitab palju.
+> **Märkus.** COZER 3.0 on nüüd **stabiilne väljalase**. Kui märkad midagi valesti, saada palun veateade
+> (nupp **Report a bug…** paremas ülanurgas) — see aitab palju.
 
 ---
 
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
+
+## COZER 3.0.0 — esimene stabiilne väljalase (juuli 2026)
+
+<!-- release-notes:3.0.0 -->
+
+COZER 3 on nüüd **stabiilne väljalase**. Pärast pikka väljalaskekandidaatide jada — päriselt võistlustel
+läbi proovitud — on COZERi Python 3 ümberkirjutus valmis ja igapäevaseks tulemuste arvestamiseks küps.
+Täieliku pildi annab lõpus olev **"Vanalt COZERilt üleminek"**; peamised punktid:
+
+- **Täielik U.I.M. võistluspäev** — ajasõidud, kvalifikatsioon (koos repaažiga), ringrajafinaalid,
+  kestvussõit ja taaskäivitused — arvestatuna 2026. aasta tulemuskoodidega (DSQ / DNS / DNQ / DNF …) ja
+  reeglitäpsete tulemustega.
+- **U.I.M.-le vastavad aruanded** — täis-/lühifinaal, vahetulemused, kvalifikatsioon, stardinimekiri,
+  ringide protokoll, ülevaatusvormid, noomitusteade ja meistrivõistluste punktide tabeli eksport.
+- **Otseülekanne** — OBS-ülekate ja avalik sündmuse leht aadressil **live.cozer.ee** otseajavõtu,
+  ajasõiduvaate ja liitklassisõitudega.
+- **Turvalisem ja sõbralikum töö** — kaitse salvestamata töö kaotamise vastu, graafiline Kirjete muutmise
+  ajajoon ja selged hoiatused tõenäoliste vigade kohta.
+
+Aitäh kõigile, kes proovisid väljalaskekandidaate ja saatsid veateateid — see kujundas selle väljalaske.
 
 ## Meistrivõistluste punktide eksport ja selgem diskvalifitseerimine üle sõitude (juuli 2026)
 
