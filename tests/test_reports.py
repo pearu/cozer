@@ -486,6 +486,35 @@ def test_posting_metadata_native_only():
         assert token not in hl, token                          # legacy: no posting block
 
 
+def test_report_signatures_topright_and_multipage_footer():
+    # issue #60: on the landscape Full Final the signature block moves to the TOP-RIGHT corner (never
+    # pushed to a 2nd page by many notes); the footer shows "Page N / M"; and every page but the last
+    # carries "continued…" at bottom-right (the last keeps the Secretary). Portrait sheets keep the foot
+    # block.
+    from cozer.reports.common import document_html
+    from cozer.reports.labels import get_labels
+    labels = get_labels({"configure": {"language": "English"}})
+    meta = {"title": "GP", "venue": "V", "date": "D", "officer": "OOD X",
+            "secretary": "Sec Y", "uim_commissioner": "Comm Z"}
+
+    # landscape: signatures in the top-right corner + continued marker present
+    html = document_html("landscape", labels, meta, "Final Results",
+                         ['<div style="height:60cm">body</div>'], posting=True)   # 60cm -> several pages
+    assert 'class="posting-corner"' in html and "OOD X" in html and "Comm Z" in html
+    assert "<!--cozer-continued:" in html
+    d = fitz.open(stream=render_pdf_bytes(html), filetype="pdf")
+    assert d.page_count >= 2
+    pages = [pg.get_text().replace("\n", " ") for pg in d]
+    assert "continued" in pages[0] and "continued" not in pages[-1]   # all but last
+    assert "Sec Y" in pages[-1]                                       # last page keeps the Secretary
+    assert "Page 1 / %d" % d.page_count in pages[0]                   # Page N / M (total pages)
+    assert "Page %d / %d" % (d.page_count, d.page_count) in pages[-1]
+
+    # portrait keeps the foot signature block (no top-right corner)
+    hp = document_html("portrait", labels, meta, "Intermediate Results", ["<p>x</p>"], posting=True)
+    assert 'class="posting-corner"' not in hp and "OOD X" in hp       # signers still present, at the foot
+
+
 # --- coverage sweep -------------------------------------------------------
 
 @pytest.mark.parametrize("render_name,event", [

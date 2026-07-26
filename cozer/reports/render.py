@@ -3,6 +3,8 @@
 Per-report page orientation and running footers are supplied via ``page_css``;
 the shared table styling is ``TABLE_CSS``.
 """
+import re
+
 import weasyprint
 
 TABLE_CSS = """
@@ -36,18 +38,43 @@ def _css_str(s):
 
 
 def page_css(orientation, footer_left="", footer_center="", footer_right=""):
+    # @bottom-center shows "<Page> N / M" (counter(pages) = the total, so a reader sees how many pages
+    # the sheet has). @bottom-right may be overridden per non-last page with "continued…" (see _render).
     return (
         '@page { size: A4 %s; margin: 1.3cm 1.1cm 1.7cm 1.1cm;'
         ' @bottom-left { content: "%s"; font-size:8pt; color:#333; }'
-        ' @bottom-center { content: "%s" " " counter(page); font-size:8pt; color:#333; }'
+        ' @bottom-center { content: "%s" " " counter(page) " / " counter(pages); font-size:8pt; color:#333; }'
         ' @bottom-right { content: "%s"; font-size:8pt; color:#333; } }'
         % (orientation, _css_str(footer_left), _css_str(footer_center), _css_str(footer_right))
     )
 
 
+# A report may carry a "continued…" marker (emitted by document_html) — the localized word to show at the
+# @bottom-right of every page EXCEPT the last, so a multi-page sheet flags that it runs on. CSS has no
+# ":last page" selector, so we render once to learn the page count, then target pages 1..N-1 by number.
+_CONTINUED_RE = re.compile(r"<!--cozer-continued:(.*?)-->", re.S)
+
+
+def _continued_css(npages, text):
+    rules = "".join('@page:nth(%d) { @bottom-right { content: "%s"; } }' % (i, _css_str(text))
+                    for i in range(1, npages))
+    return "<style>%s</style>" % rules
+
+
+def _document(html):
+    """Render ``html`` to a WeasyPrint document, adding the "continued…" per-page footer when the sheet
+    carries the marker AND spills onto more than one page (a two-pass layout: the first pass just counts
+    pages)."""
+    doc = weasyprint.HTML(string=html).render()
+    m = _CONTINUED_RE.search(html)
+    if m and len(doc.pages) > 1:
+        doc = weasyprint.HTML(string=html + _continued_css(len(doc.pages), m.group(1))).render()
+    return doc
+
+
 def render_pdf(html, out_path):
-    weasyprint.HTML(string=html).write_pdf(out_path)
+    _document(html).write_pdf(out_path)
 
 
 def render_pdf_bytes(html):
-    return weasyprint.HTML(string=html).write_pdf()
+    return _document(html).write_pdf()

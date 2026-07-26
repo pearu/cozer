@@ -272,6 +272,30 @@ def _posting_block(labels, meta):
             '<tr>%s</tr></table>' % inner)
 
 
+# The signature block relocated into the TOP-RIGHT white-space (absolute, so it never flows with the body
+# and many notes can't push it to a second page — issue #60). Emitted early so its page is page 1.
+_CORNER_CSS = (
+    ".posting-corner { position:absolute; top:0.55cm; right:0; width:9cm; }"
+    ".posting-corner .sig-cell { margin-top:2.6em; text-align:center; }"
+    ".posting-corner .sig-rule { border-top:1px solid #000; padding-top:2px; font-size:9pt; }"
+    ".posting-corner .sig-role { font-size:8pt; color:#444; }"
+)
+
+
+def _posting_corner(labels, meta):
+    """The §209 signature block for the TOP-RIGHT corner: one ruled line per NAMED signer (OOD/Race
+    Director, then UIM Sports Commissioner), stacked; empty if neither is named. Used on the landscape
+    Full Final, where that corner is reliably free — portrait sheets keep the foot block (``_posting_block``)."""
+    cells = []
+    for role, name in ((labels["OfficeroftheDay"], meta.get("officer", "")),
+                       (labels["UIMCommissioner"], meta.get("uim_commissioner", ""))):
+        if not (name or "").strip():
+            continue
+        cells.append('<div class="sig-cell"><div class="sig-rule">%s</div>'
+                     '<div class="sig-role">%s</div></div>' % (display(name), esc(role)))
+    return ('<div class="posting-corner">%s</div>' % "".join(cells)) if cells else ""
+
+
 def document_html(orientation, labels, meta, heading, body_parts, subtitle="", posting=False):
     """Wrap report body (a list of HTML fragments) in a full styled document. ``subtitle``
     (optional) is shown under the heading -- used for the phase-kind line (§10-E). ``posting`` adds
@@ -292,9 +316,16 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle="", p
         footer_right = "%s  /%s/" % (meta["secretary"], labels["SecretaryoftheRace"])
     css = page_css(orientation, footer_left=footer_left, footer_center=labels["Page"],
                    footer_right=footer_right)
-    parts = ["<style>%s\n%s</style>" % (css, TABLE_CSS)]
+    # A landscape results sheet (the Full Final) puts the signature block in the top-right corner (never
+    # overflows); portrait sheets keep it at the foot. The corner CSS is only added when it's used.
+    corner = posting and orientation == "landscape"
+    parts = ["<style>%s\n%s%s</style>" % (css, TABLE_CSS, ("\n" + _CORNER_CSS) if corner else "")]
     if posting:      # top-right: "Posted at ____:____" — the time is hand-written at posting (owner)
         parts.append(_posted_at(labels))
+        if corner:   # absolute top-right signature block — emitted early so it lands on page 1
+            block = _posting_corner(labels, meta)
+            if block:
+                parts.append(block)
     parts.append('<h1 class="event-title">%s</h1>' % display(meta["title"]))
     parts.append('<div class="event-meta">%s &nbsp;&middot;&nbsp; %s</div>'
                  % (display(meta["venue"]), display(meta["date"])))
@@ -302,8 +333,10 @@ def document_html(orientation, labels, meta, heading, body_parts, subtitle="", p
     if subtitle:
         parts.append('<div class="report-subtitle">%s</div>' % display(subtitle))
     parts.extend(body_parts)
-    if posting:      # signature block at the foot (only for signers that have a name)
+    if posting and not corner:      # portrait: signature block at the foot (named signers only)
         block = _posting_block(labels, meta)
         if block:
             parts.append(block)
+    # A multi-page sheet flags "continued…" at the foot of every page but the last (render.py two-pass).
+    parts.append("<!--cozer-continued:%s-->" % labels["Continued"])
     return "\n".join(parts)

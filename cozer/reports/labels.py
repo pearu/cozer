@@ -9,7 +9,7 @@ LABELS = {
     "English": {
         "OfficeroftheDay": "Officer of the Day", "SecretaryoftheRace": "Secretary of the Race",
         "UIMCommissioner": "UIM Sports Commissioner", "PostedAt": "Posted at", "PrintedOn": "Printed on",
-        "Page": "Page", "Registeredcompetitors": "Registered competitors",
+        "Page": "Page", "Continued": "continued…", "Registeredcompetitors": "Registered competitors",
         "IntermediateResults": "Intermediate Results", "FinalResults": "Final Results",
         "PracticeTimeTrial": "Practice / Time-trial",
         "NoTimeTrialData": "No time-trial results recorded for the selected classes.",
@@ -52,7 +52,7 @@ LABELS = {
     "Estonian": {
         "OfficeroftheDay": "Peakohtunik", "SecretaryoftheRace": "Võistluste sekretär",
         "UIMCommissioner": "UIM spordikomissar", "PostedAt": "Postitatud", "PrintedOn": "Prinditud",   # ET verified by owner
-        "Page": "Leht", "Registeredcompetitors": "Registreeritud võistlejad",
+        "Page": "Leht", "Continued": "jätkub…", "Registeredcompetitors": "Registreeritud võistlejad",
         "IntermediateResults": "Vahetulemused", "FinalResults": "Tulemused",
         "PracticeTimeTrial": "Treening / ajasõit",
         "NoTimeTrialData": "Valitud klassidele pole ajasõidu tulemusi salvestatud.",
