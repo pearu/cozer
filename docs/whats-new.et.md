@@ -19,6 +19,20 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Stabiilsed taimeri nupud, ülekande stardivõrk ja avalik sündmuse leht (juuli 2026)
+
+<!-- release-notes:3.0.0rc18 -->
+
+- **Taimeri nupud ei nihku enam Start vajutamisel.** Möödunud aja kell reserveerib oma ruumi, nii et
+  ajasõidu käivitamine ei nihuta selle kõrval olevaid nuppe.
+- **Otseülekanne näitab enne starti stardivõrgu järjekorda.** Enne sõidu algust on ülekandes paadid samas
+  **stardijärjekorras kui taimeri redelis** (nt sõit 2 sõidu 1 lõpetamise järjekorras), mitte paadinumbri
+  järjekorras.
+- **Paremad otselehed** (juba live.cozer.ee-s — uuendust pole vaja): uus sündmusepõhine leht aadressil
+  **live.cozer.ee/&lt;event&gt;/** klassi·sõidu·faasi päise ja otsevaatajate loenduriga; liitsõidud (kaks või
+  enam klassi rajal) näitavad nüüd iga klassi oma otseajavõtuga; ja mitmesugune ajasõitude paigutuse
+  viimistlus.
+
 ## Turvalisem töö kaotamise vastu, ja jaga sõidu ajavõttu arvutite vahel (juuli 2026)
 
 <!-- release-notes:3.0.0rc17 -->

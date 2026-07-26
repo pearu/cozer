@@ -17,6 +17,20 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Steady Timer buttons, broadcast starting grid, and a public event page (July 2026)
+
+<!-- release-notes:3.0.0rc18 -->
+
+- **The Timer's buttons no longer shift when you press Start.** The elapsed-time clock reserves its space,
+  so starting a time trial doesn't nudge the buttons beside it.
+- **The live broadcast shows the starting grid order before the start.** Before a race begins, the boats in
+  the broadcast are listed in the **same starting order as the Timer's ladder** (e.g. heat 2 in heat 1's
+  finishing order), instead of boat-number order.
+- **Improved live pages** (already live on live.cozer.ee — no update needed): a new per-event page at
+  **live.cozer.ee/&lt;event&gt;/** with a class·heat·phase header and a live viewer count; combined heats
+  (two or more classes on the water) now show every class with its own live timing; and various layout
+  polish for time trials.
+
 ## Safer against losing work, and share a heat's timing between computers (July 2026)
 
 <!-- release-notes:3.0.0rc17 -->
