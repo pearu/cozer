@@ -6,7 +6,10 @@
      video fetcher maps to transparent. No gradients, chips, borders, or row shading. */
   :root{ --key:#0a1a2f; --ink:#ffffff; --dim:#cdd9ea; }
   *{box-sizing:border-box; margin:0; padding:0}
-  html,body{height:100%; background:var(--key)}
+  /* overflow-x:hidden so the FINISH / START pulse (a scale() animation on a wide banner) can't push the
+     page edge past the viewport and jitter a horizontal scrollbar — the broadcast page never scrolls
+     sideways. overflow-y stays auto, so vertical scrolling is unaffected. */
+  html,body{height:100%; background:var(--key); overflow-x:hidden}
   body{
     color:var(--ink);
     font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
