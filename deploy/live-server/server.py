@@ -57,15 +57,18 @@ def _feed_key(event, channel):
 
 def _event_channels(event):
     """The channels currently in the store for ``event`` (derived from POSTed snapshots — no separate
-    registration; channels from different cozer instances all land here). Each: ``{channel, age_s}``
-    (seconds since its last publish), sorted by channel. The switcher page renders these as buttons."""
+    registration; channels from different cozer instances all land here). Each: ``{channel, age_s,
+    viewers}`` — seconds since its last publish and the number of currently-connected SSE viewers
+    (``_subscribers``; open stream connections, so multiple tabs / the OBS source each count) — sorted
+    by channel. The switcher + event pages render these."""
     prefix = event + "/feed/"
     now = time.time()
     out = []
     with _lock:
         for key, (_body, updated) in _store.items():
             if key.startswith(prefix):
-                out.append({"channel": key[len(prefix):], "age_s": round(now - updated, 1)})
+                out.append({"channel": key[len(prefix):], "age_s": round(now - updated, 1),
+                            "viewers": len(_subscribers.get(key, ()))})
     out.sort(key=lambda c: c["channel"])
     return out
 

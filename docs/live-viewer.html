@@ -119,15 +119,17 @@
   .hdr-info{ font-size:22px; font-weight:800; letter-spacing:.01em; color:var(--ink);
              white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   .hdr-info .sub{ color:var(--dim); font-weight:600 }        /* the phase / heat, dimmer than the class */
+  .hdr-right{ display:flex; align-items:baseline; gap:12px; flex:none }
   .hdr-brand{ font-size:15px; font-weight:900; letter-spacing:.22em; color:var(--dim);
-              text-transform:uppercase; flex:none }
+              text-transform:uppercase }
+  .hdr-views{ font-size:14px; font-weight:700; color:var(--dim); white-space:nowrap }   /* 👁 N watching */
   @media (max-width:640px){
     body.eventpage #order{ padding:0 14px 20px }
     .hdr-info{ font-size:19px } .hdr-brand{ font-size:13px }
   }
 </style>
 
-<header id="hdr"><span class="hdr-info"></span><span class="hdr-brand">cozer</span></header>
+<header id="hdr"><span class="hdr-info"></span><span class="hdr-right"><span class="hdr-brand">cozer</span><span class="hdr-views"></span></span></header>
 <ol id="order" class="pre" role="table" aria-label="Live running order"></ol>
 
 <script>
@@ -478,6 +480,10 @@
     if(sub){ var s = document.createElement("span"); s.className = "sub";
              s.textContent = " — " + sub; el.appendChild(s); }
   }
+  function setViews(n){                          // "👁 N" after the cozer label — the channel's live viewers
+    if(!eventName) return;
+    hdr.querySelector(".hdr-views").textContent = (n != null && n >= 0) ? ("👁 " + n) : "";
+  }
   function showCozerPage(){                     // no channel live: a modest cozer page (issue: event view)
     hdr.style.display = "none";                 // the big COZER below already brands it
     ol.className = "pre";
@@ -532,9 +538,12 @@
       fetch("/" + name + "/feed/index.json", {cache:"no-store"})
         .then(function(r){ if(!r.ok) throw 0; return r.json(); })
         .then(function(idx){
-          var chans = (idx.channels || []).map(function(c){ return c.channel; }).sort();
+          var list = idx.channels || [];
+          var chans = list.map(function(c){ return c.channel; }).sort();
           var first = chans.length ? chans[0] : null;
-          if(first === currentChannel) return;             // no change -> keep the current connection
+          var cur = list.filter(function(c){ return c.channel === first; })[0];
+          setViews(cur ? cur.viewers : null);              // refresh the viewer count each poll (~5 s)
+          if(first === currentChannel) return;             // no channel change -> keep the connection
           currentChannel = first;
           if(disconnect){ disconnect(); disconnect = null; }
           haveData = false;

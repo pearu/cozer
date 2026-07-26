@@ -53,6 +53,18 @@ def test_event_channels_are_sorted_so_the_event_page_picks_the_first(srv):
     srv._store.clear()
 
 
+def test_event_channels_report_viewer_count(srv):
+    # each channel carries `viewers` = the number of currently-connected SSE streams (_subscribers),
+    # which the event page shows as "👁 N" for the followed channel.
+    srv._store.clear(); srv._subscribers.clear()
+    srv._store["harku/feed/a"] = (b"{}", srv.time.time())
+    srv._store["harku/feed/b"] = (b"{}", srv.time.time())
+    srv._subscribers["harku/feed/a"] = {object(), object(), object()}   # 3 open streams on 'a'
+    chans = {c["channel"]: c["viewers"] for c in srv._event_channels("harku")}
+    assert chans == {"a": 3, "b": 0}                                    # b has no viewers
+    srv._store.clear(); srv._subscribers.clear()
+
+
 def test_event_channels_derived_from_store(srv):
     srv._store.clear()
     srv._store["harku/feed/a"] = (b"{}", srv.time.time())
