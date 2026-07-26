@@ -275,7 +275,7 @@ def _posting_block(labels, meta):
 # The signature block relocated into the TOP-RIGHT white-space (absolute, so it never flows with the body
 # and many notes can't push it to a second page — issue #60). Emitted early so its page is page 1.
 _CORNER_CSS = (
-    ".posting-corner { position:absolute; top:0.55cm; right:0; width:9cm; }"
+    ".posting-corner { position:absolute; top:1.5cm; right:0; width:9cm; }"
     ".posting-corner .sig-cell { margin-top:2.6em; text-align:center; }"
     ".posting-corner .sig-rule { border-top:1px solid #000; padding-top:2px; font-size:9pt; }"
     ".posting-corner .sig-role { font-size:8pt; color:#444; }"
