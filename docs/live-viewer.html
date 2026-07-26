@@ -135,6 +135,8 @@
   .hdr-info{ font-size:22px; font-weight:800; letter-spacing:.01em; color:var(--ink);
              white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   .hdr-info .sub{ color:var(--dim); font-weight:600 }        /* the phase / heat, dimmer than the class */
+  .hdr-info .unoff{ font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+                    color:#e0a46b; margin-left:9px; vertical-align:1px }   /* unofficial-results flag */
   .hdr-right{ display:flex; align-items:baseline; gap:12px; flex:none }
   .hdr-brand{ font-size:15px; font-weight:900; letter-spacing:.22em; color:var(--dim);
               text-transform:uppercase }
@@ -520,6 +522,8 @@
     el.textContent = cls;
     if(sub){ var s = document.createElement("span"); s.className = "sub";
              s.textContent = " — " + sub; el.appendChild(s); }
+    if(feed.unofficial){ var u = document.createElement("span"); u.className = "unoff";
+                         u.textContent = "unofficial"; el.appendChild(u); }   // provisional-results flag
   }
   function setViews(n){                          // "👁 N" after the cozer label — the channel's live viewers
     if(!eventName) return;
