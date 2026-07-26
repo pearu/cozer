@@ -35,6 +35,12 @@
   ol.multi li.runrow{ grid-template-columns:30px 38px 1fr 40px; gap:8px }
   ol.multi li.prerow{ grid-template-columns:34px 44px 1fr; gap:8px }
   ol.multi li.sep   { grid-template-columns:1fr; height:14px }
+  /* pre-race status banner for a combined heat (the single-class view shows this in the first row; the
+     stacked multi view puts it on top). WAITING = modest dim line; START = big green pulse. */
+  ol.multi li.msgrow{ grid-template-columns:1fr; text-align:center; font-weight:800; font-size:14px;
+                      letter-spacing:.06em; color:var(--dim); padding:6px 0 10px }
+  ol.multi li.msgrow.go{ font-size:34px; font-weight:900; letter-spacing:.32em; color:#39ff14;
+                         animation:gopulse .5s ease-in-out infinite alternate }
 
   .nat{ height:18px; display:flex; align-items:center }
   .flag{ height:18px; width:auto; display:block; border-radius:2px }
@@ -405,6 +411,16 @@
     [].forEach.call(ol.children, function(li){ if(li.dataset.no) prevTops[li.dataset.no] = li.getBoundingClientRect().top; });
     ol.className = "multi";
     ol.innerHTML = "";
+    // pre-race banner on top of the stack (the single-class view shows it in the first row): no boat has
+    // a lap yet -> "START" once the clock is running (feed.elapsed set), else "WAITING TO START".
+    var anyStarted = !!feed.started || (feed.sections || []).some(function(s){ return s.started; });
+    if(!anyStarted){
+      var mrow = document.createElement("li");
+      var go = feed.elapsed != null;
+      mrow.className = "msgrow" + (go ? " go" : "");
+      mrow.textContent = go ? "START" : "WAITING TO START";
+      ol.appendChild(mrow);
+    }
     feed.sections.forEach(function(sec, si){
       if(si){ var d = document.createElement("li"); d.className = "sep"; ol.appendChild(d); }   // divider (space)
       renderSection(sec, si);
