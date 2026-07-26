@@ -6,6 +6,7 @@ viewers GET the latest. Fresh (viewers poll every few seconds and always see the
 limit, no token in any URL. Fronted by Caddy (HTTPS via Let's Encrypt) at https://live.cozer.ee/.
 
 Endpoints (path model -- see docs/broadcast-urls.md)
+  GET  /<event>/                          the public event page (HTML): the first channel with a header
   GET  /<event>/feed/                     the channel switcher (HTML): buttons for the event's channels
   GET  /<event>/feed/index.json           the event's live channels {event, channels:[{channel, age_s}]}
   GET  /<event>/feed/<channel>/           the viewer overlay (HTML)
@@ -43,6 +44,7 @@ FEED_DATA_RE = re.compile(r"^/(%s)/feed/(%s)/data\.json$" % (_SLUG, _SLUG))
 FEED_STREAM_RE = re.compile(r"^/(%s)/feed/(%s)/stream$" % (_SLUG, _SLUG))
 FEED_INDEX_RE = re.compile(r"^/(%s)/feed/index\.json$" % _SLUG)           # the event's live channels
 FEED_ROOT_RE = re.compile(r"^/(%s)/feed/?$" % _SLUG)                      # the channel-switcher page
+EVENT_RE = re.compile(r"^/(%s)/?$" % _SLUG)                               # the public event page (issue #34)
 PUBLISH_RE = re.compile(r"^/_publish/(%s)/feed/(%s)$" % (_SLUG, _SLUG))
 # Static web root -- the viewer + flags, so live.cozer.ee/<event>/feed/<channel>/ serves the overlay.
 WEB_ROOT = os.environ.get("WEB_ROOT", os.path.join(
@@ -127,7 +129,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"event": mi.group(1), "channels": _event_channels(mi.group(1))})
         if FEED_ROOT_RE.match(path):                                   # /<event>/feed/ -> channel switcher
             return self._serve_static("feed-index.html", "text/html; charset=utf-8")
-        if path in ("/", "/index.html") or FEED_RE.match(path):        # the viewer overlay
+        if (path in ("/", "/index.html") or FEED_RE.match(path)        # the viewer overlay, AND
+                or EVENT_RE.match(path)):                              # /<event>/ -> the public event page
             return self._serve_static("live-viewer.html", "text/html; charset=utf-8")
         md = FEED_DATA_RE.match(path)
         if md:                                                         # the feed's latest snapshot

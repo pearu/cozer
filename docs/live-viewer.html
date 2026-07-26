@@ -98,8 +98,27 @@
     .p1 .name,.p2 .name,.p3 .name{ font-size:25px }
     .p1 .boat,.p2 .boat,.p3 .boat{ font-size:23px }
   }
+
+  /* ---- public event page (/<event>/): the overlay content PLUS a header. Hidden on the OBS overlay
+     (/<event>/feed/<channel>/), which must stay header-less so nothing keys through as a band. ---- */
+  #hdr{ display:none }
+  body.eventpage{ display:block; padding:0 }
+  body.eventpage #hdr{
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    padding:16px 22px 12px; border-bottom:1px solid rgba(255,255,255,.14); margin-bottom:14px }
+  body.eventpage #order{ padding:0 22px 24px; max-width:none }
+  .hdr-info{ font-size:22px; font-weight:800; letter-spacing:.01em; color:var(--ink);
+             white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .hdr-info .sub{ color:var(--dim); font-weight:600 }        /* the phase / heat, dimmer than the class */
+  .hdr-brand{ font-size:15px; font-weight:900; letter-spacing:.22em; color:var(--dim);
+              text-transform:uppercase; flex:none }
+  @media (max-width:640px){
+    body.eventpage #order{ padding:0 14px 20px }
+    .hdr-info{ font-size:19px } .hdr-brand{ font-size:13px }
+  }
 </style>
 
+<header id="hdr"><span class="hdr-info"></span><span class="hdr-brand">cozer</span></header>
 <ol id="order" class="pre" role="table" aria-label="Live running order"></ol>
 
 <script>
@@ -119,6 +138,11 @@
   // Served from the live server at /<event>/feed/<channel>/ -> data + stream live under that path.
   var feedPath = /^\/[a-z0-9][a-z0-9-]*\/feed\/[a-z0-9][a-z0-9-]*\/?$/.test(location.pathname)
                  ? location.pathname.replace(/\/?$/, "/") : null;
+  // The public event page: /<event>/ (one segment, not a /feed/... path). It auto-picks the event's
+  // first channel and shows a header. Distinct from the header-less OBS overlay above.
+  var em = feedPath ? null : location.pathname.match(/^\/([a-z0-9][a-z0-9-]*)\/?$/);
+  var eventName = (em && !src) ? em[1] : null;
+  var hdr = document.getElementById("hdr");
   var flagBase = "/_flags/";                 // flags served by the live server, shared at the root
 
   function natCell(nat){
@@ -303,12 +327,15 @@
 
   // ---- apply a feed snapshot to the overlay ----
   function applyFeed(feed){
-    if(feed.live === false){ boats = []; started = false; ol.className = "pre";
+    if(feed.live === false){ boats = []; started = false;
+      if(eventName){ showCozerPage(); return; }            // event page: a modest cozer page, not a band
+      ol.className = "pre";
       ol.innerHTML = '<li style="grid-template-columns:1fr;color:var(--dim);font-weight:800;'
         + 'letter-spacing:.14em;text-transform:uppercase;font-size:14px">Live stream disabled</li>'
         + '<li style="grid-template-columns:1fr;color:var(--ink);font-weight:900;'
         + 'letter-spacing:.22em;font-size:22px;padding-top:10px">COZER</li>';
       return; }
+    setHeader(feed);                                        // event page: class · heat · phase in the header
     if(feed.sections && feed.sections.length > 1){ applyMulti(feed); return; }   // combined heat (issue #56)
     isMulti = false;
     started = feed.started != null ? !!feed.started : (feed.order||[]).some(function(r){ return (r.laps||0)>=1; });
@@ -422,6 +449,54 @@
       + 'font-size:14px;letter-spacing:.02em">'+msg+'</li>';
   }
 
+  // ---- public event page header (event mode only): "<class> — heat <n> · <phase>" + a cozer wordmark ----
+  function phaseWord(p){ return {timetrial:"time trial", qualification:"qualification",
+                                 endurance:"endurance"}[p] || ""; }   // circuit is plain (no word)
+  function heatBit(f){
+    var bits = [];
+    if(f && f.heat != null && f.heat !== "") bits.push("heat " + f.heat);
+    var w = f && phaseWord(f.phase); if(w) bits.push(w);
+    return bits.join(" · ");                                          // "heat 1 · time trial"
+  }
+  function setHeader(feed){
+    if(!eventName) return;
+    hdr.style.display = "";                                           // reveal (CSS makes it flex)
+    var el = hdr.querySelector(".hdr-info");
+    var secs = (feed.sections && feed.sections.length > 1) ? feed.sections : null;
+    var cls = secs ? secs.map(function(s){ return s["class"]; }).join(" + ") : (feed["class"] || "");
+    var sub = heatBit(secs ? secs[0] : feed);                        // combined classes share the heat
+    el.textContent = cls;
+    if(sub){ var s = document.createElement("span"); s.className = "sub";
+             s.textContent = " — " + sub; el.appendChild(s); }
+  }
+  function showCozerPage(){                     // no channel live: a modest cozer page (issue: event view)
+    hdr.style.display = "none";                 // the big COZER below already brands it
+    ol.className = "pre";
+    ol.innerHTML =
+      '<li style="grid-template-columns:1fr;text-align:center;padding-top:11vh;font-weight:900;'
+        + 'letter-spacing:.2em;color:var(--ink);font-size:clamp(40px,9vw,86px)">COZER</li>'
+      + '<li style="grid-template-columns:1fr;text-align:center;color:var(--dim);font-weight:700;'
+        + 'line-height:1.6;font-size:clamp(15px,2.6vw,20px);padding-top:14px">'
+        + 'Live results for powerboat racing.<br>'
+        + 'This event isn\'t broadcasting right now — check back when racing starts.</li>';
+  }
+
+  // Connect to one feed base ("/<event>/feed/<channel>/"): SSE push, poll fallback. Returns a disconnect
+  // closure so the event page can switch channels cleanly.
+  function connectFeed(base){
+    var alive = true, es = null, dataUrl = base + "data.json";
+    function poll(){ pollMs = 500;
+      (function tick(){ if(!alive) return;
+        pollServer(dataUrl).then(function(){ if(alive) setTimeout(tick, pollMs); }); })(); }
+    if(window.EventSource){
+      es = new EventSource(base + "stream"); var fell = false;
+      es.onmessage = function(ev){ if(!alive) return;
+        try{ applyFeed(JSON.parse(ev.data)); haveData = true; }catch(e){} };
+      es.onerror = function(){ if(alive && !haveData && !fell){ fell = true; es.close(); poll(); } };
+    } else poll();
+    return function(){ alive = false; if(es) es.close(); };
+  }
+
   // ---- poll a JSON feed URL (the server's data.json, or ?src=) ----
   async function pollServer(url){
     try{
@@ -438,16 +513,37 @@
     pollMs = 500;
     (function tick(){ pollServer(url).then(function(){ setTimeout(tick, pollMs); }); })();
   }
-  if(feedPath){                                            // served from the live server (/<event>/feed/<channel>/)
+
+  // Event page: pick the event's FIRST channel (alphanumeric) and follow it; re-check so a channel that
+  // appears/disappears (or a new alphabetically-first one) is picked up. No channel -> a modest cozer page.
+  function bootEvent(name){
     status("Connecting…");
-    var dataUrl = feedPath + "data.json", streamUrl = feedPath + "stream";
-    if(window.EventSource){                                // SSE push (sub-second); poll is the fallback
-      var es = new EventSource(streamUrl), fell = false;
-      es.onmessage = function(ev){ try{ applyFeed(JSON.parse(ev.data)); haveData = true; }catch(e){} };
-      es.onerror = function(){                              // stream unavailable -> fall back to polling
-        if(!haveData && !fell){ fell = true; es.close(); startPolling(dataUrl); }
-      };
-    } else startPolling(dataUrl);
+    var currentChannel = null, disconnect = null;
+    function pick(){
+      fetch("/" + name + "/feed/index.json", {cache:"no-store"})
+        .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(idx){
+          var chans = (idx.channels || []).map(function(c){ return c.channel; }).sort();
+          var first = chans.length ? chans[0] : null;
+          if(first === currentChannel) return;             // no change -> keep the current connection
+          currentChannel = first;
+          if(disconnect){ disconnect(); disconnect = null; }
+          haveData = false;
+          if(first){ disconnect = connectFeed("/" + name + "/feed/" + first + "/"); }
+          else showCozerPage();
+        })
+        .catch(function(){ if(!currentChannel) showCozerPage(); });
+    }
+    pick();
+    setInterval(pick, 5000);
+  }
+
+  if(eventName){                                           // the public event page: /<event>/
+    document.body.classList.add("eventpage");
+    bootEvent(eventName);
+  }
+  else if(feedPath){                                       // the OBS overlay: /<event>/feed/<channel>/
+    status("Connecting…"); connectFeed(feedPath);
   }
   else if(src){                                            // explicit JSON URL (poll)
     status("Connecting…"); startPolling(src);

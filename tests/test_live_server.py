@@ -32,6 +32,27 @@ def test_feed_index_and_root_routes(srv):
     assert srv.FEED_DATA_RE.match("/harku/feed/index.json") is None
 
 
+def test_event_page_route(srv):
+    # /<event>/ (and no trailing slash) is the public event page; it must not swallow the feed sub-paths,
+    # the root, index.html, or any /_… path.
+    assert srv.EVENT_RE.match("/harku/").group(1) == "harku"
+    assert srv.EVENT_RE.match("/harku").group(1) == "harku"
+    for p in ("/harku/feed/", "/harku/feed/a/", "/harku/feed/index.json",
+              "/", "/index.html", "/_healthz", "/_flags/EST.svg", "/a/b/c"):
+        assert srv.EVENT_RE.match(p) is None, p
+
+
+def test_event_channels_are_sorted_so_the_event_page_picks_the_first(srv):
+    # the event page follows the alphanumerically-FIRST channel; _event_channels returns them sorted,
+    # so channels[0] is that first channel regardless of publish order.
+    srv._store.clear()
+    srv._store["harku/feed/c"] = (b"{}", srv.time.time())
+    srv._store["harku/feed/a"] = (b"{}", srv.time.time())
+    srv._store["harku/feed/b"] = (b"{}", srv.time.time())
+    assert [c["channel"] for c in srv._event_channels("harku")] == ["a", "b", "c"]
+    srv._store.clear()
+
+
 def test_event_channels_derived_from_store(srv):
     srv._store.clear()
     srv._store["harku/feed/a"] = (b"{}", srv.time.time())
