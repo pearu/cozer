@@ -98,3 +98,18 @@ def test_timer_ladder_seeds_heat2_from_heat1_finish():
     p._heats = [("GT", "2")]
     p._build()
     assert _ladder_boat_order(p, "GT", "2") == ["33", "11", "22"]   # heat 2 seeded by heat 1 finish
+
+
+def test_broadcast_prestart_order_matches_the_ladder_grid_order():
+    # The pre-start broadcast order now uses the derived start order (like the ladder), not boat number:
+    # heat 2's field is published in heat 1's finishing order (33,11,22), not [11,22,33] (owner).
+    _app()
+    from cozer.app.main import MainWindow
+    w = MainWindow(_two_heat_event())
+    p = w.timer_panel
+    assert p._broadcast_order("GT", "2") == ["33", "11", "22"]      # grid order, matching the ladder
+    # heat 1's OWN pre-start order is the base case = participant order (11,22,33), not boat-sorted-by-value
+    # (here identical, but the point is it comes from start_order); once heat 1 has crossings it returns
+    # standings dicts, unchanged.
+    st = p._broadcast_order("GT", "1")
+    assert isinstance(st[0], dict) and st[0]["id"] == "33"          # racing -> standings dicts (33 leads)

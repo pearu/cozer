@@ -898,17 +898,22 @@ class TimerPanel(QWidget):
 
     def _broadcast_order(self, cl, h):
         """The order to publish for ``(cl, h)``: the live standings once crossings exist, else the
-        full field in boat-number order — so a viewer opened before the start already shows the grid.
+        full field in **grid order** — so a viewer opened before the start shows the same starting order
+        as the Timer ladder (not boat-number order).
 
         Once racing, return the ``standings()`` **dicts** (``{id, laps, time, finished}``) so the feed
-        carries laps/time and the "started" flag (live.snapshot reads them); pre-start, bare boat ids
-        (the viewer then shows just nat/boat/surname until the first lap)."""
+        carries laps/time and the "started" flag (live.snapshot reads them); pre-start, bare boat ids in
+        the derived start order (``seeding.start_order`` — pure/read-only, the same call the ladder uses)
+        with a boat-number fallback for anyone not in it, mirroring the ladder's start-rank tiebreak."""
         rec = self._rec(cl, h)
         if rec and rec[1]:
             st = standings(rec)
             if st:
                 return st
-        return [str(pid) for pid in self._heat_ids(cl, h)]
+        order = start_order(self.eventdata, cl, h)
+        rank = {str(pid): i for i, pid in enumerate(order)}
+        ids = [str(pid) for pid in self._heat_ids(cl, h)]
+        return sorted(ids, key=lambda pid: (rank.get(pid, len(rank)), _idkey(pid)))
 
     def _publish_order(self, cl, h, order):
         self._publish("order", cl, h, order)
