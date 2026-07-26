@@ -17,6 +17,21 @@ COZER, the **"Coming from the old COZER"** overview at the end covers the big pi
      since the previous release in plain terms. Keep whats-new.et.md (Estonian) a step in sync.
      `tools/bump_version.py` prints a reminder; see docs/RELEASE.md. -->
 
+## Championship points export, and clearer disqualification across heats (July 2026)
+
+<!-- release-notes:3.0.0rc20 -->
+
+- **Export championship points to a spreadsheet.** The **Reports** tab has a new **Export championship
+  points…** button. Tick the classes you want (or leave them all unticked for every class) and it writes a
+  **CSV spreadsheet** — one row per driver with the class, finishing **place**, boat number, name, club,
+  nationality and the event's points — ready to feed into a championship or series that spans several
+  events (this event being one round). The **place** is the part that matters: your series can apply its
+  own points table, since it may score differently from the race event.
+- **Clearer disqualification across heats.** A technical disqualification — for example an illegal boat,
+  motor or fuel (U.I.M. §317.08 / §508.09) — applies to **every heat** the boat raced, not just one. COZER
+  now **warns** if a boat is disqualified in some heats but not all, and **Edit Records** shows the rule
+  article and a hint that the mark covers all heats — so the final result comes out right.
+
 ## A reprimand notice, and tidier multi-page results (July 2026)
 
 <!-- release-notes:3.0.0rc19 -->

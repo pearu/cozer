@@ -19,6 +19,22 @@ COZERilt üleminek"** ülevaate suurest pildist.
 <!-- Iga uue versiooni ilmumisel lisa siia lühike "## COZER X.Y (kuu aasta)" jaotis,
      uusim üleval, enne "Vanalt COZERilt üleminek" ülevaadet. -->
 
+## Meistrivõistluste punktide eksport ja selgem diskvalifitseerimine üle sõitude (juuli 2026)
+
+<!-- release-notes:3.0.0rc20 -->
+
+- **Ekspordi meistrivõistluste punktid tabelisse.** **Aruannete** sakil on uus nupp **Ekspordi
+  meistrivõistluste punktid…**. Märgi soovitud klassid (või jäta kõik märkimata, siis eksporditakse kõik)
+  ja see kirjutab **CSV-tabeli** — üks rida iga sõitja kohta: klass, **koht**, paadinumber, nimi, klubi,
+  rahvus ja ürituse punktid — valmis sööta mitmeetapilisse meistrivõistlusesse või sarja (kus see üritus on
+  üks etapp). Oluline on **koht**: sari saab rakendada oma punktitabelit, sest see võib punkte anda ürituse
+  omast erinevalt.
+- **Selgem diskvalifitseerimine üle sõitude.** Tehniline diskvalifitseerimine — näiteks ebaseaduslik paat,
+  mootor või kütus (U.I.M. §317.08 / §508.09) — kehtib **kõigile sõitudele**, mitte ainult ühele. COZER
+  **hoiatab** nüüd, kui paat on diskvalifitseeritud mõnes, aga mitte kõigis sõitudes, ja **Kirjete
+  muutmine** näitab reegli artiklit ning vihjet, et märge kehtib kõigile sõitudele — nii tuleb lõpptulemus
+  õige.
+
 ## Noomitusteade ja korrastatud mitmeleheküljelised tulemused (juuli 2026)
 
 <!-- release-notes:3.0.0rc19 -->
