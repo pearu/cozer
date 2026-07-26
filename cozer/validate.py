@@ -16,6 +16,7 @@ from collections import namedtuple
 from cozer.analyzer import analyze, rule_action_codes, LAP, INSERTED_LAP
 from cozer.phases import class_phase_map, phase_heat_map
 from cozer.racepattern import get_classes
+from cozer.records import DQ, DSQ      # disqualification codes (pre-§209 DQ / §209 DSQ)
 
 # severity is advisory only; cl/heat may be None for event-level findings.
 Finding = namedtuple("Finding", "severity cl heat code message")
@@ -166,9 +167,20 @@ def check_results(eventdata):
             heats = phase_heat_map(ph)          # dual-shape: native record is keyed by base/kind
             if not heats:                       # (was `record.get(cl)`, which missed native heats)
                 continue
+            dsq_heats = {}                      # boat -> (heats present, heats marked DSQ) — §317.08 scan
             for h in sorted(heats):
                 info, rec = heats[h]
                 need = len(info.get("course", []) or [])
+
+                # §317.08 cross-heat DSQ consistency (a multi-heat FINAL only): tally, per boat, how many
+                # of its heats carry a disqualification mark. A post-race technical DSQ (illegal
+                # boat/motor) applies to EVERY heat the boat raced — a DSQ in some-but-not-all heats is
+                # flagged after the loop (accumulate here, before the per-heat `continue`s below).
+                if ph.kind == "circuit":
+                    for pid, marks in rec.items():
+                        pr, dq = dsq_heats.get(pid, (0, 0))
+                        hit = any(m and m[0] in (DQ, DSQ) for m in marks)   # enabled DQ/DSQ mark
+                        dsq_heats[pid] = (pr + 1, dq + (1 if hit else 0))
 
                 acks = info.get("ack") or {}        # operator-acknowledged real outliers (per boat)
                 if ph.kind in ("timetrial", "training"):
@@ -225,6 +237,19 @@ def check_results(eventdata):
                         "would place is unclassified (commonly DNF: no lap recorded after the race "
                         "stop line); if it finished, record its stop-line crossing"
                         % (places[:8], len(places), missing or "n/a")))
+
+            # §317.08: a post-race technical DSQ (illegal boat/motor) must be applied to EVERY heat the
+            # boat raced. Flag a boat disqualified in some-but-not-all of its heats — the operator may
+            # have applied a technical DSQ to only one heat. (An on-water DSQ, §406.06, correctly hits a
+            # single heat, so this is advisory, not an error.)
+            for pid, (present, dsq) in sorted(dsq_heats.items(), key=lambda kv: str(kv[0])):
+                if present > 1 and 0 < dsq < present:
+                    findings.append(Finding(
+                        "warning", cl, None, "dsq-heats",
+                        "boat %s is disqualified in %d of its %d heats — a post-race technical DSQ "
+                        "(illegal boat/motor, §317.08) applies to EVERY heat the boat raced; if this is "
+                        "such a DSQ, mark it in all heats. (An on-water DSQ, §406.06, correctly applies "
+                        "to just the one heat.)" % (pid, dsq, present)))
     except Exception:                               # validation must never break the app
         pass
     return findings

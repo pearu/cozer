@@ -254,6 +254,31 @@ def test_acknowledgement_rides_the_native_reshape():
     assert check_results(ed) == check_results(to_native(ed))
 
 
+def test_dsq_in_some_but_not_all_heats_flagged():
+    # §317.08: a post-race technical DSQ (illegal boat/motor) applies to EVERY heat the boat raced, so
+    # cozer flags a boat disqualified in some-but-not-all of its heats (operator may have missed the rest).
+    from cozer.records import DQ
+    from cozer.native import to_native
+    info = {"course": [1000, 1000, 1000], "sheats": 1, "duration": None}
+    laps = [(1, 20.0)] * 3
+    dsq = [[DQ, 65.0, "504"]]                                    # a disqualification mark
+    ed = {"kind": "event", "title": "X", "scoringsystem": [400, 300, 225], "rules": [], "races": [],
+          "classes": [["", "C", "2*(3*1000):2"]],
+          "participants": [["", "N", "S", "FIN", "C", str(b)] for b in (5, 7)],
+          "record": {"C": {
+              "1": [dict(info), {"5": laps + dsq, "7": laps}],    # boat 5 DSQ in heat 1...
+              "2": [dict(info), {"5": laps, "7": laps}]}}}        # ...but NOT in heat 2 -> flag
+    assert "dsq-heats" in _codes(check_results(ed))
+    assert check_results(ed) == check_results(to_native(ed))     # identical on the native model
+    # DSQ in BOTH heats -> consistent, no flag
+    ed["record"]["C"]["2"][1]["5"] = laps + dsq
+    assert "dsq-heats" not in _codes(check_results(ed))
+    # DSQ in neither -> no flag
+    ed["record"]["C"]["1"][1]["5"] = laps
+    ed["record"]["C"]["2"][1]["5"] = laps
+    assert "dsq-heats" not in _codes(check_results(ed))
+
+
 @pytest.mark.parametrize("path", _EVENTS, ids=[os.path.basename(p) for p in _EVENTS])
 def test_check_results_native_matches_legacy(path):
     # check_results reads the record via the phase view, so validation is identical whether the
