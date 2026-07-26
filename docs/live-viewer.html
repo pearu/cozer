@@ -112,9 +112,10 @@
      flung to the far right of the full-width page with a big gap (owner). Mobile keeps its own grid. */
   @media (min-width:641px){
     body.eventpage ol.tt li,
-    body.eventpage ol.multi li.ttrow{ grid-template-columns:36px 52px 280px 92px 78px 1fr; gap:14px }
+    body.eventpage ol.multi li.ttrow{ grid-template-columns:36px 52px 280px 92px 116px 1fr; gap:14px }
     body.eventpage .best,
     body.eventpage .spd-col{ text-align:left }
+    body.eventpage .spd-col .u{ display:inline; font-size:12px }    /* leader's speed shows "km/h" (owner) */
   }
   .hdr-info{ font-size:22px; font-weight:800; letter-spacing:.01em; color:var(--ink);
              white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
