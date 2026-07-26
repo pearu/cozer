@@ -182,15 +182,15 @@
     return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
   }
   function ttCell(b, i, bs){
-    // best/gap column: leader (i===0) shows its best lap TIME; every other row shows "+gap" to the
-    // leader's best (so the gap sits directly under the leader's time). "…" until a boat has a full lap.
-    // Ranking already put the fastest best lap first. `bs` = the (section's) boats; defaults to global.
+    // best/gap column: with a full lap, the leader (i===0) shows its best-lap TIME and every other row
+    // the "+gap" to the leader's best. Before a full lap: DOTS once the boat has crossed the lap line at
+    // least once, and NOTHING before its first crossing (owner). Ranking already put the fastest first.
     bs = bs || boats;
     var info = b.best;
-    if(i === 0) return info ? fmtLapTime(info.dur) : "…";
+    if(!info) return (b.laptimes && b.laptimes.length) ? "…" : "";   // crossed once -> dots, else blank
+    if(i === 0) return fmtLapTime(info.dur);
     var lead = (bs[0] || {}).best;
-    if(!info || !lead) return "…";
-    return "+" + (info.dur - lead.dur).toFixed(1);
+    return lead ? "+" + (info.dur - lead.dur).toFixed(1) : fmtLapTime(info.dur);
   }
   function ttSpeedCell(b, i){
     // speed column (kept separate so the time column stays a clean time/gap stack): only the leader
